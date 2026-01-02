@@ -107,18 +107,17 @@ export function ComposeModal() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 z-50"
-              />
-            </Dialog.Overlay>
-            
-            <Dialog.Content asChild>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                transition={{ duration: 0.15 }}
-                className="fixed top-20 left-1/2 -translate-x-1/2 w-full max-w-[600px] bg-white dark:bg-black rounded-2xl shadow-xl z-50"
+                className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20 px-4"
               >
+                <Dialog.Content asChild>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    transition={{ duration: 0.15 }}
+                    className="w-full max-w-[600px] bg-white dark:bg-black rounded-2xl shadow-xl"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                 {/* Add Dialog Title for accessibility */}
                 <Dialog.Title className="sr-only">
                   {replyingTo ? 'Reply to post' : 'Create a new post'}
@@ -236,8 +235,10 @@ export function ComposeModal() {
                     </div>
                   </div>
                 </div>
+                  </motion.div>
+                </Dialog.Content>
               </motion.div>
-            </Dialog.Content>
+            </Dialog.Overlay>
           </Dialog.Portal>
         )}
       </AnimatePresence>
