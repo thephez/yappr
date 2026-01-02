@@ -215,7 +215,7 @@ function NotificationsPage() {
                         
                         {notification.postContent && (
                           <Link
-                            href={`/post/${notification.postId}`}
+                            href={`/post?id=${notification.postId}`}
                             className="mt-2 p-3 bg-gray-100 dark:bg-gray-900 rounded-lg block text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-800 transition-colors"
                           >
                             {notification.postContent}

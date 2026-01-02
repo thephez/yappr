@@ -1,8 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter, useParams } from 'next/navigation'
-import { motion } from 'framer-motion'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import {
   ArrowLeftIcon,
   CalendarIcon,
@@ -33,10 +32,10 @@ interface ProfileData {
   followingCount: number
 }
 
-export default function UserProfilePage() {
+function UserProfileContent() {
   const router = useRouter()
-  const params = useParams()
-  const userId = params.userId as string
+  const searchParams = useSearchParams()
+  const userId = searchParams.get('id')
   const { user: currentUser } = useAuth()
 
   const isOwnProfile = currentUser?.identityId === userId
@@ -48,14 +47,16 @@ export default function UserProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
 
-  const avatarFeatures = profile?.avatarData
+  const avatarFeatures = userId && profile?.avatarData
     ? decodeAvatarFeaturesV2(profile.avatarData)
-    : generateAvatarV2(userId)
+    : generateAvatarV2(userId || 'default')
 
-  const displayName = profile?.displayName || `User ${userId.slice(-6)}`
-  const displayUsername = username || `user_${userId.slice(-6)}`
+  const displayName = profile?.displayName || (userId ? `User ${userId.slice(-6)}` : 'Unknown')
+  const displayUsername = username || (userId ? `user_${userId.slice(-6)}` : 'unknown')
 
   useEffect(() => {
+    if (!userId) return
+
     const loadProfileData = async () => {
       try {
         setIsLoading(true)
@@ -81,7 +82,7 @@ export default function UserProfilePage() {
             location: profileResult.location,
             website: profileResult.website,
             avatarData: profileAvatarData,
-            followersCount: 0, // TODO: Fetch from follow service
+            followersCount: 0,
             followingCount: 0,
           })
         }
@@ -144,7 +145,6 @@ export default function UserProfilePage() {
 
     setFollowLoading(true)
     try {
-      // TODO: Implement follow functionality with followService
       setIsFollowing(!isFollowing)
       toast.success(isFollowing ? 'Unfollowed' : 'Following')
     } catch (error) {
@@ -158,12 +158,25 @@ export default function UserProfilePage() {
     router.push('/profile')
   }
 
+  if (!userId) {
+    return (
+      <div className="min-h-screen flex">
+        <Sidebar />
+        <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+          <div className="p-8 text-center text-gray-500">
+            <p>User not found</p>
+          </div>
+        </main>
+        <RightSidebar />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex">
       <Sidebar />
 
       <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
-        {/* Header */}
         <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
           <div className="flex items-center gap-4 px-4 py-3">
             <button
@@ -181,7 +194,6 @@ export default function UserProfilePage() {
 
         {isLoading ? (
           <div className="p-8">
-            {/* Loading skeleton */}
             <div className="h-48 bg-gray-100 dark:bg-gray-900 animate-pulse" />
             <div className="px-4 pb-4">
               <div className="relative -mt-16 mb-4">
@@ -193,10 +205,8 @@ export default function UserProfilePage() {
           </div>
         ) : (
           <>
-            {/* Banner */}
             <div className="h-48 bg-gradient-yappr" />
 
-            {/* Profile Info */}
             <div className="px-4 pb-4">
               <div className="relative flex justify-between items-start -mt-16 mb-4">
                 <div className="relative">
@@ -272,7 +282,6 @@ export default function UserProfilePage() {
               </div>
             </div>
 
-            {/* Posts section */}
             <div className="border-t border-gray-200 dark:border-gray-800">
               <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
                 <h3 className="font-semibold">Posts</h3>
@@ -296,5 +305,34 @@ export default function UserProfilePage() {
 
       <RightSidebar />
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex">
+      <Sidebar />
+      <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+        <div className="p-8">
+          <div className="h-48 bg-gray-100 dark:bg-gray-900 animate-pulse" />
+          <div className="px-4 pb-4">
+            <div className="relative -mt-16 mb-4">
+              <div className="h-32 w-32 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse" />
+            </div>
+            <div className="h-6 w-48 bg-gray-200 dark:bg-gray-800 rounded animate-pulse mb-2" />
+            <div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+          </div>
+        </div>
+      </main>
+      <RightSidebar />
+    </div>
+  )
+}
+
+export default function UserProfilePage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <UserProfileContent />
+    </Suspense>
   )
 }

@@ -80,7 +80,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
   }
 
   const handleCardClick = () => {
-    router.push(`/post/${post.id}`)
+    router.push(`/post?id=${post.id}`)
   }
 
   return (
@@ -93,7 +93,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
       <div className="flex gap-3">
         {!hideAvatar && (
           <Link
-            href={`/profile/${post.author.id}`}
+            href={`/user?id=${post.author.id}`}
             onClick={(e) => e.stopPropagation()}
             className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 block flex-shrink-0"
           >
@@ -107,7 +107,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
               {!hideAvatar && (
                 <>
                   <Link
-                    href={`/profile/${post.author.id}`}
+                    href={`/user?id=${post.author.id}`}
                     onClick={(e) => e.stopPropagation()}
                     className="font-semibold hover:underline truncate"
                   >
@@ -119,7 +119,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
                     </svg>
                   )}
                   <Link
-                    href={`/profile/${post.author.id}`}
+                    href={`/user?id=${post.author.id}`}
                     onClick={(e) => e.stopPropagation()}
                     className="text-gray-500 hover:underline truncate"
                   >
@@ -163,7 +163,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
 
           {post.replyTo && (
             <Link
-              href={`/post/${post.replyTo.id}`}
+              href={`/post?id=${post.replyTo.id}`}
               onClick={(e) => e.stopPropagation()}
               className="text-sm text-gray-500 hover:underline mt-1 block"
             >
@@ -177,7 +177,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
             <div className="mt-3 border border-gray-200 dark:border-gray-800 rounded-xl p-3 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors">
               <div className="flex items-center gap-1 text-sm text-gray-500">
                 <Link
-                  href={`/profile/${post.quotedPost.author.id}`}
+                  href={`/user?id=${post.quotedPost.author.id}`}
                   onClick={(e) => e.stopPropagation()}
                 >
                   <Avatar className="h-5 w-5">
@@ -186,14 +186,14 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
                   </Avatar>
                 </Link>
                 <Link
-                  href={`/profile/${post.quotedPost.author.id}`}
+                  href={`/user?id=${post.quotedPost.author.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="font-semibold text-gray-900 dark:text-gray-100 hover:underline"
                 >
                   {post.quotedPost.author.displayName}
                 </Link>
                 <Link
-                  href={`/profile/${post.quotedPost.author.id}`}
+                  href={`/user?id=${post.quotedPost.author.id}`}
                   onClick={(e) => e.stopPropagation()}
                   className="hover:underline"
                 >

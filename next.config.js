@@ -1,7 +1,11 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  output: 'export',
+  basePath: process.env.GITHUB_PAGES === 'true' ? '/yappr' : '',
+  assetPrefix: process.env.GITHUB_PAGES === 'true' ? '/yappr/' : '',
   images: {
+    unoptimized: true,
     domains: ['images.unsplash.com', 'api.dicebear.com'],
   },
   webpack: (config, { isServer }) => {

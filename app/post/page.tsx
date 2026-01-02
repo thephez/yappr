@@ -1,7 +1,7 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useState, useEffect, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -18,9 +18,10 @@ interface Reply extends Post {
   replyToId: string
 }
 
-function PostDetailPage() {
-  const params = useParams()
+function PostDetailContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const postId = searchParams.get('id')
   const { user } = useAuth()
   const [post, setPost] = useState<Post | null>(null)
   const [replies, setReplies] = useState<Reply[]>([])
@@ -29,15 +30,12 @@ function PostDetailPage() {
   const [isReplying, setIsReplying] = useState(false)
 
   useEffect(() => {
-    if (!params.id || !user) return
+    if (!postId || !user) return
 
     const loadPost = async () => {
       try {
         setIsLoading(true)
 
-        const postId = params.id as string
-
-        // Direct lookup by ID - much more efficient than querying all posts
         const loadedPost = await postService.getPostById(postId)
 
         if (!loadedPost) {
@@ -48,7 +46,6 @@ function PostDetailPage() {
 
         setPost(loadedPost)
 
-        // Try to load replies
         try {
           const repliesResult = await postService.getReplies(postId)
           const repliesWithReplyTo: Reply[] = repliesResult.documents.map(reply => ({
@@ -72,18 +69,16 @@ function PostDetailPage() {
     }
 
     loadPost()
-  }, [params.id, user])
+  }, [postId, user])
 
   const handleReply = async () => {
     if (!replyContent.trim() || !post || !user) return
 
     setIsReplying(true)
     try {
-      // Create reply on Dash Platform
       const dashClient = getDashPlatformClient()
       await dashClient.createPost(replyContent, { replyToPostId: post.id })
 
-      // Create optimistic reply for UI
       const newReply: Reply = {
         id: `reply_${Date.now()}`,
         content: replyContent,
@@ -108,7 +103,6 @@ function PostDetailPage() {
       setReplyContent('')
       toast.success('Reply posted!')
 
-      // Update reply count on the post
       setPost(prev => prev ? { ...prev, replies: prev.replies + 1 } : null)
     } catch (error) {
       console.error('Failed to post reply:', error)
@@ -118,10 +112,24 @@ function PostDetailPage() {
     }
   }
 
+  if (!postId) {
+    return (
+      <div className="min-h-screen flex">
+        <Sidebar />
+        <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+          <div className="p-8 text-center text-gray-500">
+            <p>Post not found</p>
+          </div>
+        </main>
+        <RightSidebar />
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen flex">
       <Sidebar />
-      
+
       <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
         <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-4 px-4 py-3">
@@ -142,7 +150,6 @@ function PostDetailPage() {
           </div>
         ) : post ? (
           <>
-            {/* Parent Post (if this is a reply) */}
             {post.replyTo && (
               <div className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
                 <div className="px-4 pt-3 pb-1">
@@ -152,12 +159,10 @@ function PostDetailPage() {
               </div>
             )}
 
-            {/* Main Post */}
             <div className="border-b border-gray-200 dark:border-gray-800">
               <PostCard post={post} />
             </div>
 
-            {/* Reply Form */}
             <div className="p-4 border-b border-gray-200 dark:border-gray-800">
               <form
                 onSubmit={(e) => {
@@ -189,7 +194,6 @@ function PostDetailPage() {
               </form>
             </div>
 
-            {/* Replies */}
             <div className="divide-y divide-gray-200 dark:divide-gray-800">
               {replies.length === 0 ? (
                 <div className="p-8 text-center">
@@ -211,6 +215,29 @@ function PostDetailPage() {
 
       <RightSidebar />
     </div>
+  )
+}
+
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen flex">
+      <Sidebar />
+      <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+        <div className="p-8 text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+          <p className="text-gray-500">Loading post...</p>
+        </div>
+      </main>
+      <RightSidebar />
+    </div>
+  )
+}
+
+function PostDetailPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <PostDetailContent />
+    </Suspense>
   )
 }
 
