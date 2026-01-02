@@ -1,17 +1,48 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
+import { PasswordSetModal } from '@/components/auth/password-set-modal'
+import { PasswordUnlockModal } from '@/components/auth/password-unlock-modal'
+import {
+  hasStoredCredential,
+  getLastUsedIdentityId,
+  storeEncryptedCredential
+} from '@/lib/password-encrypted-storage'
 
 export default function LoginPage() {
   const [identityId, setIdentityId] = useState('')
   const [privateKey, setPrivateKey] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [rememberMe, setRememberMe] = useState(false)
+
+  // Stored credential states
+  const [storedIdentityId, setStoredIdentityId] = useState<string | null>(null)
+  const [hasStoredCred, setHasStoredCred] = useState(false)
+  const [showUnlockModal, setShowUnlockModal] = useState(false)
+  const [showPasswordSetModal, setShowPasswordSetModal] = useState(false)
+  const [pendingCredentials, setPendingCredentials] = useState<{ identityId: string; privateKey: string } | null>(null)
+
   const { login } = useAuth()
   const router = useRouter()
+
+  // Check for stored credentials on mount
+  useEffect(() => {
+    const lastId = getLastUsedIdentityId()
+    if (lastId) {
+      setStoredIdentityId(lastId)
+      setIdentityId(lastId)
+      const hasStored = hasStoredCredential(lastId)
+      setHasStoredCred(hasStored)
+      if (hasStored) {
+        // Automatically show unlock modal for returning users
+        setShowUnlockModal(true)
+      }
+    }
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -20,6 +51,12 @@ export default function LoginPage() {
 
     try {
       await login(identityId, privateKey)
+
+      // If remember me is checked, show password set modal
+      if (rememberMe) {
+        setPendingCredentials({ identityId, privateKey })
+        setShowPasswordSetModal(true)
+      }
       // Navigation handled by auth context
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
@@ -28,6 +65,45 @@ export default function LoginPage() {
     }
   }
 
+  const handleUnlockSuccess = async (decryptedPrivateKey: string) => {
+    setShowUnlockModal(false)
+    setError(null)
+    setIsLoading(true)
+
+    try {
+      await login(storedIdentityId!, decryptedPrivateKey)
+      // Navigation handled by auth context
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to login')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleUseDifferent = () => {
+    setShowUnlockModal(false)
+    setHasStoredCred(false)
+    setIdentityId('')
+    setPrivateKey('')
+    setStoredIdentityId(null)
+  }
+
+  const handlePasswordSetSuccess = async (password: string) => {
+    if (pendingCredentials) {
+      await storeEncryptedCredential(
+        pendingCredentials.identityId,
+        pendingCredentials.privateKey,
+        password
+      )
+    }
+    setShowPasswordSetModal(false)
+    setPendingCredentials(null)
+  }
+
+  const handlePasswordSetCancel = () => {
+    setShowPasswordSetModal(false)
+    setPendingCredentials(null)
+  }
 
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center px-4">
@@ -67,6 +143,28 @@ export default function LoginPage() {
                 className="w-full px-3 py-2 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:border-transparent transition-colors"
                 required
               />
+            </div>
+
+            {/* Remember Me Toggle */}
+            <div className="flex items-center justify-between">
+              <label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-400">
+                Remember me on this device
+              </label>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={rememberMe}
+                onClick={() => setRememberMe(!rememberMe)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:ring-offset-2 ${
+                  rememberMe ? 'bg-yappr-500' : 'bg-gray-200 dark:bg-gray-700'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    rememberMe ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
             </div>
           </div>
 
@@ -115,6 +213,22 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
+      {/* Password Unlock Modal for returning users */}
+      <PasswordUnlockModal
+        isOpen={showUnlockModal}
+        identityId={storedIdentityId || ''}
+        onSuccess={handleUnlockSuccess}
+        onCancel={() => setShowUnlockModal(false)}
+        onUseDifferent={handleUseDifferent}
+      />
+
+      {/* Password Set Modal for new "remember me" users */}
+      <PasswordSetModal
+        isOpen={showPasswordSetModal}
+        onSuccess={handlePasswordSetSuccess}
+        onCancel={handlePasswordSetCancel}
+      />
     </div>
   )
 }

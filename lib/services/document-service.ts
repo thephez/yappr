@@ -1,4 +1,4 @@
-import { getWasmSdk } from './wasm-sdk-service';
+import { getEvoSdk, evoSdkService } from './evo-sdk-service';
 import { stateTransitionService } from './state-transition-service';
 import { YAPPR_CONTRACT_ID } from '../constants';
 
@@ -20,7 +20,7 @@ export abstract class BaseDocumentService<T> {
   protected readonly contractId: string;
   protected readonly documentType: string;
   protected cache: Map<string, { data: T; timestamp: number }> = new Map();
-  protected readonly CACHE_TTL = 30000; // 30 seconds cache
+  protected readonly CACHE_TTL = 120000; // 2 minutes cache (reduced query frequency)
 
   constructor(documentType: string) {
     this.contractId = YAPPR_CONTRACT_ID;
@@ -32,7 +32,7 @@ export abstract class BaseDocumentService<T> {
    */
   async query(options: QueryOptions = {}): Promise<DocumentResult<T>> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Build query params for EvoSDK facade
       const queryParams: {
@@ -126,7 +126,7 @@ export abstract class BaseDocumentService<T> {
         return cached.data;
       }
 
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Use EvoSDK documents facade
       const response = await sdk.documents.get(
@@ -161,7 +161,7 @@ export abstract class BaseDocumentService<T> {
    */
   async create(ownerId: string, data: any): Promise<T> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       console.log(`Creating ${this.documentType} document:`, data);
       
@@ -192,7 +192,7 @@ export abstract class BaseDocumentService<T> {
    */
   async update(documentId: string, ownerId: string, data: any): Promise<T> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       console.log(`Updating ${this.documentType} document ${documentId}:`, data);
       
@@ -232,7 +232,7 @@ export abstract class BaseDocumentService<T> {
    */
   async delete(documentId: string, ownerId: string): Promise<boolean> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       console.log(`Deleting ${this.documentType} document ${documentId}`);
       

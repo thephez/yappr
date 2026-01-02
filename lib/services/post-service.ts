@@ -36,13 +36,27 @@ class PostService extends BaseDocumentService<Post> {
   /**
    * Transform document to Post type
    */
-  protected transformDocument(doc: PostDocument): Post {
+  protected transformDocument(doc: any): Post {
+    // SDK may nest document fields under 'data' property
+    const data = doc.data || doc;
+
+    // Handle different field naming conventions from SDK
+    const id = doc.$id || doc.id;
+    const ownerId = doc.$ownerId || doc.ownerId;
+    const createdAt = doc.$createdAt || doc.createdAt;
+
+    // Content and other fields may be in data or at root level
+    const content = data.content || doc.content || '';
+    const mediaUrl = data.mediaUrl || doc.mediaUrl;
+    const replyToId = data.replyToPostId || doc.replyToPostId;
+    const quotedPostId = data.quotedPostId || doc.quotedPostId;
+
     // Return a basic Post object - additional data will be loaded separately
     const post: Post = {
-      id: doc.$id,
-      author: this.getDefaultUser(doc.$ownerId),
-      content: doc.content,
-      createdAt: new Date(doc.$createdAt),
+      id,
+      author: this.getDefaultUser(ownerId),
+      content,
+      createdAt: new Date(createdAt),
       likes: 0,
       reposts: 0,
       replies: 0,
@@ -50,15 +64,15 @@ class PostService extends BaseDocumentService<Post> {
       liked: false,
       reposted: false,
       bookmarked: false,
-      media: doc.mediaUrl ? [{
-        id: doc.$id + '-media',
+      media: mediaUrl ? [{
+        id: id + '-media',
         type: 'image',
-        url: doc.mediaUrl
+        url: mediaUrl
       }] : undefined
     };
 
     // Queue async operations to enrich the post
-    this.enrichPost(post, doc);
+    this.enrichPost(post, id, ownerId, replyToId, quotedPostId);
 
     return post;
   }
@@ -66,40 +80,50 @@ class PostService extends BaseDocumentService<Post> {
   /**
    * Enrich post with async data
    */
-  private async enrichPost(post: Post, doc: PostDocument): Promise<void> {
+  private async enrichPost(
+    post: Post,
+    postId: string,
+    ownerId: string,
+    replyToId?: string,
+    quotedPostId?: string
+  ): Promise<void> {
     try {
       // Get author information
-      const author = await profileService.getProfile(doc.$ownerId);
-      if (author) {
-        post.author = author;
+      if (ownerId) {
+        const author = await profileService.getProfile(ownerId);
+        if (author) {
+          post.author = author;
+        }
       }
-      
+
       // Get post stats
-      const stats = await this.getPostStats(doc.$id);
-      post.likes = stats.likes;
-      post.reposts = stats.reposts;
-      post.replies = stats.replies;
-      post.views = stats.views;
-      
-      // Get interaction status for current user
-      const interactions = await this.getUserInteractions(doc.$id);
-      post.liked = interactions.liked;
-      post.reposted = interactions.reposted;
-      post.bookmarked = interactions.bookmarked;
+      if (postId) {
+        const stats = await this.getPostStats(postId);
+        post.likes = stats.likes;
+        post.reposts = stats.reposts;
+        post.replies = stats.replies;
+        post.views = stats.views;
+
+        // Get interaction status for current user
+        const interactions = await this.getUserInteractions(postId);
+        post.liked = interactions.liked;
+        post.reposted = interactions.reposted;
+        post.bookmarked = interactions.bookmarked;
+      }
 
       // Load reply-to post if exists
-      if (doc.replyToId) {
-        const replyTo = await this.get(doc.replyToId);
+      if (replyToId) {
+        const replyTo = await this.get(replyToId);
         if (replyTo) {
           post.replyTo = replyTo;
         }
       }
 
       // Load quoted post if exists
-      if (doc.quotedPostId) {
-        const quotedPost = await this.get(doc.quotedPostId);
-        if (quotedPost) {
-          post.quotedPost = quotedPost;
+      if (quotedPostId) {
+        const quoted = await this.get(quotedPostId);
+        if (quoted) {
+          post.quotedPost = quoted;
         }
       }
     } catch (error) {
@@ -144,6 +168,8 @@ class PostService extends BaseDocumentService<Post> {
    */
   async getTimeline(options: QueryOptions = {}): Promise<DocumentResult<Post>> {
     const defaultOptions: QueryOptions = {
+      // Need a where clause on orderBy field for Dash Platform to respect ordering
+      where: [['$createdAt', '>', 0]],
       orderBy: [['$createdAt', 'desc']],
       limit: 20,
       ...options
@@ -167,11 +193,126 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
+   * Get a single post by its document ID using direct lookup.
+   * More efficient than querying all posts and filtering.
+   */
+  async getPostById(postId: string): Promise<Post | null> {
+    try {
+      return await this.get(postId);
+    } catch (error) {
+      console.error('Error getting post by ID:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Count posts by user - uses direct SDK query for reliability
+   */
+  async countUserPosts(userId: string): Promise<number> {
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+
+      const sdk = await getEvoSdk();
+
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'post',
+        where: [['$ownerId', '==', userId]],
+        orderBy: [['$createdAt', 'asc']],
+        limit: 100
+      });
+
+      let documents;
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      } else {
+        documents = [];
+      }
+
+      return documents.length;
+    } catch (error) {
+      console.error('Error counting user posts:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Count all posts on the platform - paginates through all results
+   */
+  async countAllPosts(): Promise<number> {
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+
+      const sdk = await getEvoSdk();
+      let totalCount = 0;
+      let startAfter: string | undefined = undefined;
+      const PAGE_SIZE = 100;
+
+      while (true) {
+        const queryParams: any = {
+          contractId: this.contractId,
+          type: 'post',
+          orderBy: [['$createdAt', 'asc']],
+          limit: PAGE_SIZE
+        };
+
+        if (startAfter) {
+          queryParams.startAfter = startAfter;
+        }
+
+        const response = await sdk.documents.query(queryParams);
+
+        let documents: any[];
+        if (Array.isArray(response)) {
+          documents = response;
+        } else if (response && response.documents) {
+          documents = response.documents;
+        } else if (response && typeof response.toJSON === 'function') {
+          const json = response.toJSON();
+          documents = Array.isArray(json) ? json : json.documents || [];
+        } else {
+          documents = [];
+        }
+
+        totalCount += documents.length;
+
+        // If we got fewer than PAGE_SIZE, we've reached the end
+        if (documents.length < PAGE_SIZE) {
+          break;
+        }
+
+        // Get the last document's ID for pagination
+        const lastDoc = documents[documents.length - 1];
+        const lastId = lastDoc.$id || lastDoc.id;
+        if (!lastId) {
+          break;
+        }
+        startAfter = lastId;
+      }
+
+      return totalCount;
+    } catch (error) {
+      console.error('Error counting all posts:', error);
+      return 0;
+    }
+  }
+
+  /**
    * Get replies to a post
    */
   async getReplies(postId: string, options: QueryOptions = {}): Promise<DocumentResult<Post>> {
+    // Pass identifier as base58 string - the SDK handles conversion
+    // Dash Platform requires a where clause on the orderBy field for ordering to work
     const queryOptions: QueryOptions = {
-      where: [['replyToId', '==', postId]],
+      where: [
+        ['replyToPostId', '==', postId],
+        ['$createdAt', '>', 0]
+      ],
       orderBy: [['$createdAt', 'asc']],
       limit: 20,
       ...options
@@ -200,17 +341,23 @@ class PostService extends BaseDocumentService<Post> {
   private async getPostStats(postId: string): Promise<PostStats> {
     // Check cache
     const cached = this.statsCache.get(postId);
-    if (cached && Date.now() - cached.timestamp < 10000) { // 10 second cache for stats
+    if (cached && Date.now() - cached.timestamp < 60000) { // 60 second cache for stats
       return cached.data;
     }
 
     try {
-      // In a real implementation, these would be parallel queries
+      // Parallel queries to reduce latency and rate limit pressure
+      const [likes, reposts, replies] = await Promise.all([
+        this.countLikes(postId),
+        this.countReposts(postId),
+        this.countReplies(postId)
+      ]);
+
       const stats: PostStats = {
         postId,
-        likes: await this.countLikes(postId),
-        reposts: await this.countReposts(postId),
-        replies: await this.countReplies(postId),
+        likes,
+        reposts,
+        replies,
         views: 0 // Views would need a separate tracking mechanism
       };
 
@@ -248,11 +395,16 @@ class PostService extends BaseDocumentService<Post> {
    */
   private async countReplies(postId: string): Promise<number> {
     try {
+      // Pass identifier as base58 string - the SDK handles conversion
+      // Dash Platform requires a where clause on the orderBy field for ordering to work
       const result = await this.query({
-        where: [['replyToId', '==', postId]],
-        limit: 1
+        where: [
+          ['replyToPostId', '==', postId],
+          ['$createdAt', '>', 0]
+        ],
+        orderBy: [['$createdAt', 'asc']],
+        limit: 100
       });
-      // In a real implementation, we'd get the total count from the query
       return result.documents.length;
     } catch (error) {
       return 0;
@@ -279,10 +431,11 @@ class PostService extends BaseDocumentService<Post> {
   /**
    * Get default user object when profile not found
    */
-  private getDefaultUser(userId: string): User {
+  private getDefaultUser(userId: string | undefined): User {
+    const id = userId || 'unknown';
     return {
-      id: userId,
-      username: userId.substring(0, 8) + '...',
+      id,
+      username: id.length > 8 ? id.substring(0, 8) + '...' : id,
       displayName: 'Unknown User',
       avatar: '',
       bio: '',

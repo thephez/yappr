@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { wasmSdkService } from '@/lib/services'
+import { evoSdkService } from '@/lib/services'
 
 const DPNS_CONTRACT_ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
 
@@ -16,7 +16,7 @@ export default function TestDpnsDebugPage() {
 
   const initializeSdk = async () => {
     try {
-      await wasmSdkService.initialize({
+      await evoSdkService.initialize({
         network: 'testnet',
         contractId: process.env.NEXT_PUBLIC_CONTRACT_ID || ''
       })
@@ -31,7 +31,7 @@ export default function TestDpnsDebugPage() {
       setError(null)
       setResult(null)
 
-      const sdk = await wasmSdkService.getSdk()
+      const sdk = await evoSdkService.getSdk()
 
       console.log(`Testing query: ${description}`)
       console.log('Where clause:', where)

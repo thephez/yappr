@@ -1,4 +1,4 @@
-import { getWasmSdk } from './wasm-sdk-service';
+import { getEvoSdk } from './evo-sdk-service';
 
 export interface IdentityInfo {
   id: string;
@@ -28,7 +28,7 @@ class IdentityService {
         return cached.data;
       }
 
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Fetch identity using EvoSDK facade
       console.log(`Fetching identity: ${identityId}`);
@@ -76,7 +76,7 @@ class IdentityService {
         return cached.data;
       }
 
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Fetch balance using EvoSDK facade
       console.log(`Fetching balance for: ${identityId}`);

@@ -1,21 +1,21 @@
 import { EvoSDK } from '@dashevo/evo-sdk';
 
-export interface WasmSdkConfig {
+export interface EvoSdkConfig {
   network: 'testnet' | 'mainnet';
   contractId: string;
 }
 
-class WasmSdkService {
+class EvoSdkService {
   private sdk: EvoSDK | null = null;
   private initPromise: Promise<void> | null = null;
-  private config: WasmSdkConfig | null = null;
+  private config: EvoSdkConfig | null = null;
   private _isInitialized = false;
   private _isInitializing = false;
 
   /**
    * Initialize the SDK with configuration
    */
-  async initialize(config: WasmSdkConfig): Promise<void> {
+  async initialize(config: EvoSdkConfig): Promise<void> {
     // If already initialized with same config, return immediately
     if (this._isInitialized && this.config &&
         this.config.network === config.network &&
@@ -49,18 +49,18 @@ class WasmSdkService {
 
   private async _performInitialization(): Promise<void> {
     try {
-      console.log('WasmSdkService: Creating EvoSDK instance...');
+      console.log('EvoSdkService: Creating EvoSDK instance...');
 
       // Create SDK with trusted mode based on network
       if (this.config!.network === 'testnet') {
-        console.log('WasmSdkService: Building testnet SDK in trusted mode...');
+        console.log('EvoSdkService: Building testnet SDK in trusted mode...');
         this.sdk = EvoSDK.testnetTrusted({
           settings: {
             timeoutMs: 8000,
           }
         });
       } else {
-        console.log('WasmSdkService: Building mainnet SDK in trusted mode...');
+        console.log('EvoSdkService: Building mainnet SDK in trusted mode...');
         this.sdk = EvoSDK.mainnetTrusted({
           settings: {
             timeoutMs: 8000,
@@ -68,18 +68,18 @@ class WasmSdkService {
         });
       }
 
-      console.log('WasmSdkService: Connecting to network...');
+      console.log('EvoSdkService: Connecting to network...');
       await this.sdk.connect();
-      console.log('WasmSdkService: Connected successfully');
+      console.log('EvoSdkService: Connected successfully');
 
       this._isInitialized = true;
-      console.log('WasmSdkService: SDK initialized successfully');
+      console.log('EvoSdkService: SDK initialized successfully');
 
       // Preload the yappr contract into the trusted context
       await this._preloadYapprContract();
     } catch (error) {
-      console.error('WasmSdkService: Failed to initialize SDK:', error);
-      console.error('WasmSdkService: Error details:', {
+      console.error('EvoSdkService: Failed to initialize SDK:', error);
+      console.error('EvoSdkService: Error details:', {
         message: error instanceof Error ? error.message : 'Unknown error',
         stack: error instanceof Error ? error.stack : undefined
       });
@@ -98,20 +98,20 @@ class WasmSdkService {
     }
 
     try {
-      console.log('WasmSdkService: Adding yappr contract to trusted context...');
+      console.log('EvoSdkService: Adding yappr contract to trusted context...');
 
       const contractId = this.config.contractId;
 
       try {
         await this.sdk.contracts.fetch(contractId);
-        console.log('WasmSdkService: Yappr contract found on network and cached');
+        console.log('EvoSdkService: Yappr contract found on network and cached');
       } catch (error) {
-        console.log('WasmSdkService: Contract not found on network (expected for local development)');
-        console.log('WasmSdkService: Local contract operations will be handled gracefully');
+        console.log('EvoSdkService: Contract not found on network (expected for local development)');
+        console.log('EvoSdkService: Local contract operations will be handled gracefully');
       }
 
     } catch (error) {
-      console.error('WasmSdkService: Error during contract setup:', error);
+      console.error('EvoSdkService: Error during contract setup:', error);
       // Don't throw - we can still operate
     }
   }
@@ -155,27 +155,60 @@ class WasmSdkService {
   }
 
   /**
+   * Check if error is a "no available addresses" error that requires reconnection
+   */
+  isNoAvailableAddressesError(error: any): boolean {
+    const message = error?.message || String(error);
+    return message.toLowerCase().includes('no available addresses') ||
+           message.toLowerCase().includes('noavailableaddressesforretry');
+  }
+
+  /**
+   * Handle connection errors by reinitializing the SDK
+   * Returns true if recovery was attempted
+   */
+  async handleConnectionError(error: any): Promise<boolean> {
+    if (this.isNoAvailableAddressesError(error)) {
+      console.log('EvoSdkService: Detected "no available addresses" error, attempting to reconnect...');
+      try {
+        const savedConfig = this.config;
+        await this.cleanup();
+        if (savedConfig) {
+          // Wait a bit before reconnecting to avoid immediate rate limiting
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          await this.initialize(savedConfig);
+          console.log('EvoSdkService: Reconnected successfully');
+          return true;
+        }
+      } catch (reconnectError) {
+        console.error('EvoSdkService: Failed to reconnect:', reconnectError);
+      }
+    }
+    return false;
+  }
+
+  /**
    * Get current configuration
    */
-  getConfig(): WasmSdkConfig | null {
+  getConfig(): EvoSdkConfig | null {
     return this.config;
   }
 
   /**
    * Reinitialize with new configuration
    */
-  async reinitialize(config: WasmSdkConfig): Promise<void> {
+  async reinitialize(config: EvoSdkConfig): Promise<void> {
     await this.cleanup();
     await this.initialize(config);
   }
 }
 
 // Singleton instance
-export const wasmSdkService = new WasmSdkService();
+export const evoSdkService = new EvoSdkService();
 
 // Export helper to ensure SDK is initialized
-export async function getWasmSdk(): Promise<EvoSDK> {
-  return wasmSdkService.getSdk();
+export async function getEvoSdk(): Promise<EvoSDK> {
+  return evoSdkService.getSdk();
 }
 
 // Re-export EvoSDK type for convenience

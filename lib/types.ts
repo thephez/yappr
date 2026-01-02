@@ -6,6 +6,8 @@ export interface User {
   avatarId?: string  // Reference to avatar document (32-byte array as string)
   avatarData?: string // The encoded avatar string (16-128 chars)
   bio?: string
+  location?: string
+  website?: string
   followers: number
   following: number
   verified?: boolean
@@ -62,4 +64,24 @@ export interface Trend {
   topic: string
   posts: number
   category?: string
+}
+
+export interface DirectMessage {
+  id: string
+  senderId: string
+  recipientId: string
+  conversationId: string
+  content: string  // Decrypted content for display
+  encryptedContent: string
+  read: boolean
+  createdAt: Date
+}
+
+export interface Conversation {
+  id: string  // conversationId (derived from participants)
+  participantId: string  // The other participant (not current user)
+  participantUsername?: string  // DPNS username if available
+  lastMessage?: DirectMessage | null
+  unreadCount: number
+  updatedAt: Date
 }

@@ -10,6 +10,8 @@ import { withAuth, useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Post } from '@/lib/types'
+import { getDashPlatformClient } from '@/lib/dash-platform-client'
+import { postService } from '@/lib/services/post-service'
 import toast from 'react-hot-toast'
 
 interface Reply extends Post {
@@ -32,74 +34,38 @@ function PostDetailPage() {
     const loadPost = async () => {
       try {
         setIsLoading(true)
-        
-        // In a real app, this would fetch the specific post from Dash Platform
-        // For now, we'll simulate it
-        const mockPost: Post = {
-          id: params.id as string,
-          content: 'This is a sample post content. In a real app, this would be loaded from Dash Platform.',
-          author: {
-            id: 'user123',
-            username: 'user123...',
-            displayName: 'User 123',
-            avatar: '',
-            followers: 0,
-            following: 0,
-            joinedAt: new Date()
-          },
-          createdAt: new Date(Date.now() - 1000 * 60 * 60),
-          likes: 42,
-          replies: 5,
-          reposts: 12,
-          views: 234
+
+        const postId = params.id as string
+
+        // Direct lookup by ID - much more efficient than querying all posts
+        const loadedPost = await postService.getPostById(postId)
+
+        if (!loadedPost) {
+          setPost(null)
+          setReplies([])
+          return
         }
-        
-        const mockReplies: Reply[] = [
-          {
-            id: 'reply1',
-            content: 'Great post! Thanks for sharing.',
-            author: {
-              id: 'user456',
-              username: 'user456...',
-              displayName: 'User 456',
-              avatar: '',
-              followers: 0,
-              following: 0,
-              joinedAt: new Date()
-            },
-            createdAt: new Date(Date.now() - 1000 * 60 * 30),
-            likes: 3,
-            replies: 0,
-            reposts: 0,
-            views: 45,
-            replyToId: params.id as string
-          },
-          {
-            id: 'reply2',
-            content: 'I totally agree with this perspective.',
-            author: {
-              id: 'user789',
-              username: 'user789...',
-              displayName: 'User 789',
-              avatar: '',
-              followers: 0,
-              following: 0,
-              joinedAt: new Date()
-            },
-            createdAt: new Date(Date.now() - 1000 * 60 * 15),
-            likes: 7,
-            replies: 0,
-            reposts: 1,
-            views: 89,
-            replyToId: params.id as string
-          }
-        ]
-        
-        setPost(mockPost)
-        setReplies(mockReplies)
+
+        setPost(loadedPost)
+
+        // Try to load replies
+        try {
+          const repliesResult = await postService.getReplies(postId)
+          const repliesWithReplyTo: Reply[] = repliesResult.documents.map(reply => ({
+            ...reply,
+            replyToId: postId
+          }))
+          setReplies(repliesWithReplyTo)
+        } catch (repliesError) {
+          console.error('Failed to load replies:', repliesError)
+          setReplies([])
+        }
+
       } catch (error) {
         console.error('Failed to load post:', error)
         toast.error('Failed to load post')
+        setPost(null)
+        setReplies([])
       } finally {
         setIsLoading(false)
       }
@@ -113,9 +79,13 @@ function PostDetailPage() {
 
     setIsReplying(true)
     try {
-      // In a real app, this would create a reply on Dash Platform
+      // Create reply on Dash Platform
+      const dashClient = getDashPlatformClient()
+      await dashClient.createPost(replyContent, { replyToPostId: post.id })
+
+      // Create optimistic reply for UI
       const newReply: Reply = {
-        id: `reply${Date.now()}`,
+        id: `reply_${Date.now()}`,
         content: replyContent,
         author: {
           id: user.identityId,
@@ -137,8 +107,8 @@ function PostDetailPage() {
       setReplies(prev => [newReply, ...prev])
       setReplyContent('')
       toast.success('Reply posted!')
-      
-      // Update reply count
+
+      // Update reply count on the post
       setPost(prev => prev ? { ...prev, replies: prev.replies + 1 } : null)
     } catch (error) {
       console.error('Failed to post reply:', error)
@@ -172,6 +142,16 @@ function PostDetailPage() {
           </div>
         ) : post ? (
           <>
+            {/* Parent Post (if this is a reply) */}
+            {post.replyTo && (
+              <div className="border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-950">
+                <div className="px-4 pt-3 pb-1">
+                  <span className="text-sm text-gray-500">Replying to:</span>
+                </div>
+                <PostCard post={post.replyTo} />
+              </div>
+            )}
+
             {/* Main Post */}
             <div className="border-b border-gray-200 dark:border-gray-800">
               <PostCard post={post} />

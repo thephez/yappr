@@ -93,7 +93,7 @@ export interface AsyncState<T> {
 }
 
 export interface UseAsyncStateResult<T> extends AsyncState<T> {
-  setData: (data: T | null) => void
+  setData: (data: T | null | ((prev: T | null) => T | null)) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   reset: () => void
@@ -106,8 +106,12 @@ export function useAsyncState<T>(initialData: T | null = null): UseAsyncStateRes
     error: null
   })
 
-  const setData = React.useCallback((data: T | null) => {
-    setState(prev => ({ ...prev, data, error: null }))
+  const setData = React.useCallback((data: T | null | ((prev: T | null) => T | null)) => {
+    setState(prev => ({
+      ...prev,
+      data: typeof data === 'function' ? (data as (prev: T | null) => T | null)(prev.data) : data,
+      error: null
+    }))
   }, [])
 
   const setLoading = React.useCallback((loading: boolean) => {

@@ -1,12 +1,97 @@
 'use client'
 
-import { MagnifyingGlassIcon, ChartBarIcon, ClockIcon, FireIcon, UserGroupIcon } from '@heroicons/react/24/outline'
-import { formatNumber, formatTime } from '@/lib/utils'
+import { useEffect, useState } from 'react'
+import { MagnifyingGlassIcon, ChartBarIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
+import { formatNumber } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
 import { YAPPR_CONTRACT_ID } from '@/lib/constants'
+import { postService, followService, likeService } from '@/lib/services'
+import { cacheManager } from '@/lib/cache-manager'
+
+interface UserStats {
+  posts: number
+  followers: number
+  following: number
+  likesGiven: number
+}
+
+interface GlobalStats {
+  totalPosts: number
+}
 
 export function RightSidebar() {
   const { user } = useAuth()
+  const [stats, setStats] = useState<UserStats | null>(null)
+  const [globalStats, setGlobalStats] = useState<GlobalStats | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [globalLoading, setGlobalLoading] = useState(false)
+
+  useEffect(() => {
+    if (!user?.identityId) {
+      setStats(null)
+      return
+    }
+
+    const fetchStats = async () => {
+      // Check cache first to reduce network queries
+      const cacheKey = `user_stats_${user.identityId}`
+      const cached = cacheManager.get<UserStats>('sidebar', cacheKey)
+      if (cached) {
+        setStats(cached)
+        return
+      }
+
+      setLoading(true)
+      try {
+        const [posts, followers, following, likes] = await Promise.all([
+          postService.countUserPosts(user.identityId),
+          followService.countFollowers(user.identityId),
+          followService.countFollowing(user.identityId),
+          likeService.countUserLikes(user.identityId)
+        ])
+        const newStats = { posts, followers, following, likesGiven: likes }
+        setStats(newStats)
+        // Cache for 2 minutes to reduce query frequency
+        cacheManager.set('sidebar', cacheKey, newStats, { ttl: 120000 })
+      } catch (error) {
+        console.error('Error fetching user stats:', error)
+        setStats({ posts: 0, followers: 0, following: 0, likesGiven: 0 })
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchStats()
+  }, [user?.identityId])
+
+  // Fetch global stats (independent of user login)
+  useEffect(() => {
+    const fetchGlobalStats = async () => {
+      // Check cache first to reduce network queries
+      const cacheKey = 'global_platform_stats'
+      const cached = cacheManager.get<GlobalStats>('sidebar', cacheKey)
+      if (cached) {
+        setGlobalStats(cached)
+        return
+      }
+
+      setGlobalLoading(true)
+      try {
+        const totalPosts = await postService.countAllPosts()
+        const newGlobalStats = { totalPosts }
+        setGlobalStats(newGlobalStats)
+        // Cache for 5 minutes since global stats change slowly
+        cacheManager.set('sidebar', cacheKey, newGlobalStats, { ttl: 300000 })
+      } catch (error) {
+        console.error('Error fetching global stats:', error)
+        setGlobalStats({ totalPosts: 0 })
+      } finally {
+        setGlobalLoading(false)
+      }
+    }
+
+    fetchGlobalStats()
+  }, [])
 
   return (
     <div className="w-[350px] px-4 py-4 space-y-4">
@@ -38,6 +123,28 @@ export function RightSidebar() {
       </div>
 
       <div className="bg-gray-50 dark:bg-gray-950 rounded-2xl overflow-hidden">
+        <h2 className="text-xl font-bold px-4 py-3 flex items-center gap-2">
+          <GlobeAltIcon className="h-5 w-5" />
+          Platform Stats
+        </h2>
+        <div className="px-4 py-3 space-y-2">
+          {globalLoading ? (
+            <div className="flex justify-between">
+              <div className="h-4 w-20 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+              <div className="h-4 w-8 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+          ) : globalStats ? (
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600 dark:text-gray-400">Total Posts</span>
+              <span className="font-medium">{formatNumber(globalStats.totalPosts)}</span>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-500">No stats available</p>
+          )}
+        </div>
+      </div>
+
+      <div className="bg-gray-50 dark:bg-gray-950 rounded-2xl overflow-hidden">
         <h2 className="text-xl font-bold px-4 py-3">Getting Started</h2>
         <div className="px-4 py-3 space-y-3 text-sm">
           <p className="text-gray-600 dark:text-gray-400">
@@ -56,47 +163,40 @@ export function RightSidebar() {
         <div className="bg-gray-50 dark:bg-gray-950 rounded-2xl overflow-hidden">
           <h2 className="text-xl font-bold px-4 py-3 flex items-center gap-2">
             <ChartBarIcon className="h-5 w-5" />
-            Stats
+            Your Stats
           </h2>
-          <div className="px-4 py-3 space-y-3">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <ClockIcon className="h-4 w-4 text-gray-500" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Last Post</p>
+          <div className="px-4 py-3 space-y-2">
+            {loading ? (
+              <div className="space-y-2">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex justify-between">
+                    <div className="h-4 w-20 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+                    <div className="h-4 w-8 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+                  </div>
+                ))}
               </div>
-              <p className="text-sm font-medium">2 hours ago</p>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <FireIcon className="h-4 w-4 text-gray-500" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Posting Streak</p>
-              </div>
-              <p className="text-sm font-medium">7 days</p>
-            </div>
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <UserGroupIcon className="h-4 w-4 text-gray-500" />
-                <p className="text-sm text-gray-600 dark:text-gray-400">Total Followers</p>
-              </div>
-              <p className="text-sm font-medium">{formatNumber(342)}</p>
-            </div>
-            
-            <div className="border-t border-gray-200 dark:border-gray-800 pt-3 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Total Posts</span>
-                <span className="font-medium">{formatNumber(128)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Total Likes</span>
-                <span className="font-medium">{formatNumber(1234)}</span>
-              </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-600 dark:text-gray-400">Engagement Rate</span>
-                <span className="font-medium">12.3%</span>
-              </div>
-            </div>
+            ) : stats ? (
+              <>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Posts</span>
+                  <span className="font-medium">{formatNumber(stats.posts)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Followers</span>
+                  <span className="font-medium">{formatNumber(stats.followers)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Following</span>
+                  <span className="font-medium">{formatNumber(stats.following)}</span>
+                </div>
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-600 dark:text-gray-400">Likes Given</span>
+                  <span className="font-medium">{formatNumber(stats.likesGiven)}</span>
+                </div>
+              </>
+            ) : (
+              <p className="text-sm text-gray-500">No stats available</p>
+            )}
           </div>
         </div>
       )}

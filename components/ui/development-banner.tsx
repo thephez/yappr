@@ -11,15 +11,31 @@ export function DevelopmentBanner() {
     
     // Clear browser storage
     if (typeof window !== 'undefined') {
-      // Clear localStorage (except auth data)
-      const keysToKeep = ['dash_identity_id', 'dash_public_address']
+      // Clear localStorage (except auth and biometric data)
+      const keysToKeep = [
+        'dash_identity_id',
+        'dash_public_address',
+        'yappr_session',
+        'yappr_bio_credential'
+      ]
+      // Also preserve any biometric-encrypted private keys
+      const prefixesToKeep = ['yappr_bio_pk_']
       const savedData: Record<string, string> = {}
       
-      // Save auth data
+      // Save auth data by exact key
       keysToKeep.forEach(key => {
         const value = localStorage.getItem(key)
         if (value) savedData[key] = value
       })
+
+      // Save data by prefix (biometric encrypted keys)
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i)
+        if (key && prefixesToKeep.some(prefix => key.startsWith(prefix))) {
+          const value = localStorage.getItem(key)
+          if (value) savedData[key] = value
+        }
+      }
       
       // Clear all localStorage
       localStorage.clear()
@@ -29,8 +45,19 @@ export function DevelopmentBanner() {
         localStorage.setItem(key, value)
       })
       
-      // Clear sessionStorage
+      // Clear sessionStorage (except biometric encryption keys)
+      const sessionKeysToKeep: Record<string, string> = {}
+      for (let i = 0; i < sessionStorage.length; i++) {
+        const key = sessionStorage.key(i)
+        if (key && key.startsWith('yappr_bio_')) {
+          const value = sessionStorage.getItem(key)
+          if (value) sessionKeysToKeep[key] = value
+        }
+      }
       sessionStorage.clear()
+      Object.entries(sessionKeysToKeep).forEach(([key, value]) => {
+        sessionStorage.setItem(key, value)
+      })
       
       // Reload the page
       window.location.reload()

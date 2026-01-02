@@ -23,13 +23,13 @@ Yappr is a decentralized social media platform built with Next.js 14 and Dash Pl
 
 ### SDK Integration
 - Uses `@dashevo/evo-sdk` package for Dash Platform operations
-- `lib/services/wasm-sdk-service.ts` manages SDK initialization and connection
+- `lib/services/evo-sdk-service.ts` manages SDK initialization and connection
 - SDK runs in trusted mode with 8-second timeout for network requests
 - Contract ID and network config in `lib/constants.ts`
 
 ### Services Layer (`lib/services/`)
 Singleton service classes handle all Dash Platform operations:
-- `wasm-sdk-service.ts` - SDK initialization and connection management
+- `evo-sdk-service.ts` - SDK initialization and connection management
 - `state-transition-service.ts` - All write operations (creates/updates documents)
 - `document-service.ts` - Query operations for reading documents
 - `identity-service.ts` - Identity lookup and balance queries

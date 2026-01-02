@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState } from 'react'
-import { wasmSdkService, postService, profileService } from '@/lib/services'
+import { evoSdkService, postService, profileService } from '@/lib/services'
 
 export default function TestCreatePage() {
   const [status, setStatus] = useState<string>('Ready')
@@ -63,7 +63,7 @@ export default function TestCreatePage() {
   const initializeSdk = async () => {
     try {
       setStatus('Initializing WASM SDK...')
-      await wasmSdkService.initialize({
+      await evoSdkService.initialize({
         network: 'testnet',
         contractId: process.env.NEXT_PUBLIC_CONTRACT_ID || ''
       })

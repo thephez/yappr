@@ -1,12 +1,5 @@
-import { getWasmSdk } from './wasm-sdk-service';
-// Import WasmSdk for static DPNS utility methods
-import { WasmSdk } from '@dashevo/wasm-sdk';
+import { getEvoSdk } from './evo-sdk-service';
 import { DPNS_CONTRACT_ID, DPNS_DOCUMENT_TYPE } from '../constants';
-
-// Helper wrappers for DPNS utility functions (using WasmSdk static methods)
-const dpns_is_valid_username = (label: string): boolean => WasmSdk.dpnsIsValidUsername(label);
-const dpns_is_contested_username = (label: string): boolean => WasmSdk.dpnsIsContestedUsername(label);
-const dpns_convert_to_homograph_safe = (input: string): string => WasmSdk.dpnsConvertToHomographSafe(input);
 
 interface DpnsDocument {
   $id: string;
@@ -49,7 +42,7 @@ class DpnsService {
     try {
       console.log(`DPNS: Fetching all usernames for identity: ${identityId}`);
       
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Try the dedicated DPNS usernames function first
       try {
@@ -109,17 +102,25 @@ class DpnsService {
   /**
    * Sort usernames by contested status (contested usernames first)
    */
-  sortUsernamesByContested(usernames: string[]): string[] {
-    return usernames.sort((a, b) => {
-      const aContested = dpns_is_contested_username(a.split('.')[0]);
-      const bContested = dpns_is_contested_username(b.split('.')[0]);
-      
-      if (aContested && !bContested) return -1;
-      if (!aContested && bContested) return 1;
-      
-      // If both contested or both not contested, sort alphabetically
-      return a.localeCompare(b);
-    });
+  async sortUsernamesByContested(usernames: string[]): Promise<string[]> {
+    const sdk = await getEvoSdk();
+
+    // Check contested status for all usernames
+    const contestedStatuses = await Promise.all(
+      usernames.map(async (u) => ({
+        username: u,
+        contested: await sdk.dpns.isContestedUsername(u.split('.')[0])
+      }))
+    );
+
+    return contestedStatuses
+      .sort((a, b) => {
+        if (a.contested && !b.contested) return -1;
+        if (!a.contested && b.contested) return 1;
+        // If both contested or both not contested, sort alphabetically
+        return a.username.localeCompare(b.username);
+      })
+      .map(item => item.username);
   }
 
   /**
@@ -146,7 +147,7 @@ class DpnsService {
       }
       
       // Sort usernames with contested ones first
-      const sortedUsernames = this.sortUsernamesByContested(allUsernames);
+      const sortedUsernames = await this.sortUsernamesByContested(allUsernames);
       const bestUsername = sortedUsernames[0];
       
       console.log(`DPNS: Found best username ${bestUsername} for identity ${identityId} (from ${allUsernames.length} total)`);
@@ -174,7 +175,7 @@ class DpnsService {
 
       console.log(`DPNS: Resolving identity for username: ${normalizedUsername}`);
       
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Try native resolution first using EvoSDK facade
       try {
@@ -231,7 +232,7 @@ class DpnsService {
       
       // Try native availability check first (more efficient)
       try {
-        const sdk = await getWasmSdk();
+        const sdk = await getEvoSdk();
         const isAvailable = await sdk.dpns.isNameAvailable(normalizedUsername);
         console.log(`DPNS: Username ${normalizedUsername} availability (native): ${isAvailable}`);
         return isAvailable;
@@ -256,7 +257,7 @@ class DpnsService {
    */
   async searchUsernamesWithDetails(prefix: string, limit: number = 10): Promise<Array<{ username: string; ownerId: string }>> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       // Remove .dash suffix if present for search
       const searchPrefix = prefix.toLowerCase().replace(/\.dash$/, '');
@@ -312,7 +313,7 @@ class DpnsService {
    */
   async searchUsernames(prefix: string, limit: number = 10): Promise<string[]> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Remove .dash suffix if present for search
       const searchPrefix = prefix.toLowerCase().replace(/\.dash$/, '');
@@ -382,25 +383,28 @@ class DpnsService {
    * Register a new username
    */
   async registerUsername(
-    label: string, 
-    identityId: string, 
+    label: string,
+    identityId: string,
     publicKeyId: number,
     privateKeyWif: string,
     onPreorderSuccess?: () => void
   ): Promise<any> {
     try {
-      // Validate the username first
-      if (!dpns_is_valid_username(label)) {
+      const sdk = await getEvoSdk();
+
+      // Validate the username first using SDK
+      const isValid = await sdk.dpns.isValidUsername(label);
+      if (!isValid) {
         throw new Error(`Invalid username format: ${label}`);
       }
 
       // Check if it's contested
-      if (dpns_is_contested_username(label)) {
+      const isContested = await sdk.dpns.isContestedUsername(label);
+      if (isContested) {
         console.warn(`Username ${label} is contested and will require masternode voting`);
       }
 
       // Check availability
-      const sdk = await getWasmSdk();
       const isAvailable = await sdk.dpns.isNameAvailable(label);
       if (!isAvailable) {
         throw new Error(`Username ${label} is already taken`);
@@ -429,14 +433,15 @@ class DpnsService {
   /**
    * Validate a username according to DPNS rules
    */
-  validateUsername(label: string): {
+  async validateUsername(label: string): Promise<{
     isValid: boolean;
     isContested: boolean;
     normalizedLabel: string;
-  } {
-    const isValid = dpns_is_valid_username(label);
-    const isContested = dpns_is_contested_username(label);
-    const normalizedLabel = dpns_convert_to_homograph_safe(label);
+  }> {
+    const sdk = await getEvoSdk();
+    const isValid = await sdk.dpns.isValidUsername(label);
+    const isContested = await sdk.dpns.isContestedUsername(label);
+    const normalizedLabel = await sdk.dpns.convertToHomographSafe(label);
 
     return {
       isValid,
@@ -446,43 +451,34 @@ class DpnsService {
   }
 
   /**
-   * Get username validation error message
+   * Get username validation error message (basic client-side validation)
+   * For full DPNS validation, use validateUsername() which requires SDK
    */
   getUsernameValidationError(username: string): string | null {
     if (!username) {
       return 'Username is required';
     }
-    
+
     if (username.length < 3) {
       return 'Username must be at least 3 characters long';
     }
-    
+
     if (username.length > 20) {
       return 'Username must be 20 characters or less';
     }
-    
+
     if (!/^[a-zA-Z0-9_]+$/.test(username)) {
       return 'Username can only contain letters, numbers, and underscores';
     }
-    
+
     if (username.startsWith('_') || username.endsWith('_')) {
       return 'Username cannot start or end with underscore';
     }
-    
+
     if (username.includes('__')) {
       return 'Username cannot contain consecutive underscores';
     }
-    
-    // Additional DPNS validation
-    const validation = this.validateUsername(username);
-    if (!validation.isValid) {
-      return 'Username does not meet DPNS requirements';
-    }
-    
-    if (validation.isContested) {
-      return 'This username is contested and requires masternode voting';
-    }
-    
+
     return null;
   }
 

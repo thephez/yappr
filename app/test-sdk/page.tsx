@@ -2,17 +2,17 @@
 
 import { useSdk } from '@/contexts/sdk-context'
 import { useEffect, useState } from 'react'
-import { wasmSdkService } from '@/lib/services/wasm-sdk-service'
+import { evoSdkService } from '@/lib/services/evo-sdk-service'
 
 export default function TestSdkPage() {
   const { isReady, error } = useSdk()
   const [testResult, setTestResult] = useState<string>('')
-  
+
   useEffect(() => {
     const testSdk = async () => {
       try {
         console.log('Test SDK Page: Starting test...')
-        const sdk = await wasmSdkService.getSdk()
+        const sdk = await evoSdkService.getSdk()
         console.log('Test SDK Page: Got SDK instance:', sdk)
         setTestResult('SDK is working!')
       } catch (err) {
@@ -20,7 +20,7 @@ export default function TestSdkPage() {
         setTestResult(`Error: ${err instanceof Error ? err.message : 'Unknown error'}`)
       }
     }
-    
+
     if (isReady) {
       testSdk()
     }

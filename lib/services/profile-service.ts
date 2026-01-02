@@ -37,7 +37,7 @@ class ProfileService extends BaseDocumentService<User> {
    */
   async query(options: QueryOptions = {}): Promise<DocumentResult<User>> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Build query params for EvoSDK facade
       const queryParams: {
@@ -358,7 +358,7 @@ class ProfileService extends BaseDocumentService<User> {
    */
   private async getAvatarDocument(avatarId: string): Promise<AvatarDocument | null> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Use EvoSDK documents facade
       const response = await sdk.documents.get(
@@ -388,7 +388,7 @@ class ProfileService extends BaseDocumentService<User> {
     }
 
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Use EvoSDK documents facade
       const response = await sdk.documents.get(
@@ -419,7 +419,7 @@ class ProfileService extends BaseDocumentService<User> {
    * Create avatar document
    */
   private async createAvatar(ownerId: string, avatarData: string): Promise<string> {
-    const sdk = await getWasmSdk();
+    const sdk = await getEvoSdk();
     
     const result = await stateTransitionService.createDocument(
       this.contractId,
@@ -445,7 +445,7 @@ class ProfileService extends BaseDocumentService<User> {
   ): Promise<string> {
     if (existingAvatarId) {
       // Update existing avatar
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       // Get current avatar document to find revision
       const currentAvatar = await this.getAvatarDocument(existingAvatarId);
@@ -481,7 +481,7 @@ class ProfileService extends BaseDocumentService<User> {
    */
   private async deleteAvatar(avatarId: string, ownerId: string): Promise<void> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       const result = await stateTransitionService.deleteDocument(
         this.contractId,
@@ -527,7 +527,7 @@ class ProfileService extends BaseDocumentService<User> {
 
       console.log('ProfileService: Getting profiles for identity IDs:', identityIds);
 
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
 
       // Query profiles where $ownerId is in the array
       // Need to add orderBy for 'in' queries
@@ -560,5 +560,5 @@ class ProfileService extends BaseDocumentService<User> {
 export const profileService = new ProfileService();
 
 // Import at the bottom to avoid circular dependency
-import { getWasmSdk } from './wasm-sdk-service';
+import { getEvoSdk } from './evo-sdk-service';
 import { stateTransitionService } from './state-transition-service';

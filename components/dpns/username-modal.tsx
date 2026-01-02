@@ -116,8 +116,9 @@ export function UsernameModal({ isOpen, onClose, customIdentityId: initialIdenti
     setIsSubmitting(true)
     
     try {
-      // Get the private key from session storage
-      const privateKey = sessionStorage.getItem('yappr_pk')
+      // Get the private key from secure storage
+      const { getPrivateKey } = await import('@/lib/secure-storage')
+      const privateKey = getPrivateKey(currentIdentityId)
       if (!privateKey) {
         throw new Error('Authentication required. Please log in again.')
       }

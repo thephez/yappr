@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
-import { 
+import {
   MagnifyingGlassIcon,
   PaperAirplaneIcon,
   PhotoIcon,
@@ -19,139 +19,196 @@ import { withAuth, useAuth } from '@/contexts/auth-context'
 import { AvatarCanvas } from '@/components/ui/avatar-canvas'
 import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
 import { formatDistanceToNow } from 'date-fns'
-
-interface Message {
-  id: string
-  content: string
-  senderId: string
-  timestamp: Date
-  read: boolean
-}
-
-interface Conversation {
-  id: string
-  participantId: string
-  lastMessage: Message
-  unreadCount: number
-}
+import { directMessageService, dpnsService, identityService } from '@/lib/services'
+import { DirectMessage, Conversation } from '@/lib/types'
+import toast from 'react-hot-toast'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 
 function MessagesPage() {
   const { user } = useAuth()
   const [conversations, setConversations] = useState<Conversation[]>([])
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [messages, setMessages] = useState<DirectMessage[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [searchQuery, setSearchQuery] = useState('')
   const [isLoading, setIsLoading] = useState(true)
+  const [isSending, setIsSending] = useState(false)
+  const [isLoadingMessages, setIsLoadingMessages] = useState(false)
+  const [showNewConversation, setShowNewConversation] = useState(false)
+  const [newConversationInput, setNewConversationInput] = useState('')
+  const [isResolvingUser, setIsResolvingUser] = useState(false)
 
+  // Load conversations on mount
   useEffect(() => {
-    // Simulate loading conversations
-    setTimeout(() => {
-      const mockConversations: Conversation[] = [
-        {
-          id: '1',
-          participantId: 'user123',
-          lastMessage: {
-            id: 'm1',
-            content: 'Hey! Have you tried the new Dash Platform features?',
-            senderId: 'user123',
-            timestamp: new Date(Date.now() - 1000 * 60 * 5),
-            read: false
-          },
-          unreadCount: 1
-        },
-        {
-          id: '2',
-          participantId: 'user456',
-          lastMessage: {
-            id: 'm2',
-            content: 'Thanks for the follow! 🎉',
-            senderId: user?.identityId || '',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60),
-            read: true
-          },
-          unreadCount: 0
-        },
-        {
-          id: '3',
-          participantId: 'user789',
-          lastMessage: {
-            id: 'm3',
-            content: 'The decentralized future is here',
-            senderId: 'user789',
-            timestamp: new Date(Date.now() - 1000 * 60 * 60 * 24),
-            read: true
-          },
-          unreadCount: 0
-        }
-      ]
-      setConversations(mockConversations)
-      setIsLoading(false)
-    }, 1000)
+    const loadConversations = async () => {
+      if (!user) return
+      setIsLoading(true)
+      try {
+        const convos = await directMessageService.getConversations(user.identityId)
+        setConversations(convos)
+      } catch (error) {
+        console.error('Failed to load conversations:', error)
+        toast.error('Failed to load conversations')
+      } finally {
+        setIsLoading(false)
+      }
+    }
+    loadConversations()
   }, [user])
 
+  // Load messages when conversation is selected
   useEffect(() => {
-    if (selectedConversation) {
-      // Simulate loading messages for selected conversation
-      const mockMessages: Message[] = [
-        {
-          id: 'm1',
-          content: 'Hey there! 👋',
-          senderId: selectedConversation.participantId,
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 2),
-          read: true
-        },
-        {
-          id: 'm2',
-          content: 'Hi! How are you?',
-          senderId: user?.identityId || '',
-          timestamp: new Date(Date.now() - 1000 * 60 * 60 * 1.5),
-          read: true
-        },
-        {
-          id: 'm3',
-          content: 'Have you tried the new Dash Platform features?',
-          senderId: selectedConversation.participantId,
-          timestamp: new Date(Date.now() - 1000 * 60 * 5),
-          read: true
-        }
-      ]
-      setMessages(mockMessages)
-      
-      // Mark conversation as read
-      setConversations(prev => prev.map(conv => 
-        conv.id === selectedConversation.id 
-          ? { ...conv, unreadCount: 0 }
-          : conv
-      ))
+    const loadMessages = async () => {
+      if (!selectedConversation || !user) return
+      setIsLoadingMessages(true)
+      try {
+        const msgs = await directMessageService.getConversationMessages(
+          selectedConversation.id,
+          user.identityId
+        )
+        setMessages(msgs)
+
+        // Mark messages as read
+        await directMessageService.markAsRead(selectedConversation.id, user.identityId)
+
+        // Update conversation unread count in UI
+        setConversations(prev => prev.map(conv =>
+          conv.id === selectedConversation.id
+            ? { ...conv, unreadCount: 0 }
+            : conv
+        ))
+      } catch (error) {
+        console.error('Failed to load messages:', error)
+        toast.error('Failed to load messages')
+      } finally {
+        setIsLoadingMessages(false)
+      }
     }
+    loadMessages()
   }, [selectedConversation, user])
 
-  const sendMessage = () => {
-    if (!newMessage.trim() || !selectedConversation || !user) return
+  const sendMessage = async () => {
+    if (!newMessage.trim() || !selectedConversation || !user || isSending) return
 
-    const message: Message = {
-      id: `m${Date.now()}`,
-      content: newMessage,
-      senderId: user.identityId,
-      timestamp: new Date(),
-      read: true
+    const messageContent = newMessage.trim()
+    setNewMessage('') // Clear input immediately for better UX
+    setIsSending(true)
+
+    try {
+      const result = await directMessageService.sendMessage(
+        user.identityId,
+        selectedConversation.participantId,
+        messageContent
+      )
+
+      if (result.success && result.message) {
+        // Add message to UI
+        setMessages(prev => [...prev, result.message!])
+
+        // Update conversation's last message
+        setConversations(prev => prev.map(conv =>
+          conv.id === selectedConversation.id
+            ? { ...conv, lastMessage: result.message!, updatedAt: new Date() }
+            : conv
+        ))
+      } else {
+        toast.error(result.error || 'Failed to send message')
+        setNewMessage(messageContent) // Restore message on failure
+      }
+    } catch (error) {
+      console.error('Failed to send message:', error)
+      toast.error('Failed to send message')
+      setNewMessage(messageContent) // Restore message on failure
+    } finally {
+      setIsSending(false)
     }
-
-    setMessages(prev => [...prev, message])
-    setNewMessage('')
-    
-    // Update last message in conversation
-    setConversations(prev => prev.map(conv => 
-      conv.id === selectedConversation.id
-        ? { ...conv, lastMessage: message }
-        : conv
-    ))
   }
 
-  const filteredConversations = conversations.filter(conv => 
-    conv.participantId.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredConversations = conversations.filter(conv =>
+    conv.participantId.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    conv.participantUsername?.toLowerCase().includes(searchQuery.toLowerCase())
   )
+
+  const startNewConversation = async () => {
+    if (!newConversationInput.trim() || !user || isResolvingUser) return
+
+    setIsResolvingUser(true)
+    const input = newConversationInput.trim()
+
+    try {
+      let participantId: string
+      let participantUsername: string | undefined
+
+      // Check if input looks like an identity ID (base58, ~44 chars) or a username
+      if (input.length > 30 && !input.includes('.')) {
+        // Likely an identity ID - verify it exists
+        participantId = input
+        try {
+          const identity = await identityService.getIdentity(participantId)
+          if (!identity) {
+            toast.error('Identity not found')
+            return
+          }
+          // Try to resolve username for this identity
+          participantUsername = await dpnsService.resolveUsername(participantId) || undefined
+        } catch (err) {
+          console.error('Error verifying identity:', err)
+          toast.error('Could not verify identity. Please check the ID.')
+          return
+        }
+      } else {
+        // Treat as username - resolve to identity ID
+        const username = input.replace(/\.dash$/, '') // Remove .dash suffix if present
+        const resolvedId = await dpnsService.resolveIdentity(username)
+        if (!resolvedId) {
+          toast.error(`Username "${username}" not found`)
+          return
+        }
+        participantId = resolvedId
+        participantUsername = username
+      }
+
+      // Don't start conversation with yourself
+      if (participantId === user.identityId) {
+        toast.error("You can't message yourself")
+        return
+      }
+
+      // Check if conversation already exists
+      const existingConv = conversations.find(c => c.participantId === participantId)
+      if (existingConv) {
+        setSelectedConversation(existingConv)
+        setShowNewConversation(false)
+        setNewConversationInput('')
+        return
+      }
+
+      // Create new conversation entry
+      const { conversationId } = await directMessageService.getOrCreateConversation(
+        user.identityId,
+        participantId
+      )
+
+      const newConv: Conversation = {
+        id: conversationId,
+        participantId,
+        participantUsername,
+        unreadCount: 0,
+        updatedAt: new Date()
+      }
+
+      setConversations(prev => [newConv, ...prev])
+      setSelectedConversation(newConv)
+      setShowNewConversation(false)
+      setNewConversationInput('')
+      setMessages([]) // Clear messages for new conversation
+    } catch (error) {
+      console.error('Failed to start conversation:', error)
+      toast.error('Failed to start conversation')
+    } finally {
+      setIsResolvingUser(false)
+    }
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -163,7 +220,10 @@ function MessagesPage() {
           <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between px-4 py-3">
               <h1 className="text-xl font-bold">Messages</h1>
-              <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full">
+              <button
+                onClick={() => setShowNewConversation(true)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
+              >
                 <PlusIcon className="h-5 w-5" />
               </button>
             </div>
@@ -206,22 +266,26 @@ function MessagesPage() {
                   <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
                     <AvatarCanvas features={generateAvatarV2(conversation.participantId)} size={48} />
                   </div>
-                  
+
                   <div className="flex-1 text-left">
                     <div className="flex items-center justify-between mb-1">
                       <span className="font-semibold">
-                        {conversation.participantId.slice(0, 8)}...
+                        {conversation.participantUsername || `${conversation.participantId.slice(0, 8)}...`}
                       </span>
-                      <span className="text-xs text-gray-500">
-                        {formatDistanceToNow(conversation.lastMessage.timestamp, { addSuffix: true })}
-                      </span>
+                      {conversation.lastMessage && (
+                        <span className="text-xs text-gray-500">
+                          {formatDistanceToNow(conversation.lastMessage.createdAt, { addSuffix: true })}
+                        </span>
+                      )}
                     </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
-                      {conversation.lastMessage.senderId === user?.identityId && 'You: '}
-                      {conversation.lastMessage.content}
-                    </p>
+                    {conversation.lastMessage && (
+                      <p className="text-sm text-gray-600 dark:text-gray-400 truncate">
+                        {conversation.lastMessage.senderId === user?.identityId && 'You: '}
+                        {conversation.lastMessage.content}
+                      </p>
+                    )}
                   </div>
-                  
+
                   {conversation.unreadCount > 0 && (
                     <div className="flex items-center">
                       <div className="bg-yappr-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
@@ -245,8 +309,10 @@ function MessagesPage() {
                     <AvatarCanvas features={generateAvatarV2(selectedConversation.participantId)} size={40} />
                   </div>
                   <div>
-                    <p className="font-semibold">{selectedConversation.participantId.slice(0, 8)}...</p>
-                    <p className="text-xs text-gray-500">Active now</p>
+                    <p className="font-semibold">
+                      {selectedConversation.participantUsername || `${selectedConversation.participantId.slice(0, 8)}...`}
+                    </p>
+                    <p className="text-xs text-gray-500">{selectedConversation.participantId.slice(0, 12)}...</p>
                   </div>
                 </div>
                 
@@ -262,32 +328,42 @@ function MessagesPage() {
             </header>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-              {messages.map((message) => {
-                const isOwn = message.senderId === user?.identityId
-                return (
-                  <motion.div
-                    key={message.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
-                  >
-                    <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
-                      <div
-                        className={`px-4 py-2 rounded-2xl ${
-                          isOwn
-                            ? 'bg-yappr-500 text-white'
-                            : 'bg-gray-100 dark:bg-gray-900'
-                        }`}
-                      >
-                        <p className="text-sm">{message.content}</p>
+              {isLoadingMessages ? (
+                <div className="flex items-center justify-center h-full">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
+                </div>
+              ) : messages.length === 0 ? (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  <p>No messages yet. Start the conversation!</p>
+                </div>
+              ) : (
+                messages.map((message) => {
+                  const isOwn = message.senderId === user?.identityId
+                  return (
+                    <motion.div
+                      key={message.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
+                    >
+                      <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
+                        <div
+                          className={`px-4 py-2 rounded-2xl ${
+                            isOwn
+                              ? 'bg-yappr-500 text-white'
+                              : 'bg-gray-100 dark:bg-gray-900'
+                          }`}
+                        >
+                          <p className="text-sm">{message.content}</p>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1 px-2">
+                          {formatDistanceToNow(message.createdAt, { addSuffix: true })}
+                        </p>
                       </div>
-                      <p className="text-xs text-gray-500 mt-1 px-2">
-                        {formatDistanceToNow(message.timestamp, { addSuffix: true })}
-                      </p>
-                    </div>
-                  </motion.div>
-                )
-              })}
+                    </motion.div>
+                  )
+                })
+              )}
             </div>
 
             <div className="border-t border-gray-200 dark:border-gray-800 p-4">
@@ -310,6 +386,7 @@ function MessagesPage() {
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
+                  disabled={isSending}
                   className="flex-1"
                 />
                 
@@ -323,9 +400,13 @@ function MessagesPage() {
                 <Button
                   type="submit"
                   size="sm"
-                  disabled={!newMessage.trim()}
+                  disabled={!newMessage.trim() || isSending}
                 >
-                  <PaperAirplaneIcon className="h-4 w-4" />
+                  {isSending ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    <PaperAirplaneIcon className="h-4 w-4" />
+                  )}
                 </Button>
               </form>
             </div>
@@ -340,6 +421,73 @@ function MessagesPage() {
           </div>
         )}
       </main>
+
+      {/* New Conversation Modal */}
+      {showNewConversation && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowNewConversation(false)}
+          />
+          <div className="relative bg-white dark:bg-gray-900 rounded-2xl w-full max-w-md mx-4 p-6 shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold">New Message</h2>
+              <button
+                onClick={() => setShowNewConversation(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+              >
+                <XMarkIcon className="h-5 w-5" />
+              </button>
+            </div>
+
+            <form
+              onSubmit={(e) => {
+                e.preventDefault()
+                startNewConversation()
+              }}
+            >
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2 text-gray-700 dark:text-gray-300">
+                  Username or Identity ID
+                </label>
+                <Input
+                  type="text"
+                  placeholder="Enter username (e.g., alice) or identity ID"
+                  value={newConversationInput}
+                  onChange={(e) => setNewConversationInput(e.target.value)}
+                  disabled={isResolvingUser}
+                  autoFocus
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Enter a DPNS username or paste a full identity ID
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => setShowNewConversation(false)}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  className="flex-1"
+                  disabled={!newConversationInput.trim() || isResolvingUser}
+                >
+                  {isResolvingUser ? (
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  ) : (
+                    'Start Chat'
+                  )}
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

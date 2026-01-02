@@ -1,7 +1,7 @@
 'use client'
 
-// Import the centralized SDK service (now using EvoSDK)
-import { wasmSdkService } from './services/wasm-sdk-service'
+// Import the centralized SDK service
+import { evoSdkService } from './services/evo-sdk-service'
 import { YAPPR_CONTRACT_ID } from './constants'
 
 export class DashPlatformClient {
@@ -9,7 +9,7 @@ export class DashPlatformClient {
   private identityId: string | null = null
   private isInitializing: boolean = false
   private postsCache: Map<string, { posts: any[], timestamp: number }> = new Map()
-  private readonly CACHE_TTL = 30000 // 30 seconds for posts cache
+  private readonly CACHE_TTL = 120000 // 2 minutes for posts cache (reduced query frequency)
   private pendingQueries: Map<string, Promise<any[]>> = new Map() // Prevent duplicate queries
   
   constructor() {
@@ -39,10 +39,10 @@ export class DashPlatformClient {
       console.log('DashPlatformClient: Initializing via WasmSdkService for network:', network)
       
       // Initialize the WASM SDK service if not already done
-      await wasmSdkService.initialize({ network, contractId })
+      await evoSdkService.initialize({ network, contractId })
       
       // Get the SDK instance
-      this.sdk = await wasmSdkService.getSdk()
+      this.sdk = await evoSdkService.getSdk()
       
       console.log('DashPlatformClient: WASM SDK initialized successfully via service')
     } catch (error) {
@@ -317,12 +317,22 @@ export class DashPlatformClient {
         // Clean up the pending query
         this.pendingQueries.delete(cacheKey)
       }
-    } catch (error) {
-      console.error('DashPlatformClient: Failed to query posts:', error)
+    } catch (error: any) {
+      // Extract error message from WasmSdkError or regular Error
+      let errorMessage = 'Unknown error'
+      if (error && typeof error.message === 'string') {
+        errorMessage = error.message
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      console.error('DashPlatformClient: Failed to query posts:', errorMessage, {
+        code: error?.code,
+        kind: error?.kind
+      })
       throw error
     }
   }
-  
+
   /**
    * Execute the actual posts query (separated to allow proper pending query management)
    */
@@ -335,7 +345,13 @@ export class DashPlatformClient {
         // Query by $ownerId (system field)
         where.push(['$ownerId', '==', options.authorId])
       }
-      
+
+      // Dash Platform requires a where clause on the orderBy field for ordering to work.
+      // Add a range query on $createdAt that matches all documents if no other filter.
+      if (where.length === 0) {
+        where.push(['$createdAt', '>', 0])
+      }
+
       // Build order by clause - most recent first
       const orderBy = [['$createdAt', 'desc']]
       
@@ -371,26 +387,72 @@ export class DashPlatformClient {
         })
         
         return posts
-      } catch (queryError) {
-        console.log('DashPlatformClient: Document query failed, this may be expected for new contracts:', queryError)
-        
-        // For contract-related errors, return empty array instead of throwing
-        const errorMessage = queryError instanceof Error ? queryError.message : String(queryError)
-        if (errorMessage.includes('contract') || errorMessage.includes('Contract') ||
-            errorMessage.includes('not found') || errorMessage.includes('Not found')) {
-          console.log('DashPlatformClient: Contract-related error, returning empty posts array')
+      } catch (queryError: any) {
+        // Extract error message from WasmSdkError or regular Error
+        // WasmSdkError has getters for message, code, kind, retriable, name
+        let errorMessage = 'Unknown error'
+        let errorCode: string | undefined
+        let errorKind: string | undefined
+
+        // Try to access WasmSdkError properties (they're getters)
+        try {
+          if (queryError?.message) errorMessage = queryError.message
+          if (queryError?.code) errorCode = queryError.code
+          if (queryError?.kind) errorKind = queryError.kind
+        } catch (e) {
+          // Getters might throw
+        }
+
+        // Fallback checks
+        if (errorMessage === 'Unknown error') {
+          if (queryError instanceof Error) {
+            errorMessage = queryError.message
+          } else if (typeof queryError === 'string') {
+            errorMessage = queryError
+          }
+        }
+
+        console.log('DashPlatformClient: Document query failed:', {
+          message: errorMessage,
+          code: errorCode,
+          kind: errorKind,
+          retriable: queryError?.retriable,
+          errorType: queryError?.constructor?.name,
+          errorString: String(queryError)
+        })
+
+        // For contract-related errors or "not found" errors, return empty array instead of throwing
+        // These are expected for new contracts or when no documents exist
+        const isContractError = errorMessage.toLowerCase().includes('contract')
+        const isNotFoundError = errorMessage.toLowerCase().includes('not found') ||
+            errorMessage.toLowerCase().includes('no documents')
+        const isKindNotFound = errorKind === 'NotFound' || errorKind === 'not_found'
+        const isCodeNotFound = errorCode === 'NOT_FOUND' || errorCode === 'not_found'
+
+        if (isContractError || isNotFoundError || isKindNotFound || isCodeNotFound) {
+          console.log('DashPlatformClient: Expected error (contract/not found), returning empty posts array')
           return []
         }
-        
+
         // Re-throw other errors
         throw queryError
       }
-    } catch (error) {
-      console.error('DashPlatformClient: Failed to query posts:', error)
+    } catch (error: any) {
+      // Extract error message from WasmSdkError or regular Error
+      let errorMessage = 'Unknown error'
+      if (error && typeof error.message === 'string') {
+        errorMessage = error.message
+      } else if (error instanceof Error) {
+        errorMessage = error.message
+      }
+      console.error('DashPlatformClient: _executePostsQuery failed:', errorMessage, {
+        code: error?.code,
+        kind: error?.kind
+      })
       throw error
     }
   }
-  
+
   /**
    * Clear the posts cache and pending queries
    */

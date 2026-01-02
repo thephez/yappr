@@ -19,6 +19,7 @@ export interface AuthUser {
 interface AuthContextType {
   user: AuthUser | null
   isLoading: boolean
+  isAuthRestoring: boolean
   error: string | null
   login: (identityId: string, privateKey: string, skipUsernameCheck?: boolean) => Promise<void>
   logout: () => void
@@ -30,6 +31,7 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined)
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<AuthUser | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [isAuthRestoring, setIsAuthRestoring] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
 
@@ -81,8 +83,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
       }
     }
-    
-    restoreSession()
+
+    restoreSession().finally(() => {
+      setIsAuthRestoring(false)
+    })
   }, [])
 
   const login = useCallback(async (identityId: string, privateKey: string, skipUsernameCheck = false) => {
@@ -95,17 +99,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         throw new Error('Identity ID and private key are required')
       }
 
-      // Use the WASM SDK services
+      // Use the EvoSDK services
       const { identityService } = await import('@/lib/services/identity-service')
-      const { wasmSdkService } = await import('@/lib/services/wasm-sdk-service')
-      
+      const { evoSdkService } = await import('@/lib/services/evo-sdk-service')
+
       // Initialize SDK if needed
-      await wasmSdkService.initialize({
+      await evoSdkService.initialize({
         network: (process.env.NEXT_PUBLIC_NETWORK as 'testnet' | 'mainnet') || 'testnet',
         contractId: YAPPR_CONTRACT_ID
       })
-      
-      console.log('Fetching identity with WASM SDK...')
+
+      console.log('Fetching identity with EvoSDK...')
       const identityData = await identityService.getIdentity(identityId)
       
       if (!identityData) {
@@ -237,6 +241,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     <AuthContext.Provider value={{
       user,
       isLoading,
+      isAuthRestoring,
       error,
       login,
       logout,
@@ -265,10 +270,13 @@ export function withAuth<P extends object>(
   }
 ) {
   return function AuthenticatedComponent(props: P) {
-    const { user } = useAuth()
+    const { user, isAuthRestoring } = useAuth()
     const router = useRouter()
 
     useEffect(() => {
+      // Wait for session restoration to complete before checking auth
+      if (isAuthRestoring) return
+
       console.log('withAuth check - user:', user)
       if (!user) {
         if (options?.optional) {
@@ -279,7 +287,7 @@ export function withAuth<P extends object>(
         router.push('/login')
         return
       }
-      
+
       // Check if user has DPNS username (unless explicitly allowed without)
       const skipDPNS = sessionStorage.getItem('yappr_skip_dpns') === 'true'
       if (!options?.allowWithoutDPNS && !user.dpnsUsername && !skipDPNS) {
@@ -287,9 +295,9 @@ export function withAuth<P extends object>(
         router.push('/dpns/register')
         return
       }
-    }, [user, router])
+    }, [user, isAuthRestoring, router])
 
-    if (!user) {
+    if (isAuthRestoring || !user) {
       return (
         <div className="flex items-center justify-center min-h-screen">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>

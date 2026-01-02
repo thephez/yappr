@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState } from 'react'
-import { wasmSdkService } from '@/lib/services/wasm-sdk-service'
+import { evoSdkService } from '@/lib/services/evo-sdk-service'
 import { YAPPR_CONTRACT_ID } from '@/lib/constants'
 
 interface SdkContextType {
@@ -18,18 +18,18 @@ export function SdkProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const initializeSdk = async () => {
       try {
-        console.log('SdkProvider: Starting WASM SDK initialization for testnet...')
-        
+        console.log('SdkProvider: Starting EvoSDK initialization for testnet...')
+
         // Initialize with testnet configuration
-        await wasmSdkService.initialize({
+        await evoSdkService.initialize({
           network: 'testnet',
           contractId: YAPPR_CONTRACT_ID
         })
-        
+
         setIsReady(true)
-        console.log('SdkProvider: WASM SDK initialized successfully, isReady = true')
+        console.log('SdkProvider: EvoSDK initialized successfully, isReady = true')
       } catch (err) {
-        console.error('SdkProvider: Failed to initialize WASM SDK:', err)
+        console.error('SdkProvider: Failed to initialize EvoSDK:', err)
         setError(err instanceof Error ? err.message : 'Failed to initialize SDK')
         // Still set isReady to false explicitly
         setIsReady(false)

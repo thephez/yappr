@@ -1,4 +1,4 @@
-import { getWasmSdk } from './wasm-sdk-service';
+import { getEvoSdk } from './evo-sdk-service';
 
 export interface StateTransitionResult {
   success: boolean;
@@ -81,7 +81,7 @@ class StateTransitionService {
     documentData: any
   ): Promise<StateTransitionResult> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       const privateKey = await this.getPrivateKey(ownerId);
       const entropy = this.generateEntropy();
       
@@ -128,7 +128,7 @@ class StateTransitionService {
     revision: number
   ): Promise<StateTransitionResult> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       const privateKey = await this.getPrivateKey(ownerId);
       
       console.log(`Updating ${documentType} document ${documentId}...`);
@@ -168,7 +168,7 @@ class StateTransitionService {
     ownerId: string
   ): Promise<StateTransitionResult> {
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       const privateKey = await this.getPrivateKey(ownerId);
       
       console.log(`Deleting ${documentType} document ${documentId}...`);
@@ -216,7 +216,7 @@ class StateTransitionService {
     let attempt = 0;
     
     try {
-      const sdk = await getWasmSdk();
+      const sdk = await getEvoSdk();
       
       console.log(`Waiting for transaction confirmation: ${transactionHash}`);
       

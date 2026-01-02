@@ -37,12 +37,18 @@ class RepostService extends BaseDocumentService<RepostDocument> {
         return true;
       }
 
+      // Convert postId to byte array
+      // Use Array.from() because Uint8Array doesn't serialize properly through SDK
+      const bs58Module = await import('bs58');
+      const bs58 = bs58Module.default;
+      const postIdBytes = Array.from(bs58.decode(postId));
+
       // Use state transition service for creation
       const result = await stateTransitionService.createDocument(
         this.contractId,
         this.documentType,
         ownerId,
-        { postId }
+        { postId: postIdBytes }
       );
 
       return result.success;
@@ -91,6 +97,7 @@ class RepostService extends BaseDocumentService<RepostDocument> {
    */
   async getRepost(postId: string, ownerId: string): Promise<RepostDocument | null> {
     try {
+      // Pass identifier as base58 string - the SDK handles conversion
       const result = await this.query({
         where: [
           ['postId', '==', postId],
@@ -111,9 +118,14 @@ class RepostService extends BaseDocumentService<RepostDocument> {
    */
   async getPostReposts(postId: string, options: QueryOptions = {}): Promise<RepostDocument[]> {
     try {
+      // Pass identifier as base58 string - the SDK handles conversion
+      // Dash Platform requires a where clause on the orderBy field for ordering to work
       const result = await this.query({
-        where: [['postId', '==', postId]],
-        orderBy: [['$createdAt', 'desc']],
+        where: [
+          ['postId', '==', postId],
+          ['$createdAt', '>', 0]
+        ],
+        orderBy: [['$createdAt', 'asc']],
         limit: 50,
         ...options
       });
@@ -130,9 +142,13 @@ class RepostService extends BaseDocumentService<RepostDocument> {
    */
   async getUserReposts(userId: string, options: QueryOptions = {}): Promise<RepostDocument[]> {
     try {
+      // Dash Platform requires a where clause on the orderBy field for ordering to work
       const result = await this.query({
-        where: [['$ownerId', '==', userId]],
-        orderBy: [['$createdAt', 'desc']],
+        where: [
+          ['$ownerId', '==', userId],
+          ['$createdAt', '>', 0]
+        ],
+        orderBy: [['$createdAt', 'asc']],
         limit: 50,
         ...options
       });

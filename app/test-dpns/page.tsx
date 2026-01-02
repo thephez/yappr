@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect } from 'react'
-import { wasmSdkService, dpnsService } from '@/lib/services'
+import { evoSdkService, dpnsService } from '@/lib/services'
 import { YAPPR_CONTRACT_ID } from '@/lib/constants'
 
 export default function TestDpnsPage() {
@@ -25,8 +25,8 @@ export default function TestDpnsPage() {
 
   const initializeSdk = async () => {
     try {
-      setStatus('Initializing WASM SDK...')
-      await wasmSdkService.initialize({
+      setStatus('Initializing EvoSDK...')
+      await evoSdkService.initialize({
         network: 'testnet',
         contractId: YAPPR_CONTRACT_ID
       })

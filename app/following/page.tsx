@@ -93,18 +93,8 @@ function FollowingPage() {
         return
       }
       
-      // Batch fetch DPNS names, all usernames, and profiles
-      const [dpnsNames, allUsernamesData, profiles] = await Promise.all([
-        // Fetch best DPNS names for all identities
-        Promise.all(identityIds.map(async (id) => {
-          try {
-            const username = await dpnsService.resolveUsername(id)
-            return { id, username }
-          } catch (error) {
-            console.error(`Failed to resolve DPNS for ${id}:`, error)
-            return { id, username: null }
-          }
-        })),
+      // Batch fetch all usernames and profiles (single DPNS query per user, not two)
+      const [allUsernamesData, profiles] = await Promise.all([
         // Fetch all usernames for each identity
         Promise.all(identityIds.map(async (id) => {
           try {
@@ -118,7 +108,14 @@ function FollowingPage() {
         // Fetch Yappr profiles
         profileService.getProfilesByIdentityIds(identityIds)
       ])
-      
+
+      // Derive best username from all usernames (avoids duplicate DPNS query)
+      const dpnsNames = await Promise.all(allUsernamesData.map(async ({ id, usernames }) => {
+        if (usernames.length === 0) return { id, username: null }
+        const sorted = await dpnsService.sortUsernamesByContested(usernames)
+        return { id, username: sorted[0] || null }
+      }))
+
       // Create maps for easy lookup
       const dpnsMap = new Map(dpnsNames.map(item => [item.id, item.username]))
       const allUsernamesMap = new Map(allUsernamesData.map(item => [item.id, item.usernames]))
@@ -260,24 +257,26 @@ function FollowingPage() {
         })
         
         // Create user objects - one per unique owner
-        const searchUsers: FollowingUser[] = Array.from(ownerToNames.entries()).map(([ownerId, names]) => {
-          const profile = profileMap.get(ownerId)
-          // Sort names with contested ones first
-          const sortedNames = dpnsService.sortUsernamesByContested(names)
-          const primaryUsername = sortedNames[0]
-          
-          return {
-            id: ownerId,
-            username: primaryUsername,
-            displayName: profile?.displayName || primaryUsername,
-            bio: profile?.bio || 'Not yet on Yappr',
-            hasProfile: !!profile,
-            followersCount: 0, // Would need to query this
-            followingCount: 0, // Would need to query this
-            isFollowing: followingState.data?.some(u => u.id === ownerId) || false,
-            allUsernames: sortedNames
-          }
-        })
+        const searchUsers: FollowingUser[] = await Promise.all(
+          Array.from(ownerToNames.entries()).map(async ([ownerId, names]) => {
+            const profile = profileMap.get(ownerId)
+            // Sort names with contested ones first
+            const sortedNames = await dpnsService.sortUsernamesByContested(names)
+            const primaryUsername = sortedNames[0]
+
+            return {
+              id: ownerId,
+              username: primaryUsername,
+              displayName: profile?.displayName || primaryUsername,
+              bio: profile?.bio || 'Not yet on Yappr',
+              hasProfile: !!profile,
+              followersCount: 0, // Would need to query this
+              followingCount: 0, // Would need to query this
+              isFollowing: followingState.data?.some(u => u.id === ownerId) || false,
+              allUsernames: sortedNames
+            }
+          })
+        )
         
         setSearchResults(searchUsers)
       } else {

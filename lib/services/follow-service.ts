@@ -57,21 +57,26 @@ class FollowService extends BaseDocumentService<FollowDocument> {
         return { success: true };
       }
 
+      // Convert targetUserId to byte array
+      // Use Array.from() because Uint8Array doesn't serialize properly through SDK
+      const bs58Module = await import('bs58');
+      const bs58 = bs58Module.default;
+      const followingIdBytes = Array.from(bs58.decode(targetUserId));
+
       // Use state transition service for creation
-      // The WASM SDK should handle the conversion of base58 ID to byte array
       const result = await stateTransitionService.createDocument(
         this.contractId,
         this.documentType,
         followerUserId,
-        { followingId: targetUserId }
+        { followingId: followingIdBytes }
       );
 
       return result;
     } catch (error) {
       console.error('Error following user:', error);
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Failed to follow user' 
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Failed to follow user'
       };
     }
   }
@@ -120,10 +125,11 @@ class FollowService extends BaseDocumentService<FollowDocument> {
    */
   async getFollow(targetUserId: string, followerUserId: string): Promise<FollowDocument | null> {
     try {
+      // Pass identifier as base58 string - the SDK handles conversion
       const result = await this.query({
         where: [
-          ['followingId', '==', targetUserId],
-          ['$ownerId', '==', followerUserId]
+          ['$ownerId', '==', followerUserId],
+          ['followingId', '==', targetUserId]
         ],
         limit: 1
       });
@@ -140,9 +146,10 @@ class FollowService extends BaseDocumentService<FollowDocument> {
    */
   async getFollowers(userId: string, options: QueryOptions = {}): Promise<FollowDocument[]> {
     try {
+      // Pass identifier as base58 string - the SDK handles conversion
       const result = await this.query({
         where: [['followingId', '==', userId]],
-        orderBy: [['$createdAt', 'desc']],
+        orderBy: [['$createdAt', 'asc']],
         limit: 50,
         ...options
       });
@@ -161,7 +168,7 @@ class FollowService extends BaseDocumentService<FollowDocument> {
     try {
       const result = await this.query({
         where: [['$ownerId', '==', userId]],
-        orderBy: [['$createdAt', 'desc']],
+        orderBy: [['$createdAt', 'asc']],
         limit: 50,
         ...options
       });
@@ -174,19 +181,83 @@ class FollowService extends BaseDocumentService<FollowDocument> {
   }
 
   /**
-   * Count followers
+   * Count followers - uses direct SDK query for reliability
    */
   async countFollowers(userId: string): Promise<number> {
-    const followers = await this.getFollowers(userId);
-    return followers.length;
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+
+      const sdk = await getEvoSdk();
+
+      // Pass identifier as base58 string - the SDK handles conversion
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'follow',
+        where: [
+          ['followingId', '==', userId],
+          ['$createdAt', '>', 0]
+        ],
+        orderBy: [['$createdAt', 'asc']],
+        limit: 100
+      });
+
+      let documents;
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      } else {
+        documents = [];
+      }
+
+      return documents.length;
+    } catch (error: any) {
+      // WasmSdkError doesn't display message properly - extract it
+      const errorMessage = error?.message || error?.toString?.() || JSON.stringify(error);
+      console.error('Error counting followers:', errorMessage, error);
+      return 0;
+    }
   }
 
   /**
-   * Count following
+   * Count following - uses direct SDK query for reliability
    */
   async countFollowing(userId: string): Promise<number> {
-    const following = await this.getFollowing(userId);
-    return following.length;
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+
+      const sdk = await getEvoSdk();
+
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'follow',
+        where: [['$ownerId', '==', userId]],
+        orderBy: [['$createdAt', 'asc']],
+        limit: 100
+      });
+
+      let documents;
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      } else {
+        documents = [];
+      }
+
+      return documents.length;
+    } catch (error: any) {
+      // WasmSdkError doesn't display message properly - extract it
+      const errorMessage = error?.message || error?.toString?.() || JSON.stringify(error);
+      console.error('Error counting following:', errorMessage, error);
+      return 0;
+    }
   }
 
   /**

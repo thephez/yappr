@@ -1,16 +1,13 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { motion } from 'framer-motion'
 import { SparklesIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { PostCard } from '@/components/post/post-card'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { ComposeModal } from '@/components/compose/compose-modal'
 import { useAppStore } from '@/lib/store'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
-import { getInitials } from '@/lib/utils'
-import * as Tabs from '@radix-ui/react-tabs'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
 import { AvatarCanvas } from '@/components/ui/avatar-canvas'
 import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
@@ -18,13 +15,16 @@ import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { getDashPlatformClient } from '@/lib/dash-platform-client'
 import { cacheManager } from '@/lib/cache-manager'
+import { dpnsService } from '@/lib/services/dpns-service'
 
 function FeedPage() {
-  const [activeTab, setActiveTab] = useState('for-you')
   const [isHydrated, setIsHydrated] = useState(false)
   const { setComposeOpen } = useAppStore()
   const { user } = useAuth()
-  const postsState = useAsyncState<any[]>([])
+  const postsState = useAsyncState<any[]>(null)
+  const [hasMore, setHasMore] = useState(true)
+  const [isLoadingMore, setIsLoadingMore] = useState(false)
+  const [lastPostId, setLastPostId] = useState<string | null>(null)
   
   // Prevent hydration mismatches
   useEffect(() => {
@@ -35,62 +35,57 @@ function FeedPage() {
   const avatarFeatures = user && isHydrated ? generateAvatarV2(user.identityId) : null
   
   // Load posts function - using real WASM SDK with updated version
-  const loadPosts = useCallback(async (forceRefresh: boolean = false) => {
+  const loadPosts = useCallback(async (forceRefresh: boolean = false, startAfter?: string) => {
     // Use the setter functions directly, not the whole postsState object
     const { setLoading, setError, setData } = postsState
-    
-    setLoading(true)
+
+    // Only show main loading state for initial load
+    if (!startAfter) {
+      setLoading(true)
+    }
     setError(null)
-    
+
     try {
-      console.log('Feed: Loading posts from Dash Platform...')
-      
+      console.log('Feed: Loading posts from Dash Platform...', startAfter ? `(after ${startAfter})` : '')
+
       const dashClient = getDashPlatformClient()
-      
-      // Cache key based on active tab and user
-      const cacheKey = activeTab === 'your-posts' && user?.identityId 
-        ? `feed_your_posts_${user.identityId}`
-        : `feed_${activeTab}`
-      
-      // Check cache first unless force refresh
-      if (!forceRefresh) {
+
+      const cacheKey = 'feed_for_you'
+
+      // Check cache first unless force refresh or paginating
+      if (!forceRefresh && !startAfter) {
         const cached = cacheManager.get<any[]>('feed', cacheKey)
         if (cached) {
           console.log('Feed: Using cached data')
           setData(cached)
           setLoading(false)
+          // Set lastPostId from cached data
+          if (cached.length > 0) {
+            setLastPostId(cached[cached.length - 1].id)
+            setHasMore(cached.length >= 20)
+          }
           return
         }
       }
-      
+
       // Query posts from the platform
       const queryOptions: any = {
         limit: 20,
-        forceRefresh: false
+        forceRefresh: false,
+        startAfter: startAfter
       }
-      
-      // Only filter by user for "Your Posts" tab
-      if (activeTab === 'your-posts' && user?.identityId) {
-        queryOptions.authorId = user.identityId
-        console.log('Feed: Filtering posts by user:', user.identityId)
-      }
-      // For "For You" and "Trending", get all posts
-      else {
-        console.log('Feed: Loading all posts for:', activeTab)
-      }
+
+      console.log('Feed: Loading all posts', startAfter ? `starting after ${startAfter}` : '')
       
       const posts = await dashClient.queryPosts(queryOptions)
       
       console.log('Feed: Raw posts from platform:', posts)
       
-      // Transform posts to match our UI format
-      const transformedPosts = await Promise.all(posts.map(async (doc: any) => {
-        // Extract the document data
+      // Transform posts to match our UI format (sync - no async work needed here)
+      const transformedPosts = posts.map((doc: any) => {
         const data = doc.data || doc
-        
-        // Get the author ID from ownerId (SDK returns without $ prefix)
         const authorIdStr = doc.ownerId || 'unknown'
-        
+
         return {
           id: doc.id || Math.random().toString(36).substr(2, 9),
           content: data.content || 'No content',
@@ -102,39 +97,91 @@ function FeedPage() {
             verified: false
           },
           createdAt: doc.createdAt ? new Date(doc.createdAt).toISOString() : new Date().toISOString(),
-          likes: Math.floor(Math.random() * 50), // Placeholder until we implement likes
-          replies: Math.floor(Math.random() * 20), // Placeholder until we implement replies
-          reposts: Math.floor(Math.random() * 10), // Placeholder until we implement reposts
+          likes: 0,
+          replies: 0,
+          reposts: 0,
           liked: false,
           reposted: false,
           bookmarked: false
         }
-      }))
-      
-      console.log('Feed: Transformed posts:', transformedPosts)
-      
+      })
+
       // Sort posts by createdAt to ensure newest first
-      const sortedPosts = transformedPosts.sort((a, b) => {
+      const sortedPosts = transformedPosts.sort((a: any, b: any) => {
         const dateA = new Date(a.createdAt).getTime()
         const dateB = new Date(b.createdAt).getTime()
-        return dateB - dateA // Newest first
+        return dateB - dateA
       })
-      
-      
-      // If no posts found, show helpful message but don't error
+
+      // If no posts found, show empty state
       if (sortedPosts.length === 0) {
         console.log('Feed: No posts found on platform')
-        setData([])
-      } else {
-        // Cache the results
-        const cacheKey = activeTab === 'your-posts' && user?.identityId 
-          ? `feed_your_posts_${user.identityId}`
-          : `feed_${activeTab}`
-        cacheManager.set('feed', cacheKey, sortedPosts)
-        
-        setData(sortedPosts)
-        console.log(`Feed: Successfully loaded ${sortedPosts.length} posts (newest first)`)
+        if (!startAfter) {
+          setData([])
+        }
+        setHasMore(false)
+        return
       }
+
+      // Update pagination state
+      setLastPostId(sortedPosts[sortedPosts.length - 1].id)
+      setHasMore(sortedPosts.length >= 20)
+
+      // IMMEDIATELY show posts with placeholder usernames
+      if (startAfter) {
+        // Use functional update to get current posts (avoids stale closure)
+        setData((currentPosts: any[] | null) => {
+          const allPosts = [...(currentPosts || []), ...sortedPosts]
+          console.log(`Feed: Appended ${sortedPosts.length} posts to ${currentPosts?.length || 0} existing`)
+          return allPosts
+        })
+      } else {
+        setData(sortedPosts)
+        console.log(`Feed: Showing ${sortedPosts.length} posts (resolving usernames in background)`)
+      }
+
+      // Resolve DPNS usernames in background (non-blocking)
+      const uniqueAuthorIds = Array.from(new Set(sortedPosts.map((p: any) => p.author.id)))
+      console.log(`Feed: Resolving ${uniqueAuthorIds.length} unique usernames in background`)
+
+      // Fire off all username resolutions concurrently, update UI as each resolves
+      uniqueAuthorIds.forEach(async (authorId) => {
+        try {
+          const username = await dpnsService.resolveUsername(authorId as string)
+          if (username) {
+            // Update all posts by this author with the resolved username
+            setData((currentPosts: any[] | null) => {
+              if (!currentPosts) return currentPosts
+              return currentPosts.map(post => {
+                if (post.author.id === authorId) {
+                  return {
+                    ...post,
+                    author: {
+                      ...post.author,
+                      username,
+                      handle: username,
+                      displayName: username.replace('.dash', '')
+                    }
+                  }
+                }
+                return post
+              })
+            })
+          }
+        } catch (err) {
+          console.warn(`Feed: Failed to resolve username for ${authorId}:`, err)
+        }
+      })
+
+      // Cache results after usernames have had time to resolve
+      setTimeout(() => {
+        setData((currentPosts: any[] | null) => {
+          if (currentPosts && currentPosts.length > 0 && !startAfter) {
+            cacheManager.set('feed', cacheKey, currentPosts)
+          }
+          return currentPosts
+        })
+      }, 5000)
       
     } catch (error) {
       console.error('Feed: Failed to load posts from platform:', error)
@@ -154,23 +201,35 @@ function FeedPage() {
     } finally {
       setLoading(false)
     }
-  }, [postsState.setLoading, postsState.setError, postsState.setData, activeTab, user?.identityId])
+  }, [postsState.setLoading, postsState.setError, postsState.setData])
 
-  // Load posts on mount, tab change, and listen for new posts
+  // Load more posts (pagination)
+  const loadMore = useCallback(async () => {
+    if (!lastPostId || isLoadingMore || !hasMore) return
+
+    setIsLoadingMore(true)
+    try {
+      await loadPosts(false, lastPostId)
+    } finally {
+      setIsLoadingMore(false)
+    }
+  }, [lastPostId, isLoadingMore, hasMore, loadPosts])
+
+  // Load posts on mount and listen for new posts
   useEffect(() => {
     loadPosts()
-    
+
     // Listen for new posts created
     const handlePostCreated = () => {
       loadPosts(true) // Force refresh when new post is created
     }
-    
+
     window.addEventListener('post-created', handlePostCreated)
-    
+
     return () => {
       window.removeEventListener('post-created', handlePostCreated)
     }
-  }, [loadPosts, activeTab])
+  }, [loadPosts])
 
   return (
     <div className="min-h-screen flex">
@@ -189,58 +248,27 @@ function FeedPage() {
               <ArrowPathIcon className={`h-5 w-5 text-gray-500 ${postsState.loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
-          
-          <Tabs.Root value={activeTab} onValueChange={setActiveTab}>
-            <Tabs.List className="flex border-b border-gray-200 dark:border-gray-800">
-              <Tabs.Trigger
-                value="for-you"
-                className="flex-1 py-4 font-medium text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors relative data-[state=active]:text-gray-900 dark:data-[state=active]:text-white"
-              >
-                For You
-                {activeTab === 'for-you' && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-1 bg-yappr-500"
-                  />
-                )}
-              </Tabs.Trigger>
-              <Tabs.Trigger
-                value="your-posts"
-                className="flex-1 py-4 font-medium text-gray-500 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors relative data-[state=active]:text-gray-900 dark:data-[state=active]:text-white"
-              >
-                Your Posts
-                {activeTab === 'your-posts' && (
-                  <motion.div
-                    layoutId="activeTab"
-                    className="absolute bottom-0 left-0 right-0 h-1 bg-yappr-500"
-                  />
-                )}
-              </Tabs.Trigger>
-            </Tabs.List>
-          </Tabs.Root>
         </header>
 
         <div className="border-b border-gray-200 dark:border-gray-800 p-4">
           <div className="flex gap-3">
-            {activeTab !== 'your-posts' && (
-              <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                {isHydrated ? (
-                  avatarFeatures ? (
-                    <AvatarCanvas features={avatarFeatures} size={48} />
-                  ) : user ? (
-                    <Avatar>
-                      <AvatarFallback>{user.identityId.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  ) : (
-                    <Avatar>
-                      <AvatarFallback>U</AvatarFallback>
-                    </Avatar>
-                  )
+            <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
+              {isHydrated ? (
+                avatarFeatures ? (
+                  <AvatarCanvas features={avatarFeatures} size={48} />
+                ) : user ? (
+                  <Avatar>
+                    <AvatarFallback>{user.identityId.slice(0, 2).toUpperCase()}</AvatarFallback>
+                  </Avatar>
                 ) : (
-                  <div className="w-full h-full bg-gray-300 dark:bg-gray-700 animate-pulse rounded-full" />
-                )}
-              </div>
-            )}
+                  <Avatar>
+                    <AvatarFallback>U</AvatarFallback>
+                  </Avatar>
+                )
+              ) : (
+                <div className="w-full h-full bg-gray-300 dark:bg-gray-700 animate-pulse rounded-full" />
+              )}
+            </div>
             <button
               onClick={() => setComposeOpen(true)}
               className="flex-1 text-left px-4 py-3 bg-gray-50 dark:bg-gray-950 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
@@ -255,24 +283,34 @@ function FeedPage() {
 
         <ErrorBoundary level="component">
           <LoadingState
-            loading={postsState.loading}
+            loading={postsState.loading || postsState.data === null}
             error={postsState.error}
-            isEmpty={!postsState.loading && postsState.data?.length === 0}
+            isEmpty={!postsState.loading && postsState.data !== null && postsState.data.length === 0}
             onRetry={loadPosts}
-            loadingText="Loading posts..."
+            loadingText="Connecting to Dash Platform..."
             emptyText="No posts yet"
-            emptyDescription="Be the first to share something! Note: Dash Platform testnet may be temporarily unavailable."
+            emptyDescription="Be the first to share something!"
           >
             <div>
               {postsState.data?.map((post) => (
                 <ErrorBoundary key={post.id} level="component">
-                  <PostCard 
-                    post={post} 
-                    hideAvatar={activeTab === 'your-posts'} 
+                  <PostCard
+                    post={post}
                     isOwnPost={user?.identityId === post.author.id}
                   />
                 </ErrorBoundary>
               ))}
+              {hasMore && postsState.data && postsState.data.length > 0 && (
+                <div className="p-4 flex justify-center border-t border-gray-200 dark:border-gray-800">
+                  <button
+                    onClick={loadMore}
+                    disabled={isLoadingMore}
+                    className="px-6 py-2 rounded-full bg-yappr-500 text-white hover:bg-yappr-600 disabled:opacity-50 transition-colors"
+                  >
+                    {isLoadingMore ? 'Loading...' : 'Load More'}
+                  </button>
+                </div>
+              )}
             </div>
           </LoadingState>
         </ErrorBoundary>

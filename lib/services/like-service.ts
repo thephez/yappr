@@ -38,6 +38,7 @@ class LikeService extends BaseDocumentService<LikeDocument> {
       }
 
       // Convert postId to byte array
+      // Use Array.from() because Uint8Array doesn't serialize properly through SDK
       const bs58Module = await import('bs58');
       const bs58 = bs58Module.default;
       const postIdBytes = Array.from(bs58.decode(postId));
@@ -96,19 +97,12 @@ class LikeService extends BaseDocumentService<LikeDocument> {
    */
   async getLike(postId: string, ownerId: string): Promise<LikeDocument | null> {
     try {
-      // Import necessary modules
-      const bs58Module = await import('bs58');
-      const bs58 = bs58Module.default;
-
       // Get SDK instance using EvoSDK
-      const sdk = await import('../services/wasm-sdk-service').then(m => m.getWasmSdk());
+      const sdk = await import('../services/evo-sdk-service').then(m => m.getEvoSdk());
 
-      // Convert postId to byte array
-      const postIdBytes = Array.from(bs58.decode(postId));
-
-      // Build where clause
+      // Pass identifier as base58 string - the SDK handles conversion
       const where = [
-        ['postId', '==', postIdBytes],
+        ['postId', '==', postId],
         ['$ownerId', '==', ownerId]
       ];
 
@@ -144,23 +138,16 @@ class LikeService extends BaseDocumentService<LikeDocument> {
    */
   async getPostLikes(postId: string, options: QueryOptions = {}): Promise<LikeDocument[]> {
     try {
-      console.log('Getting likes for post:', postId);
-
-      // Import necessary modules
-      const bs58Module = await import('bs58');
-      const bs58 = bs58Module.default;
-
       // Get SDK instance using EvoSDK
-      const sdk = await import('../services/wasm-sdk-service').then(m => m.getWasmSdk());
+      const sdk = await import('../services/evo-sdk-service').then(m => m.getEvoSdk());
 
-      // Convert postId to byte array
-      const postIdBytes = Array.from(bs58.decode(postId));
-
-      // Build where clause with byte array
-      const where = [['postId', '==', postIdBytes]];
-      const orderBy = [['$createdAt', 'desc']];
-
-      console.log('Querying likes with postIdBytes:', postIdBytes);
+      // Pass identifier as base58 string - the SDK handles conversion
+      // Dash Platform requires a where clause on the orderBy field for ordering to work
+      const where = [
+        ['postId', '==', postId],
+        ['$createdAt', '>', 0]
+      ];
+      const orderBy = [['$createdAt', 'asc']];
 
       // Query using EvoSDK documents facade
       const response = await sdk.documents.query({
@@ -183,8 +170,6 @@ class LikeService extends BaseDocumentService<LikeDocument> {
         documents = [];
       }
 
-      console.log(`Found ${documents.length} likes for post ${postId}`);
-
       // Transform documents
       return documents.map((doc: any) => this.transformDocument(doc));
 
@@ -199,9 +184,13 @@ class LikeService extends BaseDocumentService<LikeDocument> {
    */
   async getUserLikes(userId: string, options: QueryOptions = {}): Promise<LikeDocument[]> {
     try {
+      // Dash Platform requires a where clause on the orderBy field for ordering to work
       const result = await this.query({
-        where: [['$ownerId', '==', userId]],
-        orderBy: [['$createdAt', 'desc']],
+        where: [
+          ['$ownerId', '==', userId],
+          ['$createdAt', '>', 0]
+        ],
+        orderBy: [['$createdAt', 'asc']],
         limit: 50,
         ...options
       });
@@ -210,6 +199,44 @@ class LikeService extends BaseDocumentService<LikeDocument> {
     } catch (error) {
       console.error('Error getting user likes:', error);
       return [];
+    }
+  }
+
+  /**
+   * Count likes given by a user - uses direct SDK query for reliability
+   */
+  async countUserLikes(userId: string): Promise<number> {
+    try {
+      const sdk = await import('../services/evo-sdk-service').then(m => m.getEvoSdk());
+
+      // Dash Platform requires a where clause on the orderBy field for ordering to work
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'like',
+        where: [
+          ['$ownerId', '==', userId],
+          ['$createdAt', '>', 0]
+        ],
+        orderBy: [['$createdAt', 'asc']],
+        limit: 100
+      });
+
+      let documents;
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      } else {
+        documents = [];
+      }
+
+      return documents.length;
+    } catch (error) {
+      console.error('Error counting user likes:', error);
+      return 0;
     }
   }
 
