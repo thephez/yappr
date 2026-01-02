@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import { SparklesIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { PostCard } from '@/components/post/post-card'
 import { Sidebar } from '@/components/layout/sidebar'
@@ -251,34 +252,41 @@ function FeedPage() {
         </header>
 
         <div className="border-b border-gray-200 dark:border-gray-800 p-4">
-          <div className="flex gap-3">
-            <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-              {isHydrated ? (
-                avatarFeatures ? (
-                  <AvatarCanvas features={avatarFeatures} size={48} />
-                ) : user ? (
-                  <Avatar>
-                    <AvatarFallback>{user.identityId.slice(0, 2).toUpperCase()}</AvatarFallback>
-                  </Avatar>
+          {user ? (
+            <div className="flex gap-3">
+              <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
+                {isHydrated ? (
+                  avatarFeatures ? (
+                    <AvatarCanvas features={avatarFeatures} size={48} />
+                  ) : (
+                    <Avatar>
+                      <AvatarFallback>{user.identityId.slice(0, 2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                  )
                 ) : (
-                  <Avatar>
-                    <AvatarFallback>U</AvatarFallback>
-                  </Avatar>
-                )
-              ) : (
-                <div className="w-full h-full bg-gray-300 dark:bg-gray-700 animate-pulse rounded-full" />
-              )}
+                  <div className="w-full h-full bg-gray-300 dark:bg-gray-700 animate-pulse rounded-full" />
+                )}
+              </div>
+              <button
+                onClick={() => setComposeOpen(true)}
+                className="flex-1 text-left px-4 py-3 bg-gray-50 dark:bg-gray-950 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
+              >
+                What&apos;s happening?
+              </button>
+              <button className="p-3 rounded-full hover:bg-yappr-50 dark:hover:bg-yappr-950 text-yappr-500">
+                <SparklesIcon className="h-5 w-5" />
+              </button>
             </div>
-            <button
-              onClick={() => setComposeOpen(true)}
-              className="flex-1 text-left px-4 py-3 bg-gray-50 dark:bg-gray-950 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
-            >
-              What&apos;s happening?
-            </button>
-            <button className="p-3 rounded-full hover:bg-yappr-50 dark:hover:bg-yappr-950 text-yappr-500">
-              <SparklesIcon className="h-5 w-5" />
-            </button>
-          </div>
+          ) : (
+            <div className="flex items-center justify-center py-2">
+              <Link
+                href="/login"
+                className="text-yappr-500 hover:text-yappr-600 font-medium"
+              >
+                Login to share your thoughts
+              </Link>
+            </div>
+          )}
         </div>
 
         <ErrorBoundary level="component">

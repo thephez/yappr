@@ -171,7 +171,7 @@ export default function PublicHomePage() {
                 </Link>
               </Button>
               <Button size="lg" variant="outline" asChild>
-                <Link href="/explore">
+                <Link href="/feed">
                   Explore Public Posts
                 </Link>
               </Button>
