@@ -1,6 +1,5 @@
 'use client'
 
-import packageJson from '@/package.json'
 import { cacheManager } from '@/lib/cache-manager'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 
@@ -73,8 +72,6 @@ export function DevelopmentBanner() {
           <span className="opacity-80">|</span>
           {' '}
           <span className="font-medium">Running on Dash Platform Testnet. Data may be reset.</span>
-          {' '}
-          <span className="opacity-80">v{packageJson.version}</span>
         </p>
 
         <button
