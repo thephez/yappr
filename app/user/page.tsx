@@ -20,6 +20,7 @@ import {
 } from '@/lib/avatar-generator-v2'
 import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
+import * as Tooltip from '@radix-ui/react-tooltip'
 import type { Post } from '@/lib/types'
 
 interface ProfileData {
@@ -42,6 +43,7 @@ function UserProfileContent() {
 
   const [profile, setProfile] = useState<ProfileData | null>(null)
   const [username, setUsername] = useState<string | null>(null)
+  const [hasDpns, setHasDpns] = useState(false)
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
@@ -52,7 +54,6 @@ function UserProfileContent() {
     : generateAvatarV2(userId || 'default')
 
   const displayName = profile?.displayName || (userId ? `User ${userId.slice(-6)}` : 'Unknown')
-  const displayUsername = username || (userId ? `user_${userId.slice(-6)}` : 'unknown')
 
   useEffect(() => {
     if (!userId) return
@@ -122,6 +123,16 @@ function UserProfileContent() {
           const resolvedUsername = await dpnsService.resolveUsername(userId)
           if (resolvedUsername) {
             setUsername(resolvedUsername)
+            setHasDpns(true)
+            // Update posts with hasDpns flag
+            setPosts(currentPosts => currentPosts.map(post => ({
+              ...post,
+              author: {
+                ...post.author,
+                username: resolvedUsername,
+                hasDpns: true
+              } as any
+            })))
           }
         } catch (e) {
           // DPNS resolution is optional
@@ -162,7 +173,7 @@ function UserProfileContent() {
     return (
       <div className="min-h-screen flex">
         <Sidebar />
-        <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+        <main className="flex-1 min-w-0 max-w-[700px] border-x border-gray-200 dark:border-gray-800">
           <div className="p-8 text-center text-gray-500">
             <p>User not found</p>
           </div>
@@ -176,7 +187,7 @@ function UserProfileContent() {
     <div className="min-h-screen flex">
       <Sidebar />
 
-      <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+      <main className="flex-1 min-w-0 max-w-[700px] border-x border-gray-200 dark:border-gray-800">
         <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
           <div className="flex items-center gap-4 px-4 py-3">
             <button
@@ -241,7 +252,35 @@ function UserProfileContent() {
 
               <div className="mb-3">
                 <h2 className="text-xl font-bold">{displayName}</h2>
-                <p className="text-gray-500">@{displayUsername}</p>
+                {hasDpns ? (
+                  <p className="text-gray-500">@{username}</p>
+                ) : (
+                  <Tooltip.Provider>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger asChild>
+                        <button
+                          onClick={() => {
+                            if (userId) {
+                              navigator.clipboard.writeText(userId)
+                              toast.success('Identity ID copied')
+                            }
+                          }}
+                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono text-sm"
+                        >
+                          {userId?.slice(0, 8)}...{userId?.slice(-6)}
+                        </button>
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Content
+                          className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded max-w-xs"
+                          sideOffset={5}
+                        >
+                          Click to copy full identity ID
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  </Tooltip.Provider>
+                )}
               </div>
 
               {profile?.bio && <p className="mb-3">{profile.bio}</p>}
@@ -312,7 +351,7 @@ function LoadingFallback() {
   return (
     <div className="min-h-screen flex">
       <Sidebar />
-      <main className="flex-1 mr-[350px] max-w-[600px] border-x border-gray-200 dark:border-gray-800">
+      <main className="flex-1 min-w-0 max-w-[700px] border-x border-gray-200 dark:border-gray-800">
         <div className="p-8">
           <div className="h-48 bg-gray-100 dark:bg-gray-900 animate-pulse" />
           <div className="px-4 pb-4">

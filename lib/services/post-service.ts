@@ -440,13 +440,46 @@ class PostService extends BaseDocumentService<Post> {
     reposted: boolean;
     bookmarked: boolean;
   }> {
-    // This would check if the current user has liked/reposted/bookmarked
-    // For now, return false for all
-    return {
-      liked: false,
-      reposted: false,
-      bookmarked: false
-    };
+    const currentUserId = this.getCurrentUserId();
+    if (!currentUserId) {
+      return { liked: false, reposted: false, bookmarked: false };
+    }
+
+    try {
+      const [{ likeService }, { repostService }, { bookmarkService }] = await Promise.all([
+        import('./like-service'),
+        import('./repost-service'),
+        import('./bookmark-service')
+      ]);
+
+      const [liked, reposted, bookmarked] = await Promise.all([
+        likeService.isLiked(postId, currentUserId),
+        repostService.isReposted(postId, currentUserId),
+        bookmarkService.isBookmarked(postId, currentUserId)
+      ]);
+
+      return { liked, reposted, bookmarked };
+    } catch (error) {
+      console.error('Error getting user interactions:', error);
+      return { liked: false, reposted: false, bookmarked: false };
+    }
+  }
+
+  /**
+   * Get current user ID from localStorage session
+   */
+  private getCurrentUserId(): string | null {
+    if (typeof window === 'undefined') return null;
+    try {
+      const savedSession = localStorage.getItem('yappr_session');
+      if (savedSession) {
+        const sessionData = JSON.parse(savedSession);
+        return sessionData.user?.identityId || null;
+      }
+    } catch (e) {
+      return null;
+    }
+    return null;
   }
 
   /**
@@ -465,6 +498,196 @@ class PostService extends BaseDocumentService<Post> {
       verified: false,
       joinedAt: new Date()
     };
+  }
+
+  /**
+   * Public wrapper for getPostStats - for use by feed page
+   */
+  async getPostStatsPublic(postId: string): Promise<PostStats> {
+    return this.getPostStats(postId);
+  }
+
+  /**
+   * Public wrapper for getUserInteractions - for use by feed page
+   */
+  async getUserInteractionsPublic(postId: string): Promise<{
+    liked: boolean;
+    reposted: boolean;
+    bookmarked: boolean;
+  }> {
+    return this.getUserInteractions(postId);
+  }
+
+  /**
+   * Batch get user interactions for multiple posts
+   * Much more efficient than calling getUserInteractions per post
+   * Makes 3 queries total instead of 3 per post
+   */
+  async getBatchUserInteractions(postIds: string[]): Promise<Map<string, {
+    liked: boolean;
+    reposted: boolean;
+    bookmarked: boolean;
+  }>> {
+    const result = new Map<string, { liked: boolean; reposted: boolean; bookmarked: boolean }>();
+
+    // Initialize all posts with false
+    postIds.forEach(id => {
+      result.set(id, { liked: false, reposted: false, bookmarked: false });
+    });
+
+    const currentUserId = this.getCurrentUserId();
+    if (!currentUserId) {
+      return result;
+    }
+
+    try {
+      // Fetch all user's likes, reposts, and bookmarks in 3 queries total
+      const [{ likeService }, { repostService }, { bookmarkService }] = await Promise.all([
+        import('./like-service'),
+        import('./repost-service'),
+        import('./bookmark-service')
+      ]);
+
+      const [userLikes, userReposts, userBookmarks] = await Promise.all([
+        likeService.getUserLikes(currentUserId),
+        repostService.getUserReposts(currentUserId),
+        bookmarkService.getUserBookmarks(currentUserId)
+      ]);
+
+      // Create Sets of post IDs the user has interacted with
+      const likedPostIds = new Set(userLikes.map(l => l.postId));
+      const repostedPostIds = new Set(userReposts.map(r => r.postId));
+      const bookmarkedPostIds = new Set(userBookmarks.map(b => b.postId));
+
+      // Check each post against the Sets
+      postIds.forEach(postId => {
+        result.set(postId, {
+          liked: likedPostIds.has(postId),
+          reposted: repostedPostIds.has(postId),
+          bookmarked: bookmarkedPostIds.has(postId)
+        });
+      });
+
+      return result;
+    } catch (error) {
+      console.error('Error getting batch user interactions:', error);
+      return result;
+    }
+  }
+
+  /**
+   * Get reply counts for multiple posts in a single batch query
+   * Uses 'in' operator for efficient querying
+   */
+  async getRepliesByPostIds(postIds: string[]): Promise<Map<string, number>> {
+    const result = new Map<string, number>();
+    postIds.forEach(id => result.set(id, 0));
+
+    if (postIds.length === 0) return result;
+
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+      const sdk = await getEvoSdk();
+
+      // Use 'in' operator for batch query on replyToPostId
+      // Must include orderBy to match the replyToPost index: [replyToPostId, $createdAt]
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'post',
+        where: [['replyToPostId', 'in', postIds]],
+        orderBy: [['replyToPostId', 'asc']],
+        limit: 100
+      });
+
+      let documents: any[] = [];
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      }
+
+      // Count replies per parent post
+      for (const doc of documents) {
+        // Handle different document structures from SDK
+        // Batch queries return: { id, ownerId, data: { replyToPostId } }
+        const data = doc.data || doc;
+        let parentId = data.replyToPostId || doc.replyToPostId;
+
+        // Convert replyToPostId from bytes to base58 string if needed
+        if (parentId && typeof parentId !== 'string') {
+          try {
+            const bytes = parentId instanceof Uint8Array ? parentId : new Uint8Array(parentId);
+            const bs58 = require('bs58');
+            parentId = bs58.encode(bytes);
+          } catch (e) {
+            console.warn('Failed to convert replyToPostId to base58:', e);
+            continue;
+          }
+        }
+
+        if (parentId && result.has(parentId)) {
+          result.set(parentId, (result.get(parentId) || 0) + 1);
+        }
+      }
+    } catch (error) {
+      console.error('Error getting replies batch:', error);
+    }
+
+    return result;
+  }
+
+  /**
+   * Batch get stats for multiple posts using efficient batch queries
+   * Makes 3 batch queries total instead of 3 per post
+   */
+  async getBatchPostStats(postIds: string[]): Promise<Map<string, PostStats>> {
+    const result = new Map<string, PostStats>();
+
+    // Initialize all posts with zero stats
+    postIds.forEach(id => {
+      result.set(id, { postId: id, likes: 0, reposts: 0, replies: 0, views: 0 });
+    });
+
+    if (postIds.length === 0) return result;
+
+    try {
+      const [{ likeService }, { repostService }] = await Promise.all([
+        import('./like-service'),
+        import('./repost-service')
+      ]);
+
+      // 3 batch queries instead of 3*N queries
+      const [likes, reposts, replyCounts] = await Promise.all([
+        likeService.getLikesByPostIds(postIds),
+        repostService.getRepostsByPostIds(postIds),
+        this.getRepliesByPostIds(postIds)
+      ]);
+
+      // Count likes per post
+      for (const like of likes) {
+        const stats = result.get(like.postId);
+        if (stats) stats.likes++;
+      }
+
+      // Count reposts per post
+      for (const repost of reposts) {
+        const stats = result.get(repost.postId);
+        if (stats) stats.reposts++;
+      }
+
+      // Set reply counts
+      replyCounts.forEach((count, postId) => {
+        const stats = result.get(postId);
+        if (stats) stats.replies = count;
+      });
+    } catch (error) {
+      console.error('Error getting batch post stats:', error);
+    }
+
+    return result;
   }
 }
 

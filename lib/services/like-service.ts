@@ -17,11 +17,29 @@ class LikeService extends BaseDocumentService<LikeDocument> {
    * Transform document
    */
   protected transformDocument(doc: any): LikeDocument {
+    // Handle different document structures from SDK
+    // Batch queries return: { id, ownerId, data: { postId } }
+    // Regular queries return: { $id, $ownerId, postId }
+    const data = doc.data || doc;
+    let postId = data.postId || doc.postId;
+
+    // Convert postId from bytes to base58 string if needed
+    if (postId && typeof postId !== 'string') {
+      try {
+        const bytes = postId instanceof Uint8Array ? postId : new Uint8Array(postId);
+        const bs58 = require('bs58');
+        postId = bs58.encode(bytes);
+      } catch (e) {
+        console.warn('Failed to convert postId to base58:', e);
+        postId = String(postId);
+      }
+    }
+
     return {
-      $id: doc.$id,
-      $ownerId: doc.$ownerId,
-      $createdAt: doc.$createdAt,
-      postId: doc.postId
+      $id: doc.$id || doc.id,
+      $ownerId: doc.$ownerId || doc.ownerId,
+      $createdAt: doc.$createdAt || doc.createdAt,
+      postId
     };
   }
 
@@ -247,6 +265,43 @@ class LikeService extends BaseDocumentService<LikeDocument> {
     // In a real implementation, this would be more efficient
     const likes = await this.getPostLikes(postId);
     return likes.length;
+  }
+
+  /**
+   * Get likes for multiple posts in a single batch query
+   * Uses 'in' operator for efficient querying
+   */
+  async getLikesByPostIds(postIds: string[]): Promise<LikeDocument[]> {
+    if (postIds.length === 0) return [];
+
+    try {
+      const sdk = await import('../services/evo-sdk-service').then(m => m.getEvoSdk());
+
+      // Use 'in' operator for batch query on postId
+      // Must include orderBy to match the postLikes index: [postId, $createdAt]
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'like',
+        where: [['postId', 'in', postIds]],
+        orderBy: [['postId', 'asc']],
+        limit: 100
+      });
+
+      let documents: any[] = [];
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      }
+
+      return documents.map((doc: any) => this.transformDocument(doc));
+    } catch (error) {
+      console.error('Error getting likes batch:', error);
+      return [];
+    }
   }
 }
 

@@ -94,13 +94,19 @@ export function AvatarCanvas({ features, size = 200, className = '' }: AvatarCan
       ctx.globalAlpha = 1
     }
 
-    // Draw freckles
+    // Draw freckles (deterministic positions based on features)
     if (features.freckles > 0) {
       ctx.fillStyle = adjustBrightness(skinColor, -30)
       const freckleCount = features.freckles * 5
+      // Seeded random for deterministic freckle positions
+      let seed = features.skinTone * 1000 + features.freckles * 100 + features.faceShape
+      const seededRandom = () => {
+        seed = (seed * 1103515245 + 12345) & 0x7fffffff
+        return (seed % 1000) / 1000
+      }
       for (let i = 0; i < freckleCount; i++) {
-        const x = centerX - 40 * scale + Math.random() * 80 * scale
-        const y = centerY - 20 * scale + Math.random() * 40 * scale
+        const x = centerX - 40 * scale + seededRandom() * 80 * scale
+        const y = centerY - 20 * scale + seededRandom() * 40 * scale
         ctx.globalAlpha = 0.3
         ctx.beginPath()
         ctx.arc(x, y, 1 * scale, 0, Math.PI * 2)

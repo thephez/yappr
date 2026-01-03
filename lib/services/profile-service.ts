@@ -183,7 +183,7 @@ class ProfileService extends BaseDocumentService<User> {
   async getProfile(ownerId: string, cachedUsername?: string): Promise<User | null> {
     try {
       console.log('ProfileService: Getting profile for owner ID:', ownerId);
-      
+
       // Check cache first
       const cached = cacheManager.get<User>(this.PROFILE_CACHE, ownerId);
       if (cached) {
@@ -194,10 +194,10 @@ class ProfileService extends BaseDocumentService<User> {
         }
         return cached;
       }
-      
+
       // Set cached username for transform
       this.cachedUsername = cachedUsername;
-      
+
       // Query by owner ID
       const result = await this.query({
         where: [['$ownerId', '==', ownerId]],
@@ -210,13 +210,13 @@ class ProfileService extends BaseDocumentService<User> {
       if (result.documents.length > 0) {
         const profile = result.documents[0];
         console.log('ProfileService: Returning profile:', profile);
-        
+
         // Cache the result with profile and user tags
         cacheManager.set(this.PROFILE_CACHE, ownerId, profile, {
           ttl: 300000, // 5 minutes
           tags: ['profile', `user:${ownerId}`]
         });
-        
+
         return profile;
       }
 
@@ -228,6 +228,30 @@ class ProfileService extends BaseDocumentService<User> {
     } finally {
       // Clear cached username
       this.cachedUsername = undefined;
+    }
+  }
+
+  /**
+   * Get profile by owner ID with username fully resolved (awaited).
+   * Use this when you need the username to be available immediately.
+   */
+  async getProfileWithUsername(ownerId: string): Promise<User | null> {
+    try {
+      // First resolve the username
+      const username = await this.getUsername(ownerId);
+
+      // Then get the profile with the cached username
+      const profile = await this.getProfile(ownerId, username || undefined);
+
+      // If profile exists but username wasn't cached, ensure it's set
+      if (profile && username) {
+        profile.username = username;
+      }
+
+      return profile;
+    } catch (error) {
+      console.error('ProfileService: Error getting profile with username:', error);
+      return this.getProfile(ownerId);
     }
   }
 

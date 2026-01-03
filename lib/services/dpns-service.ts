@@ -124,6 +124,90 @@ class DpnsService {
   }
 
   /**
+   * Batch resolve usernames for multiple identity IDs (reverse lookup)
+   * Uses 'in' operator for efficient single-query resolution
+   */
+  async resolveUsernamesBatch(identityIds: string[]): Promise<Map<string, string | null>> {
+    const results = new Map<string, string | null>();
+
+    // Initialize all as null
+    identityIds.forEach(id => results.set(id, null));
+
+    if (identityIds.length === 0) return results;
+
+    // Check cache first
+    const uncachedIds: string[] = [];
+    for (const id of identityIds) {
+      const cached = this.reverseCache.get(id);
+      if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+        results.set(id, cached.value);
+      } else {
+        uncachedIds.push(id);
+      }
+    }
+
+    if (uncachedIds.length === 0) {
+      return results;
+    }
+
+    try {
+      const sdk = await getEvoSdk();
+
+      // Batch query using 'in' operator (max 100 per query)
+      // Must include orderBy to satisfy Dash Platform query requirements
+      const response = await sdk.documents.query({
+        contractId: DPNS_CONTRACT_ID,
+        type: DPNS_DOCUMENT_TYPE,
+        where: [['records.identity', 'in', uncachedIds]],
+        orderBy: [['records.identity', 'asc']],
+        limit: 100
+      });
+
+      // Process results
+      let documents: any[] = [];
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      }
+
+      // Import bs58 for conversion
+      const bs58 = require('bs58');
+
+      for (const doc of documents) {
+        const data = doc.data || doc;
+        let identityId = data.records?.identity || data.records?.dashUniqueIdentityId;
+        const label = data.label || data.normalizedLabel;
+        const parentDomain = data.normalizedParentDomainName || 'dash';
+        const username = `${label}.${parentDomain}`;
+
+        // Convert identityId from bytes to base58 string if needed
+        if (identityId && typeof identityId !== 'string') {
+          try {
+            const bytes = identityId instanceof Uint8Array ? identityId : new Uint8Array(identityId);
+            identityId = bs58.encode(bytes);
+          } catch (e) {
+            console.warn('DPNS: Failed to convert identityId to base58:', e);
+            continue;
+          }
+        }
+
+        if (identityId && label) {
+          results.set(identityId, username);
+          this._cacheEntry(username, identityId);
+        }
+      }
+    } catch (error) {
+      console.error('DPNS: Batch resolution error:', error);
+    }
+
+    return results;
+  }
+
+  /**
    * Resolve a username for an identity ID (reverse lookup)
    * Returns the best username (contested usernames are preferred)
    */
