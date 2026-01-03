@@ -33,7 +33,7 @@ function PostDetailContent() {
     updatePost
   } = usePostDetail({
     postId,
-    enabled: !!user
+    enabled: !!postId
   })
 
   const handleReply = async () => {
@@ -127,36 +127,44 @@ function PostDetailContent() {
               <PostCard post={post} />
             </div>
 
-            <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-              <form
-                onSubmit={(e) => {
-                  e.preventDefault()
-                  handleReply()
-                }}
-                className="space-y-3"
-              >
-                <Input
-                  type="text"
-                  placeholder="Post your reply"
-                  value={replyContent}
-                  onChange={(e) => setReplyContent(e.target.value)}
-                  className="w-full"
-                  maxLength={280}
-                />
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-500">
-                    {replyContent.length}/280
-                  </span>
-                  <Button
-                    type="submit"
-                    size="sm"
-                    disabled={!replyContent.trim() || isReplying}
-                  >
-                    {isReplying ? 'Posting...' : 'Reply'}
-                  </Button>
-                </div>
-              </form>
-            </div>
+            {user ? (
+              <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                <form
+                  onSubmit={(e) => {
+                    e.preventDefault()
+                    handleReply()
+                  }}
+                  className="space-y-3"
+                >
+                  <Input
+                    type="text"
+                    placeholder="Post your reply"
+                    value={replyContent}
+                    onChange={(e) => setReplyContent(e.target.value)}
+                    className="w-full"
+                    maxLength={280}
+                  />
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm text-gray-500">
+                      {replyContent.length}/280
+                    </span>
+                    <Button
+                      type="submit"
+                      size="sm"
+                      disabled={!replyContent.trim() || isReplying}
+                    >
+                      {isReplying ? 'Posting...' : 'Reply'}
+                    </Button>
+                  </div>
+                </form>
+              </div>
+            ) : (
+              <div className="p-4 border-b border-gray-200 dark:border-gray-800 text-center">
+                <p className="text-gray-500 text-sm">
+                  <a href="/login" className="text-purple-600 hover:underline">Log in</a> to reply
+                </p>
+              </div>
+            )}
 
             <div className="divide-y divide-gray-200 dark:divide-gray-800">
               {replies.length === 0 ? (
@@ -205,4 +213,4 @@ function PostDetailPage() {
   )
 }
 
-export default withAuth(PostDetailPage)
+export default withAuth(PostDetailPage, { optional: true })
