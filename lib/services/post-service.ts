@@ -28,9 +28,28 @@ export interface PostStats {
 
 class PostService extends BaseDocumentService<Post> {
   private statsCache: Map<string, { data: PostStats; timestamp: number }> = new Map();
+  // Use a counter instead of boolean to handle concurrent calls (e.g., React Strict Mode)
+  private _skipEnrichmentCount = 0;
 
   constructor() {
     super('post');
+  }
+
+  /**
+   * Temporarily skip background enrichment for batch operations.
+   * Use this when you'll handle enrichment yourself via batch methods.
+   * Uses a counter to handle concurrent calls properly.
+   */
+  setSkipEnrichment(skip: boolean): void {
+    if (skip) {
+      this._skipEnrichmentCount++;
+    } else {
+      this._skipEnrichmentCount = Math.max(0, this._skipEnrichmentCount - 1);
+    }
+  }
+
+  private get _skipEnrichment(): boolean {
+    return this._skipEnrichmentCount > 0;
   }
 
   /**
@@ -76,7 +95,10 @@ class PostService extends BaseDocumentService<Post> {
 
     // Fire-and-forget enrichment for background data (author, stats)
     // Related entities (replyTo, quotedPost) should be fetched explicitly by components that need them
-    this.enrichPost(post, id, ownerId);
+    // Skip if _skipEnrichment is set (for batch operations that handle enrichment separately)
+    if (!this._skipEnrichment) {
+      this.enrichPost(post, id, ownerId);
+    }
 
     return post;
   }
@@ -194,7 +216,10 @@ class PostService extends BaseDocumentService<Post> {
       if (!post) return null;
 
       // For single post fetch, await author resolution to prevent race condition
-      await this.resolvePostAuthor(post);
+      // Skip if enrichment is disabled (batch operations handle this separately)
+      if (!this._skipEnrichment) {
+        await this.resolvePostAuthor(post);
+      }
 
       return post;
     } catch (error) {
@@ -337,7 +362,10 @@ class PostService extends BaseDocumentService<Post> {
     const result = await this.query(queryOptions);
 
     // Await author resolution for all replies to prevent race condition
-    await Promise.all(result.documents.map(post => this.resolvePostAuthor(post)));
+    // Skip if enrichment is disabled (batch operations handle this separately)
+    if (!this._skipEnrichment) {
+      await Promise.all(result.documents.map(post => this.resolvePostAuthor(post)));
+    }
 
     return result;
   }
