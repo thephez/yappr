@@ -1,5 +1,5 @@
 import { EvoSDK } from '@dashevo/evo-sdk';
-import { DPNS_CONTRACT_ID } from '../constants';
+import { DPNS_CONTRACT_ID, YAPPR_DM_CONTRACT_ID } from '../constants';
 
 export interface EvoSdkConfig {
   network: 'testnet' | 'mainnet';
@@ -116,6 +116,16 @@ class EvoSdkService {
         console.log('EvoSdkService: DPNS contract cached');
       } catch (error) {
         console.log('EvoSdkService: DPNS contract fetch failed:', error);
+      }
+
+      // Preload DM contract (if registered)
+      if (YAPPR_DM_CONTRACT_ID && !YAPPR_DM_CONTRACT_ID.includes('PLACEHOLDER')) {
+        try {
+          await this.sdk.contracts.fetch(YAPPR_DM_CONTRACT_ID);
+          console.log('EvoSdkService: DM contract cached');
+        } catch (error) {
+          console.log('EvoSdkService: DM contract fetch failed:', error);
+        }
       }
 
     } catch (error) {

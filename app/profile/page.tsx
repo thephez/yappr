@@ -133,12 +133,12 @@ function ProfilePage() {
   }, {} as Record<string, Array<{ key: keyof AvatarFeaturesV2 } & typeof AVATAR_PROPERTIES[keyof AvatarFeaturesV2]>>)
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      
+
       <main className="flex-1 min-w-0 max-w-[700px] border-x border-gray-200 dark:border-gray-800">
         {/* Header */}
-        <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
           <div className="flex items-center gap-4 px-4 py-3">
             <button className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900">
               <ArrowLeftIcon className="h-5 w-5" />

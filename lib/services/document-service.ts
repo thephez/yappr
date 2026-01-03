@@ -22,8 +22,8 @@ export abstract class BaseDocumentService<T> {
   protected cache: Map<string, { data: T; timestamp: number }> = new Map();
   protected readonly CACHE_TTL = 120000; // 2 minutes cache (reduced query frequency)
 
-  constructor(documentType: string) {
-    this.contractId = YAPPR_CONTRACT_ID;
+  constructor(documentType: string, contractId?: string) {
+    this.contractId = contractId ?? YAPPR_CONTRACT_ID;
     this.documentType = documentType;
   }
 

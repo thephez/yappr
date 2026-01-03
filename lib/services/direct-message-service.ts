@@ -12,6 +12,7 @@ import {
   base64ToUint8Array
 } from '../message-encryption'
 import { getPrivateKey, storePrivateKey } from '../secure-storage'
+import { YAPPR_DM_CONTRACT_ID } from '../constants'
 import bs58 from 'bs58'
 
 export interface DirectMessageDocument {
@@ -29,7 +30,7 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
   private conversationCache: Map<string, string[]> = new Map() // userId -> conversationIds
 
   constructor() {
-    super('directMessage')
+    super('directMessage', YAPPR_DM_CONTRACT_ID)
   }
 
   protected transformDocument(doc: any): DirectMessageDocument {
@@ -187,7 +188,25 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
   }
 
   /**
+   * Get messages received by a user (uses receiverMessages index)
+   */
+  private async getReceivedMessages(userId: string, limit: number = 100): Promise<DirectMessageDocument[]> {
+    try {
+      const result = await this.query({
+        where: [['recipientId', '==', userId]],
+        orderBy: [['$createdAt', 'desc']],
+        limit
+      })
+      return result.documents
+    } catch (error) {
+      console.error('Error getting received messages:', error)
+      return []
+    }
+  }
+
+  /**
    * Get all conversations for a user
+   * Queries BOTH sent messages (by $ownerId) AND received messages (by recipientId)
    */
   async getConversations(userId: string): Promise<Conversation[]> {
     try {
@@ -198,47 +217,52 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
         limit: 100
       })
 
-      // Note: We can only query messages we SENT (by $ownerId)
-      // Recipients discover conversations by querying conversationId after sender tells them
-      // This is a limitation of the contract (no recipientId index)
-      // TODO (next contract update): Add recipientId index to enable querying received messages
+      // Query messages received by user (uses receiverMessages index)
+      const receivedMessages = await this.getReceivedMessages(userId, 100)
 
-      // Extract unique conversation IDs and their participants
+      // Combine and deduplicate by conversationId
+      const allMessages = [...sentResult.documents, ...receivedMessages]
+
+      // Build conversation map
       const conversationMap = new Map<string, {
         participantId: string
+        latestMessage: DirectMessageDocument
         messages: DirectMessageDocument[]
       }>()
 
-      for (const msg of sentResult.documents) {
-        if (!conversationMap.has(msg.conversationId)) {
-          conversationMap.set(msg.conversationId, {
-            participantId: msg.recipientId,
-            messages: []
+      for (const msg of allMessages) {
+        const convId = msg.conversationId
+
+        // Determine the other participant
+        const isSender = msg.$ownerId === userId
+        const participantId = isSender ? msg.recipientId : msg.$ownerId
+
+        const existing = conversationMap.get(convId)
+        if (!existing) {
+          conversationMap.set(convId, {
+            participantId,
+            latestMessage: msg,
+            messages: [msg]
           })
+        } else {
+          // Check if this message is already in the list (dedup)
+          if (!existing.messages.some(m => m.$id === msg.$id)) {
+            existing.messages.push(msg)
+          }
+          // Update latest if this message is newer
+          if (msg.$createdAt > existing.latestMessage.$createdAt) {
+            existing.latestMessage = msg
+          }
         }
-        conversationMap.get(msg.conversationId)!.messages.push(msg)
       }
 
-      // Now query each conversation to get all messages (including received)
+      // Build conversation objects
       const conversations: Conversation[] = []
 
       for (const [conversationId, data] of Array.from(conversationMap.entries())) {
         try {
-          // Query all messages in this conversation
-          const convResult = await this.query({
-            where: [['conversationId', '==', conversationId]],  // Use base58 string
-            orderBy: [['$createdAt', 'desc']],
-            limit: 50
-          })
-
-          const allMessages = convResult.documents
-          if (allMessages.length === 0) continue
-
-          // Get latest message
-          const latestMsg = allMessages[0]
-
           // Count unread (messages from other user that are unread)
-          const unreadCount = allMessages.filter(
+          const unreadCount = data.messages.filter(
             m => m.$ownerId !== userId && !m.read
           ).length
 
@@ -253,18 +277,18 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
           // Decrypt latest message for preview
           let lastMessage: DirectMessage | null | undefined
           try {
-            lastMessage = await this.decryptAndTransformMessage(latestMsg, userId)
+            lastMessage = await this.decryptAndTransformMessage(data.latestMessage, userId)
           } catch {
             // If decryption fails, create placeholder
             lastMessage = {
-              id: latestMsg.$id,
-              senderId: latestMsg.$ownerId,
-              recipientId: latestMsg.recipientId,
-              conversationId: latestMsg.conversationId,
+              id: data.latestMessage.$id,
+              senderId: data.latestMessage.$ownerId,
+              recipientId: data.latestMessage.recipientId,
+              conversationId: data.latestMessage.conversationId,
               content: '[Encrypted message]',
-              encryptedContent: latestMsg.encryptedContent,
-              read: latestMsg.read,
-              createdAt: new Date(latestMsg.$createdAt)
+              encryptedContent: data.latestMessage.encryptedContent,
+              read: data.latestMessage.read,
+              createdAt: new Date(data.latestMessage.$createdAt)
             }
           }
 
@@ -274,7 +298,7 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
             participantUsername,
             lastMessage,
             unreadCount,
-            updatedAt: new Date(latestMsg.$createdAt)
+            updatedAt: new Date(data.latestMessage.$createdAt)
           })
         } catch (err) {
           console.error(`Error processing conversation ${conversationId}:`, err)

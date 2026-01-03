@@ -4,6 +4,7 @@
 
 // Contract IDs
 export const YAPPR_CONTRACT_ID = 'AyWK6nDVfb8d1ZmkM5MmZZrThbUyWyso1aMeGuuVSfxf' // Testnet
+export const YAPPR_DM_CONTRACT_ID = 'CtxDCiG1HbV9c3d4KX3oKxzC9PA3pcg2Djj1wQ7UiCFo' // Testnet - DM contract with receiverMessages index
 export const DPNS_CONTRACT_ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec' // Testnet
 
 // Network configuration

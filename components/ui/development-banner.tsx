@@ -65,19 +65,21 @@ export function DevelopmentBanner() {
   }
 
   return (
-    <div className="bg-yappr-500 text-white px-4 py-2 text-sm">
+    <div className="bg-amber-500 text-black px-4 py-2 text-sm fixed top-0 left-0 right-0 z-50">
       <div className="max-w-7xl mx-auto flex items-center justify-between">
         <p className="text-center flex-1">
-          <span className="font-medium">Yappr is in an early development phase.</span>
+          <span className="font-bold">TESTNET</span>
           {' '}
-          <span className="opacity-90">This dapp is on version {packageJson.version}.</span>
+          <span className="opacity-80">|</span>
           {' '}
-          <span className="opacity-90">No need to report issues yet.</span>
+          <span className="font-medium">Running on Dash Platform Testnet. Data may be reset.</span>
+          {' '}
+          <span className="opacity-80">v{packageJson.version}</span>
         </p>
-        
+
         <button
           onClick={handleClearCache}
-          className="ml-4 flex items-center gap-1 px-3 py-1 bg-white/20 hover:bg-white/30 rounded-md transition-colors"
+          className="ml-4 flex items-center gap-1 px-3 py-1 bg-black/10 hover:bg-black/20 rounded-md transition-colors"
           title="Clear cache and reload"
         >
           <ArrowPathIcon className="h-4 w-4" />

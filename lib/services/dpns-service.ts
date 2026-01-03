@@ -287,11 +287,23 @@ class DpnsService {
         ],
         limit: 1
       });
-      
-      if (response && response.documents && response.documents.length > 0) {
-        const dpnsDoc = response.documents[0] as DpnsDocument;
-        const identityId = dpnsDoc.records.identity || dpnsDoc.records.dashUniqueIdentityId || dpnsDoc.records.dashAliasIdentityId;
-        
+
+      // Handle both array and object response formats
+      let documents: any[] = [];
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      }
+
+      if (documents.length > 0) {
+        const doc = documents[0];
+        const data = doc.data || doc;
+        const identityId = data.records?.identity || data.records?.dashUniqueIdentityId || data.records?.dashAliasIdentityId;
+
         if (identityId) {
           console.log(`DPNS: Found identity ${identityId} for username ${normalizedUsername} via document query`);
           this._cacheEntry(normalizedUsername, identityId);

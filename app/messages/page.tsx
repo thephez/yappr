@@ -22,7 +22,7 @@ import { formatDistanceToNow } from 'date-fns'
 import { directMessageService, dpnsService, identityService } from '@/lib/services'
 import { DirectMessage, Conversation } from '@/lib/types'
 import toast from 'react-hot-toast'
-import { XMarkIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 
 function MessagesPage() {
   const { user } = useAuth()
@@ -211,13 +211,13 @@ function MessagesPage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      
-      <main className="flex-1 max-w-[1000px] border-x border-gray-200 dark:border-gray-800 flex">
+
+      <main className="flex-1 max-w-[1200px] border-x border-gray-200 dark:border-gray-800 flex">
         {/* Conversations List */}
-        <div className="w-[400px] border-r border-gray-200 dark:border-gray-800 flex flex-col">
-          <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className={`w-full md:w-[320px] lg:w-[380px] xl:w-[400px] border-r border-gray-200 dark:border-gray-800 flex flex-col flex-shrink-0 ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+          <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between px-4 py-3">
               <h1 className="text-xl font-bold">Messages</h1>
               <button
@@ -259,21 +259,21 @@ function MessagesPage() {
                 <button
                   key={conversation.id}
                   onClick={() => setSelectedConversation(conversation)}
-                  className={`w-full p-4 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors flex gap-3 ${
+                  className={`w-full p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors flex gap-3 ${
                     selectedConversation?.id === conversation.id ? 'bg-gray-50 dark:bg-gray-950' : ''
                   }`}
                 >
-                  <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
                     <AvatarCanvas features={generateAvatarV2(conversation.participantId)} size={48} />
                   </div>
 
-                  <div className="flex-1 text-left">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-semibold">
+                  <div className="flex-1 text-left min-w-0">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="font-semibold truncate">
                         {conversation.participantUsername || `${conversation.participantId.slice(0, 8)}...`}
                       </span>
                       {conversation.lastMessage && (
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-gray-500 flex-shrink-0">
                           {formatDistanceToNow(conversation.lastMessage.createdAt, { addSuffix: true })}
                         </span>
                       )}
@@ -287,7 +287,7 @@ function MessagesPage() {
                   </div>
 
                   {conversation.unreadCount > 0 && (
-                    <div className="flex items-center">
+                    <div className="flex items-center flex-shrink-0">
                       <div className="bg-yappr-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
                         {conversation.unreadCount}
                       </div>
@@ -301,18 +301,25 @@ function MessagesPage() {
 
         {/* Message Thread */}
         {selectedConversation ? (
-          <div className="flex-1 flex flex-col">
-            <header className="sticky top-0 z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+          <div className="flex-1 flex flex-col min-w-0">
+            <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100">
+                  {/* Back button - mobile only */}
+                  <button
+                    onClick={() => setSelectedConversation(null)}
+                    className="md:hidden p-2 -ml-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
+                  >
+                    <ArrowLeftIcon className="h-5 w-5" />
+                  </button>
+                  <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
                     <AvatarCanvas features={generateAvatarV2(selectedConversation.participantId)} size={40} />
                   </div>
-                  <div>
-                    <p className="font-semibold">
+                  <div className="min-w-0">
+                    <p className="font-semibold truncate">
                       {selectedConversation.participantUsername || `${selectedConversation.participantId.slice(0, 8)}...`}
                     </p>
-                    <p className="text-xs text-gray-500">{selectedConversation.participantId.slice(0, 12)}...</p>
+                    <p className="text-xs text-gray-500 truncate">{selectedConversation.participantId.slice(0, 12)}...</p>
                   </div>
                 </div>
                 
@@ -327,7 +334,7 @@ function MessagesPage() {
               </div>
             </header>
 
-            <div className="flex-1 overflow-y-auto p-4 space-y-4">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4 space-y-3 sm:space-y-4">
               {isLoadingMessages ? (
                 <div className="flex items-center justify-center h-full">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
@@ -346,7 +353,7 @@ function MessagesPage() {
                       animate={{ opacity: 1, y: 0 }}
                       className={`flex ${isOwn ? 'justify-end' : 'justify-start'}`}
                     >
-                      <div className={`max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
+                      <div className={`max-w-[85%] sm:max-w-[75%] md:max-w-[70%] ${isOwn ? 'order-2' : 'order-1'}`}>
                         <div
                           className={`px-4 py-2 rounded-2xl ${
                             isOwn
@@ -366,41 +373,42 @@ function MessagesPage() {
               )}
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 p-4">
+            <div className="border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4">
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
                   sendMessage()
                 }}
-                className="flex items-center gap-2"
+                className="flex items-center gap-1 sm:gap-2"
               >
                 <button
                   type="button"
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full flex-shrink-0"
                 >
                   <PhotoIcon className="h-5 w-5" />
                 </button>
-                
+
                 <Input
                   type="text"
                   placeholder="Type a message..."
                   value={newMessage}
                   onChange={(e) => setNewMessage(e.target.value)}
                   disabled={isSending}
-                  className="flex-1"
+                  className="flex-1 min-w-0"
                 />
-                
+
                 <button
                   type="button"
-                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
+                  className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full flex-shrink-0 hidden sm:block"
                 >
                   <FaceSmileIcon className="h-5 w-5" />
                 </button>
-                
+
                 <Button
                   type="submit"
                   size="sm"
                   disabled={!newMessage.trim() || isSending}
+                  className="flex-shrink-0"
                 >
                   {isSending ? (
                     <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
@@ -412,7 +420,7 @@ function MessagesPage() {
             </div>
           </div>
         ) : (
-          <div className="flex-1 flex items-center justify-center p-8">
+          <div className="hidden md:flex flex-1 items-center justify-center p-8">
             <div className="text-center">
               <PaperAirplaneIcon className="h-16 w-16 text-gray-300 mx-auto mb-4" />
               <h2 className="text-2xl font-semibold mb-2">Select a message</h2>

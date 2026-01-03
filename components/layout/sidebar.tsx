@@ -82,7 +82,7 @@ export function Sidebar() {
   }
 
   return (
-    <div className="h-screen w-[275px] shrink-0 flex flex-col px-2 sticky top-0">
+    <div className="h-[calc(100vh-40px)] w-[275px] shrink-0 flex flex-col px-2 sticky top-[40px]">
       <div className="flex-1 space-y-1 py-4 overflow-y-auto scrollbar-hide">
         <Link href="/" className="flex items-center px-3 py-4 mb-2 group">
           <div className="text-2xl font-bold text-gradient">Yappr</div>
@@ -104,7 +104,7 @@ export function Sidebar() {
                 )}
               >
                 <Icon className="h-7 w-7" />
-                <span className="hidden xl:block">{item.name}</span>
+                <span>{item.name}</span>
               </Link>
             )
           })}
@@ -115,7 +115,7 @@ export function Sidebar() {
               className="flex items-center gap-4 px-3 py-3 text-xl rounded-full transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-900"
             >
               <Cog6ToothIcon className="h-7 w-7" />
-              <span className="hidden xl:block">Settings</span>
+              <span>Settings</span>
             </Link>
           )}
         </nav>
@@ -123,11 +123,11 @@ export function Sidebar() {
         {isHydrated && user ? (
           <Button
             onClick={() => setComposeOpen(true)}
-            className="w-full mt-8 h-12 text-base xl:text-lg shadow-yappr-lg"
+            className="w-full mt-8 h-12 text-base shadow-yappr-lg"
             size="lg"
           >
-            <PencilSquareIcon className="h-6 w-6 xl:hidden" />
-            <span className="hidden xl:block">Post</span>
+            <PencilSquareIcon className="h-6 w-6" />
+            <span>Post</span>
           </Button>
         ) : isHydrated ? (
           <div className="mt-8 space-y-3">
@@ -160,7 +160,7 @@ export function Sidebar() {
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
           </svg>
-          <span className="hidden xl:block">View Data Contract</span>
+          <span>View Data Contract</span>
         </Link>
         
         {user && isHydrated && (
@@ -176,12 +176,14 @@ export function Sidebar() {
                     </Avatar>
                   )}
                 </div>
-                <div className="hidden xl:flex flex-1 text-left">
-                  <div className="flex-1">
-                    <p className="text-sm font-semibold">Identity</p>
-                    <p className="text-sm text-gray-500">{formatIdentityId(user.identityId)}</p>
+                <div className="flex flex-1 text-left">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold truncate">
+                      {user.dpnsUsername ? `@${user.dpnsUsername}` : 'Identity'}
+                    </p>
+                    <p className="text-sm text-gray-500 truncate">{formatIdentityId(user.identityId)}</p>
                   </div>
-                  <EllipsisHorizontalIcon className="h-5 w-5 text-gray-500" />
+                  <EllipsisHorizontalIcon className="h-5 w-5 text-gray-500 flex-shrink-0" />
                 </div>
               </button>
             </DropdownMenu.Trigger>

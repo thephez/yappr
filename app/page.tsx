@@ -116,9 +116,9 @@ export default function PublicHomePage() {
   // Show loading skeleton during hydration
   if (!isHydrated) {
     return (
-      <div className="min-h-screen flex">
+      <div className="min-h-[calc(100vh-40px)] flex">
         {/* Sidebar skeleton */}
-        <div className="fixed h-screen w-[275px] px-2 py-4">
+        <div className="fixed h-[calc(100vh-40px)] w-[275px] px-2 py-4 top-[40px]">
           <div className="h-8 w-20 bg-gray-200 dark:bg-gray-800 rounded mb-6 animate-pulse" />
           <div className="space-y-2">
             {[...Array(6)].map((_, i) => (
@@ -144,7 +144,7 @@ export default function PublicHomePage() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
       
       <main className="flex-1 max-w-[1200px] mx-auto px-8">
