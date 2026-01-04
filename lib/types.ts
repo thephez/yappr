@@ -2,9 +2,7 @@ export interface User {
   id: string
   username: string  // From DPNS - not stored in profile document
   displayName: string
-  avatar: string // URL for display
-  avatarId?: string  // Reference to avatar document (32-byte array as string)
-  avatarData?: string // The encoded avatar string (16-128 chars)
+  avatar: string // URL for display (DiceBear generated from user ID)
   bio?: string
   location?: string
   website?: string

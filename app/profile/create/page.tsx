@@ -85,8 +85,7 @@ function CreateProfilePage() {
       await profileService.createProfile(
         user.identityId,
         formData.displayName,
-        formData.bio,
-        undefined // avatarData - will be implemented later
+        formData.bio
       )
       
       toast.success('Profile created successfully!')
@@ -114,7 +113,7 @@ function CreateProfilePage() {
   // Show loading state while checking for existing profile
   if (isCheckingProfile) {
     return (
-      <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center">
+      <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="h-12 w-12 animate-spin text-yappr-500 mx-auto mb-4" />
           <p className="text-gray-600 dark:text-gray-400">Checking for existing profile...</p>
@@ -124,7 +123,7 @@ function CreateProfilePage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-black flex items-center justify-center px-4">
+    <div className="min-h-screen bg-gray-50 dark:bg-neutral-900 flex items-center justify-center px-4">
       <div className="max-w-md w-full">
         <div className="bg-white dark:bg-gray-900 rounded-2xl shadow-xl p-8">
           {/* Header with logout button */}

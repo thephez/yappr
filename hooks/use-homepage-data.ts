@@ -12,7 +12,6 @@ export interface TopUser {
   username: string
   displayName: string
   postCount: number
-  avatarData?: string
 }
 
 export interface PlatformStats {
@@ -204,8 +203,7 @@ export function useHomepageData(): HomepageData {
           id: authorId,
           username,
           displayName: profileData?.displayName || username,
-          postCount,
-          avatarData: profileData?.avatarData
+          postCount
         }
       })
 

@@ -13,11 +13,7 @@ import { RightSidebar } from '@/components/layout/right-sidebar'
 import { Button } from '@/components/ui/button'
 import { PostCard } from '@/components/post/post-card'
 import { formatNumber } from '@/lib/utils'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import {
-  generateAvatarV2,
-  decodeAvatarFeaturesV2
-} from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -28,7 +24,6 @@ interface ProfileData {
   bio?: string
   location?: string
   website?: string
-  avatarData?: string
   followersCount: number
   followingCount: number
 }
@@ -49,10 +44,6 @@ function UserProfileContent() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
 
-  const avatarFeatures = userId && profile?.avatarData
-    ? decodeAvatarFeaturesV2(profile.avatarData)
-    : generateAvatarV2(userId || 'default')
-
   const displayName = profile?.displayName || (userId ? `User ${userId.slice(-6)}` : 'Unknown')
 
   useEffect(() => {
@@ -62,7 +53,7 @@ function UserProfileContent() {
       try {
         setIsLoading(true)
 
-        const { profileService, postService } = await import('@/lib/services')
+        const { profileService, postService, followService } = await import('@/lib/services')
 
         // Fetch profile and posts in parallel
         const [profileResult, postsResult] = await Promise.all([
@@ -72,20 +63,36 @@ function UserProfileContent() {
 
         // Process profile
         let profileDisplayName = `User ${userId.slice(-6)}`
-        let profileAvatarData: string | undefined
+
+        // Load follower/following counts
+        const [followersCount, followingCount] = await Promise.all([
+          followService.countFollowers(userId),
+          followService.countFollowing(userId)
+        ])
 
         if (profileResult) {
           profileDisplayName = profileResult.displayName || profileDisplayName
-          profileAvatarData = profileResult.avatarData
           setProfile({
             displayName: profileDisplayName,
             bio: profileResult.bio,
             location: profileResult.location,
             website: profileResult.website,
-            avatarData: profileAvatarData,
-            followersCount: 0,
-            followingCount: 0,
+            followersCount,
+            followingCount,
           })
+        } else {
+          // Even without a Yappr profile, show follow counts
+          setProfile({
+            displayName: profileDisplayName,
+            followersCount,
+            followingCount,
+          })
+        }
+
+        // Check if current user follows this user
+        if (currentUser?.identityId && currentUser.identityId !== userId) {
+          const following = await followService.isFollowing(userId, currentUser.identityId)
+          setIsFollowing(following)
         }
 
         // Process posts
@@ -100,8 +107,7 @@ function UserProfileContent() {
                 id: authorIdStr,
                 username: `user_${authorIdStr.slice(-6)}`,
                 displayName: profileDisplayName,
-                avatar: '',
-                avatarData: profileAvatarData,
+                avatar: getDefaultAvatarUrl(authorIdStr),
                 verified: false,
                 followers: 0,
                 following: 0,
@@ -154,11 +160,37 @@ function UserProfileContent() {
       return
     }
 
+    if (!userId) return
+
     setFollowLoading(true)
     try {
-      setIsFollowing(!isFollowing)
-      toast.success(isFollowing ? 'Unfollowed' : 'Following')
+      const { followService } = await import('@/lib/services')
+
+      if (isFollowing) {
+        // Unfollow
+        const result = await followService.unfollowUser(currentUser.identityId, userId)
+        if (result.success) {
+          setIsFollowing(false)
+          // Update follower count in profile
+          setProfile(prev => prev ? { ...prev, followersCount: Math.max(0, prev.followersCount - 1) } : null)
+          toast.success('Unfollowed')
+        } else {
+          throw new Error(result.error || 'Failed to unfollow')
+        }
+      } else {
+        // Follow
+        const result = await followService.followUser(currentUser.identityId, userId)
+        if (result.success) {
+          setIsFollowing(true)
+          // Update follower count in profile
+          setProfile(prev => prev ? { ...prev, followersCount: prev.followersCount + 1 } : null)
+          toast.success('Following!')
+        } else {
+          throw new Error(result.error || 'Failed to follow')
+        }
+      }
     } catch (error) {
+      console.error('Follow error:', error)
       toast.error('Failed to update follow status')
     } finally {
       setFollowLoading(false)
@@ -173,11 +205,13 @@ function UserProfileContent() {
     return (
       <div className="min-h-[calc(100vh-40px)] flex">
         <Sidebar />
-        <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-          <div className="p-8 text-center text-gray-500">
-            <p>User not found</p>
-          </div>
-        </main>
+        <div className="flex-1 flex justify-center min-w-0">
+          <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+            <div className="p-8 text-center text-gray-500">
+              <p>User not found</p>
+            </div>
+          </main>
+        </div>
         <RightSidebar />
       </div>
     )
@@ -187,8 +221,9 @@ function UserProfileContent() {
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
 
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+          <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl">
           <div className="flex items-center gap-4 px-4 py-3">
             <button
               onClick={() => router.back()}
@@ -221,10 +256,12 @@ function UserProfileContent() {
             <div className="px-4 pb-4">
               <div className="relative flex justify-between items-start -mt-16 mb-4">
                 <div className="relative">
-                  <div className="h-32 w-32 rounded-full bg-white dark:bg-black p-1">
-                    <div className="h-full w-full rounded-full overflow-hidden bg-gray-100">
-                      <AvatarCanvas features={avatarFeatures} size={128} />
-                    </div>
+                  <div className="h-32 w-32 rounded-full bg-white dark:bg-neutral-900 p-1">
+                    <img
+                      src={getDefaultAvatarUrl(userId || 'default')}
+                      alt={displayName}
+                      className="h-full w-full rounded-full"
+                    />
                   </div>
                 </div>
 
@@ -310,11 +347,17 @@ function UserProfileContent() {
               </div>
 
               <div className="flex gap-4 text-sm">
-                <button className="hover:underline">
+                <button
+                  onClick={() => router.push(`/following?id=${userId}`)}
+                  className="hover:underline"
+                >
                   <span className="font-bold">{formatNumber(profile?.followingCount || 0)}</span>
                   <span className="text-gray-500"> Following</span>
                 </button>
-                <button className="hover:underline">
+                <button
+                  onClick={() => router.push(`/followers?id=${userId}`)}
+                  className="hover:underline"
+                >
                   <span className="font-bold">{formatNumber(profile?.followersCount || 0)}</span>
                   <span className="text-gray-500"> Followers</span>
                 </button>
@@ -339,8 +382,9 @@ function UserProfileContent() {
               )}
             </div>
           </>
-        )}
-      </main>
+          )}
+        </main>
+      </div>
 
       <RightSidebar />
     </div>
@@ -351,18 +395,20 @@ function LoadingFallback() {
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <div className="p-8">
-          <div className="h-48 bg-gray-100 dark:bg-gray-900 animate-pulse" />
-          <div className="px-4 pb-4">
-            <div className="relative -mt-16 mb-4">
-              <div className="h-32 w-32 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse" />
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+          <div className="p-8">
+            <div className="h-48 bg-gray-100 dark:bg-gray-900 animate-pulse" />
+            <div className="px-4 pb-4">
+              <div className="relative -mt-16 mb-4">
+                <div className="h-32 w-32 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse" />
+              </div>
+              <div className="h-6 w-48 bg-gray-200 dark:bg-gray-800 rounded animate-pulse mb-2" />
+              <div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
             </div>
-            <div className="h-6 w-48 bg-gray-200 dark:bg-gray-800 rounded animate-pulse mb-2" />
-            <div className="h-4 w-32 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
           </div>
-        </div>
-      </main>
+        </main>
+      </div>
       <RightSidebar />
     </div>
   )

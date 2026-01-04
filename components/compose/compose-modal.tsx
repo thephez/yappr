@@ -11,8 +11,7 @@ import { getInitials } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 
 export function ComposeModal() {
   const { isComposeOpen, setComposeOpen, replyingTo, setReplyingTo } = useAppStore()
@@ -20,9 +19,6 @@ export function ComposeModal() {
   const [content, setContent] = useState('')
   const [isPosting, setIsPosting] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
-  
-  // Generate avatar based on identity ID
-  const avatarFeatures = user ? generateAvatarV2(user.identityId) : null
   
   const characterLimit = 500
   const remainingCharacters = characterLimit - content.length
@@ -115,7 +111,7 @@ export function ComposeModal() {
                     animate={{ opacity: 1, scale: 1 }}
                     exit={{ opacity: 0, scale: 0.95 }}
                     transition={{ duration: 0.15 }}
-                    className="w-full max-w-[600px] bg-white dark:bg-black rounded-2xl shadow-xl"
+                    className="w-full max-w-[600px] bg-white dark:bg-neutral-900 rounded-2xl shadow-xl"
                     onClick={(e) => e.stopPropagation()}
                   >
                 {/* Add Dialog Title for accessibility */}
@@ -155,15 +151,11 @@ export function ComposeModal() {
                   )}
                   
                   <div className="flex gap-3">
-                    <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                      {avatarFeatures ? (
-                        <AvatarCanvas features={avatarFeatures} size={48} />
-                      ) : (
-                        <Avatar>
-                          <AvatarFallback>{user?.identityId.slice(0, 2).toUpperCase()}</AvatarFallback>
-                        </Avatar>
-                      )}
-                    </div>
+                    <img
+                      src={user ? getDefaultAvatarUrl(user.identityId) : ''}
+                      alt="Your avatar"
+                      className="h-12 w-12 rounded-full"
+                    />
                     
                     <div className="flex-1">
                       <textarea

@@ -16,8 +16,7 @@ import { RightSidebar } from '@/components/layout/right-sidebar'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { withAuth, useAuth } from '@/contexts/auth-context'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import Link from 'next/link'
 
 type NotificationType = 'like' | 'repost' | 'reply' | 'follow' | 'mention'
@@ -126,7 +125,7 @@ function NotificationsPage() {
       <Sidebar />
 
       <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center justify-between px-4 py-3">
             <h1 className="text-xl font-bold">Notifications</h1>
             <button className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full">
@@ -200,7 +199,7 @@ function NotificationsPage() {
                   <div className="flex-1">
                     <div className="flex items-start gap-3">
                       <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100">
-                        <AvatarCanvas features={generateAvatarV2(notification.actorId)} size={40} />
+                        <img src={getDefaultAvatarUrl(notification.actorId)} alt="User avatar" className="w-10 h-10 rounded-full" />
                       </div>
                       
                       <div className="flex-1">

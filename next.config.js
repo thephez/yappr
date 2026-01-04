@@ -54,9 +54,10 @@ const nextConfig = {
             ].join('; ')
           },
           // CRITICAL: These headers are required for WASM to work
+          // Using 'credentialless' instead of 'require-corp' to allow cross-origin images (DiceBear avatars)
           {
             key: 'Cross-Origin-Embedder-Policy',
-            value: 'require-corp'
+            value: 'credentialless'
           },
           {
             key: 'Cross-Origin-Opener-Policy', 

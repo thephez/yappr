@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { MagnifyingGlassIcon, XMarkIcon, InformationCircleIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { MagnifyingGlassIcon, XMarkIcon, InformationCircleIcon, ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
@@ -10,10 +11,10 @@ import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, profileService } from '@/lib/services'
 import { cacheManager } from '@/lib/cache-manager'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { Button } from '@/components/ui/button'
 import { formatNumber } from '@/lib/utils'
+import toast from 'react-hot-toast'
 import { Input } from '@/components/ui/input'
 import {
   Tooltip,
@@ -23,8 +24,16 @@ import {
 } from '@/components/ui/tooltip'
 import { WasmSdk } from '@dashevo/wasm-sdk'
 
-// Helper wrapper for DPNS utility function
-const dpns_convert_to_homograph_safe = (input: string): string => WasmSdk.dpnsConvertToHomographSafe(input);
+// Helper wrapper for DPNS utility function with error handling
+const dpns_convert_to_homograph_safe = (input: string): string => {
+  try {
+    return WasmSdk.dpnsConvertToHomographSafe(input)
+  } catch (e) {
+    // SDK may not be initialized yet, return original input as fallback
+    console.warn('WASM SDK not initialized for homograph conversion, using original input')
+    return input
+  }
+}
 import { AlsoKnownAs } from '@/components/ui/also-known-as'
 
 interface FollowingUser {
@@ -40,13 +49,20 @@ interface FollowingUser {
 }
 
 function FollowingPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
-  const followingState = useAsyncState<FollowingUser[]>([])
+  const followingState = useAsyncState<FollowingUser[]>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<FollowingUser[]>([])
   const [isSearching, setIsSearching] = useState(false)
   const [searchError, setSearchError] = useState<string | null>(null)
   const [followingInProgress, setFollowingInProgress] = useState<Set<string>>(new Set())
+  const [targetUserName, setTargetUserName] = useState<string | null>(null)
+
+  // Get target user ID from URL params (if viewing another user's following list)
+  const targetUserId = searchParams.get('id')
+  const isOwnProfile = !targetUserId || targetUserId === user?.identityId
 
   // Load following list
   const loadFollowing = useCallback(async (forceRefresh: boolean = false) => {
@@ -56,16 +72,30 @@ function FollowingPage() {
     setError(null)
 
     try {
-      console.log('Following: Loading following list...')
-      
-      if (!user?.identityId) {
+      // Determine whose following list to load
+      const userIdToLoad = targetUserId || user?.identityId
+
+      if (!userIdToLoad) {
         setData([])
         setLoading(false)
         return
       }
 
-      const cacheKey = `following_${user.identityId}`
-      
+      console.log('Following: Loading following list for:', userIdToLoad)
+
+      // If viewing another user, fetch their username for the header
+      if (targetUserId && targetUserId !== user?.identityId) {
+        try {
+          const username = await dpnsService.resolveUsername(targetUserId)
+          setTargetUserName(username || `User ${targetUserId.slice(-6)}`)
+        } catch (error) {
+          console.error('Failed to resolve target user name:', error)
+          setTargetUserName(`User ${targetUserId.slice(-6)}`)
+        }
+      }
+
+      const cacheKey = `following_${userIdToLoad}`
+
       // Check cache first unless force refresh
       if (!forceRefresh) {
         const cached = cacheManager.get<FollowingUser[]>('following', cacheKey)
@@ -78,7 +108,7 @@ function FollowingPage() {
       }
 
       // Use followService to get following list
-      const follows = await followService.getFollowing(user.identityId, { limit: 50 })
+      const follows = await followService.getFollowing(userIdToLoad, { limit: 50 })
       
       console.log('Following: Raw follows from platform:', follows)
 
@@ -93,8 +123,8 @@ function FollowingPage() {
         return
       }
       
-      // Batch fetch all usernames and profiles (single DPNS query per user, not two)
-      const [allUsernamesData, profiles] = await Promise.all([
+      // Batch fetch all usernames, profiles, and follower/following counts
+      const [allUsernamesData, profiles, followerCounts, followingCounts] = await Promise.all([
         // Fetch all usernames for each identity
         Promise.all(identityIds.map(async (id) => {
           try {
@@ -106,7 +136,27 @@ function FollowingPage() {
           }
         })),
         // Fetch Yappr profiles
-        profileService.getProfilesByIdentityIds(identityIds)
+        profileService.getProfilesByIdentityIds(identityIds),
+        // Fetch follower counts for all users
+        Promise.all(identityIds.map(async (id) => {
+          try {
+            const count = await followService.countFollowers(id)
+            return { id, count }
+          } catch (error) {
+            console.error(`Failed to get follower count for ${id}:`, error)
+            return { id, count: 0 }
+          }
+        })),
+        // Fetch following counts for all users
+        Promise.all(identityIds.map(async (id) => {
+          try {
+            const count = await followService.countFollowing(id)
+            return { id, count }
+          } catch (error) {
+            console.error(`Failed to get following count for ${id}:`, error)
+            return { id, count: 0 }
+          }
+        }))
       ])
 
       // Derive best username from all usernames (avoids duplicate DPNS query)
@@ -120,6 +170,8 @@ function FollowingPage() {
       const dpnsMap = new Map(dpnsNames.map(item => [item.id, item.username]))
       const allUsernamesMap = new Map(allUsernamesData.map(item => [item.id, item.usernames]))
       const profileMap = new Map(profiles.map(p => [p.$ownerId || (p as any).ownerId, p]))
+      const followerCountMap = new Map(followerCounts.map(item => [item.id, item.count]))
+      const followingCountMap = new Map(followingCounts.map(item => [item.id, item.count]))
       
       // Create enriched user data
       const followingUsers = follows.map((follow: any) => {
@@ -132,15 +184,17 @@ function FollowingPage() {
         const username = dpnsMap.get(followingId)
         const allUsernames = allUsernamesMap.get(followingId) || []
         const profile = profileMap.get(followingId)
-        
+        // Handle both formats: direct properties or nested in data
+        const profileData = (profile as any)?.data || profile
+
         return {
           id: followingId,
           username: username || `user_${followingId.slice(-6)}`,
-          displayName: profile?.displayName || username || `User ${followingId.slice(-6)}`,
-          bio: profile?.bio || (profile ? 'Yappr user' : 'Not yet on Yappr'),
+          displayName: profileData?.displayName || username || `User ${followingId.slice(-6)}`,
+          bio: profileData?.bio || (profile ? 'Yappr user' : 'Not yet on Yappr'),
           hasProfile: !!profile,
-          followersCount: 0, // Would need to query this
-          followingCount: 0, // Would need to query this
+          followersCount: followerCountMap.get(followingId) || 0,
+          followingCount: followingCountMap.get(followingId) || 0,
           isFollowing: true,
           allUsernames: allUsernames
         }
@@ -159,17 +213,52 @@ function FollowingPage() {
     } finally {
       setLoading(false)
     }
-  }, [followingState.setLoading, followingState.setError, followingState.setData, user?.identityId])
+  }, [followingState.setLoading, followingState.setError, followingState.setData, user?.identityId, targetUserId])
 
   useEffect(() => {
-    if (user) {
+    // Load when we have a user (for own profile) or a targetUserId (for viewing others)
+    if (user || targetUserId) {
       loadFollowing()
     }
-  }, [loadFollowing, user])
+  }, [loadFollowing, user, targetUserId])
 
   const handleUnfollow = async (userId: string) => {
-    console.log('Unfollowing user:', userId)
-    // TODO: Implement unfollow functionality
+    if (!user?.identityId) return
+
+    // Add to in-progress set for UI feedback
+    setFollowingInProgress(prev => new Set(prev).add(userId))
+
+    try {
+      console.log('Unfollowing user:', userId)
+
+      const result = await followService.unfollowUser(user.identityId, userId)
+
+      if (result.success) {
+        // Update local state to remove from following list
+        followingState.setData((prev: FollowingUser[] | null) =>
+          (prev || []).filter(u => u.id !== userId)
+        )
+        // Also update search results if present
+        setSearchResults(prev =>
+          prev.map(u => u.id === userId ? { ...u, isFollowing: false } : u)
+        )
+        // Invalidate cache
+        cacheManager.delete('following', `following_${user.identityId}`)
+        toast.success('Unfollowed')
+      } else {
+        console.error('Failed to unfollow user:', result.error)
+        toast.error('Failed to unfollow user')
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error)
+      toast.error('Failed to unfollow user')
+    } finally {
+      setFollowingInProgress(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(userId)
+        return newSet
+      })
+    }
   }
 
   const handleFollow = async (userId: string) => {
@@ -232,21 +321,46 @@ function FollowingPage() {
         // Get all unique identity IDs from search results
         const uniqueIdentityIds = Array.from(new Set(searchResults.map(r => r.ownerId).filter(id => id)))
         
-        // Query Yappr profiles for all these identities
+        // Query Yappr profiles and follower/following counts for all these identities
         let profiles: any[] = []
+        let followerCounts: { id: string; count: number }[] = []
+        let followingCounts: { id: string; count: number }[] = []
         if (uniqueIdentityIds.length > 0) {
           try {
             const { profileService } = await import('@/lib/services')
-            // Query profiles where $ownerId is in the array of unique identity IDs
-            profiles = await profileService.getProfilesByIdentityIds(uniqueIdentityIds)
+            // Query profiles and counts in parallel
+            const [profilesResult, followerCountsResult, followingCountsResult] = await Promise.all([
+              profileService.getProfilesByIdentityIds(uniqueIdentityIds),
+              Promise.all(uniqueIdentityIds.map(async (id) => {
+                try {
+                  const count = await followService.countFollowers(id)
+                  return { id, count }
+                } catch (error) {
+                  return { id, count: 0 }
+                }
+              })),
+              Promise.all(uniqueIdentityIds.map(async (id) => {
+                try {
+                  const count = await followService.countFollowing(id)
+                  return { id, count }
+                } catch (error) {
+                  return { id, count: 0 }
+                }
+              }))
+            ])
+            profiles = profilesResult
+            followerCounts = followerCountsResult
+            followingCounts = followingCountsResult
             console.log('Found Yappr profiles:', profiles)
           } catch (error) {
             console.error('Error fetching profiles:', error)
           }
         }
-        
-        // Create a map of identity ID to profile for easy lookup
+
+        // Create maps for easy lookup
         const profileMap = new Map(profiles.map(p => [p.$ownerId || (p as any).ownerId, p]))
+        const followerCountMap = new Map(followerCounts.map(item => [item.id, item.count]))
+        const followingCountMap = new Map(followingCounts.map(item => [item.id, item.count]))
         
         // Group DPNS names by owner to handle multiple names per owner
         const ownerToNames = new Map<string, string[]>()
@@ -260,6 +374,8 @@ function FollowingPage() {
         const searchUsers: FollowingUser[] = await Promise.all(
           Array.from(ownerToNames.entries()).map(async ([ownerId, names]) => {
             const profile = profileMap.get(ownerId)
+            // Handle both formats: direct properties or nested in data
+            const profileData = (profile as any)?.data || profile
             // Sort names with contested ones first
             const sortedNames = await dpnsService.sortUsernamesByContested(names)
             const primaryUsername = sortedNames[0]
@@ -267,11 +383,11 @@ function FollowingPage() {
             return {
               id: ownerId,
               username: primaryUsername,
-              displayName: profile?.displayName || primaryUsername,
-              bio: profile?.bio || 'Not yet on Yappr',
+              displayName: profileData?.displayName || primaryUsername,
+              bio: profileData?.bio || (profile ? 'Yappr user' : 'Not yet on Yappr'),
               hasProfile: !!profile,
-              followersCount: 0, // Would need to query this
-              followingCount: 0, // Would need to query this
+              followersCount: followerCountMap.get(ownerId) || 0,
+              followingCount: followingCountMap.get(ownerId) || 0,
               isFollowing: followingState.data?.some(u => u.id === ownerId) || false,
               allUsernames: sortedNames
             }
@@ -306,21 +422,34 @@ function FollowingPage() {
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl">
             <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-xl font-bold">Following</h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {searchQuery ? 
-                      `${searchResults.length} search result${searchResults.length === 1 ? '' : 's'}` :
-                      followingState.loading ? 
-                        'Loading...' :
-                        `${followingState.data?.length || 0} ${followingState.data?.length === 1 ? 'user' : 'users'}`
-                    }
-                  </p>
+                <div className="flex items-center gap-3">
+                  {!isOwnProfile && (
+                    <button
+                      onClick={() => router.back()}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    >
+                      <ArrowLeftIcon className="h-5 w-5" />
+                    </button>
+                  )}
+                  <div>
+                    <h1 className="text-xl font-bold">
+                      {isOwnProfile ? 'Following' : `@${targetUserName || 'User'}'s Following`}
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {searchQuery ?
+                        `${searchResults.length} search result${searchResults.length === 1 ? '' : 's'}` :
+                        followingState.loading ?
+                          'Loading...' :
+                          `${followingState.data?.length || 0} ${followingState.data?.length === 1 ? 'user' : 'users'}`
+                      }
+                    </p>
+                  </div>
                 </div>
                 {!searchQuery && (
                   <Button
@@ -334,34 +463,37 @@ function FollowingPage() {
                 )}
               </div>
             </div>
-            
-            <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-              <div className="relative">
-                <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
-                <Input
-                  type="text"
-                  placeholder="Search for people to follow"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 pr-10"
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => {
-                      setSearchQuery('')
-                      setSearchResults([])
-                      setSearchError(null)
-                    }}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
-                  >
-                    <XMarkIcon className="h-4 w-4 text-gray-500" />
-                  </button>
+
+            {/* Only show search bar when viewing own following list */}
+            {isOwnProfile && (
+              <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+                <div className="relative">
+                  <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+                  <Input
+                    type="text"
+                    placeholder="Search for people to follow"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10 pr-10"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => {
+                        setSearchQuery('')
+                        setSearchResults([])
+                        setSearchError(null)
+                      }}
+                      className="absolute right-3 top-1/2 -translate-y-1/2 p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded"
+                    >
+                      <XMarkIcon className="h-4 w-4 text-gray-500" />
+                    </button>
+                  )}
+                </div>
+                {searchError && (
+                  <p className="text-sm text-red-500 mt-2">{searchError}</p>
                 )}
               </div>
-              {searchError && (
-                <p className="text-sm text-red-500 mt-2">{searchError}</p>
-              )}
-            </div>
+            )}
           </header>
 
           <ErrorBoundary level="component">
@@ -386,66 +518,81 @@ function FollowingPage() {
                         className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors"
                       >
                         <div className="flex items-start gap-3">
-                          <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                            <AvatarCanvas features={generateAvatarV2(searchUser.id)} size={48} />
-                          </div>
-                          
+                          <button
+                            onClick={() => router.push(`/user?id=${searchUser.id}`)}
+                            className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                          >
+                            <img src={getDefaultAvatarUrl(searchUser.id)} alt={searchUser.displayName} className="w-12 h-12 rounded-full" />
+                          </button>
+
                           <div className="flex-1">
                             <div className="flex items-start justify-between">
                               <div>
-                                <h3 className="font-semibold hover:underline cursor-pointer">
+                                <h3
+                                  onClick={() => router.push(`/user?id=${searchUser.id}`)}
+                                  className="font-semibold hover:underline cursor-pointer"
+                                >
                                   {searchUser.displayName}
                                 </h3>
-                                <p className="text-sm text-gray-500">@{searchUser.username}</p>
+                                <p
+                                  onClick={() => router.push(`/user?id=${searchUser.id}`)}
+                                  className="text-sm text-gray-500 hover:underline cursor-pointer"
+                                >
+                                  @{searchUser.username}
+                                </p>
                                 {searchUser.allUsernames && searchUser.allUsernames.length > 1 && (
-                                  <AlsoKnownAs 
-                                    primaryUsername={searchUser.username} 
+                                  <AlsoKnownAs
+                                    primaryUsername={searchUser.username}
                                     allUsernames={searchUser.allUsernames}
                                     identityId={searchUser.id}
                                   />
                                 )}
-                                {searchUser.bio && (
-                                  <div className="flex items-start gap-1 mt-1">
-                                    <p className="text-sm flex-1">{searchUser.bio}</p>
-                                    {!searchUser.hasProfile && (
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <InformationCircleIcon className="h-4 w-4 text-gray-400 cursor-help flex-shrink-0 mt-0.5" />
-                                          </TooltipTrigger>
-                                          <TooltipContent side="top" className="max-w-xs">
-                                            <p>This user hasn&apos;t created a Yappr profile yet, but you can still follow them. They&apos;ll see your follow when they join!</p>
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    )}
-                                  </div>
+                                {/* Only show bio if it's an actual bio, not fallback text */}
+                                {searchUser.bio && searchUser.bio !== 'Yappr user' && searchUser.bio !== 'Not yet on Yappr' && (
+                                  <p className="text-sm mt-1">{searchUser.bio}</p>
                                 )}
                               </div>
-                              
-                              {searchUser.isFollowing ? (
-                                <Button
-                                  variant="outline"
-                                  size="sm"
-                                  onClick={() => handleUnfollow(searchUser.id)}
-                                  className="ml-4"
-                                >
-                                  Following
-                                </Button>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  onClick={() => handleFollow(searchUser.id)}
-                                  className="ml-4"
-                                  disabled={followingInProgress.has(searchUser.id)}
-                                >
-                                  {followingInProgress.has(searchUser.id) ? (
-                                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                                  ) : (
-                                    'Follow'
-                                  )}
-                                </Button>
-                              )}
+
+                              <div className="flex flex-col items-end gap-1">
+                                {searchUser.isFollowing ? (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleUnfollow(searchUser.id)}
+                                    disabled={followingInProgress.has(searchUser.id)}
+                                  >
+                                    {followingInProgress.has(searchUser.id) ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                    ) : (
+                                      'Following'
+                                    )}
+                                  </Button>
+                                ) : (
+                                  <Button
+                                    size="sm"
+                                    onClick={() => handleFollow(searchUser.id)}
+                                    disabled={followingInProgress.has(searchUser.id)}
+                                  >
+                                    {followingInProgress.has(searchUser.id) ? (
+                                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                    ) : (
+                                      'Follow'
+                                    )}
+                                  </Button>
+                                )}
+                                {!searchUser.hasProfile && (
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <span className="text-xs text-gray-400 cursor-help">Not on Yappr yet</span>
+                                      </TooltipTrigger>
+                                      <TooltipContent side="bottom" className="max-w-xs">
+                                        <p>This user hasn&apos;t created a Yappr profile yet, but you can still follow them. They&apos;ll see your follow when they join!</p>
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                )}
+                              </div>
                             </div>
                           </div>
                         </div>
@@ -461,9 +608,9 @@ function FollowingPage() {
             ) : (
               /* Show following list when not searching */
               <LoadingState
-                loading={followingState.loading}
+                loading={followingState.loading || followingState.data === null}
                 error={followingState.error}
-                isEmpty={!followingState.loading && followingState.data?.length === 0}
+                isEmpty={!followingState.loading && followingState.data !== null && followingState.data.length === 0}
                 onRetry={loadFollowing}
                 loadingText="Loading following list..."
                 emptyText="Not following anyone yet"
@@ -478,17 +625,28 @@ function FollowingPage() {
                     className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                        <AvatarCanvas features={generateAvatarV2(followingUser.id)} size={48} />
-                      </div>
-                      
+                      <button
+                        onClick={() => router.push(`/user?id=${followingUser.id}`)}
+                        className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                      >
+                        <img src={getDefaultAvatarUrl(followingUser.id)} alt={followingUser.displayName} className="w-12 h-12 rounded-full" />
+                      </button>
+
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="font-semibold hover:underline cursor-pointer">
+                            <h3
+                              onClick={() => router.push(`/user?id=${followingUser.id}`)}
+                              className="font-semibold hover:underline cursor-pointer"
+                            >
                               {followingUser.displayName}
                             </h3>
-                            <p className="text-sm text-gray-500">@{followingUser.username}</p>
+                            <p
+                              onClick={() => router.push(`/user?id=${followingUser.id}`)}
+                              className="text-sm text-gray-500 hover:underline cursor-pointer"
+                            >
+                              @{followingUser.username}
+                            </p>
                             {followingUser.allUsernames && followingUser.allUsernames.length > 1 && (
                               <AlsoKnownAs 
                                 primaryUsername={followingUser.username} 
@@ -496,45 +654,59 @@ function FollowingPage() {
                                 identityId={followingUser.id}
                               />
                             )}
-                            {followingUser.bio && (
-                              <div className="flex items-start gap-1 mt-1">
-                                <p className="text-sm flex-1">{followingUser.bio}</p>
-                                {!followingUser.hasProfile && (
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <InformationCircleIcon className="h-4 w-4 text-gray-400 cursor-help flex-shrink-0 mt-0.5" />
-                                      </TooltipTrigger>
-                                      <TooltipContent side="top" className="max-w-xs">
-                                        <p>This user hasn&apos;t created a Yappr profile yet, but you&apos;re following them. They&apos;ll see your follow when they join!</p>
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                )}
-                              </div>
+                            {/* Only show bio if it's an actual bio, not fallback text */}
+                            {followingUser.bio && followingUser.bio !== 'Yappr user' && followingUser.bio !== 'Not yet on Yappr' && (
+                              <p className="text-sm mt-1">{followingUser.bio}</p>
                             )}
                             <div className="flex gap-4 mt-2 text-sm text-gray-500">
-                              <span>
+                              <button
+                                onClick={() => router.push(`/followers?id=${followingUser.id}`)}
+                                className="hover:underline"
+                              >
                                 <strong className="text-gray-900 dark:text-gray-100">
                                   {formatNumber(followingUser.followersCount)}
                                 </strong> followers
-                              </span>
-                              <span>
+                              </button>
+                              <button
+                                onClick={() => router.push(`/following?id=${followingUser.id}`)}
+                                className="hover:underline"
+                              >
                                 <strong className="text-gray-900 dark:text-gray-100">
                                   {formatNumber(followingUser.followingCount)}
                                 </strong> following
-                              </span>
+                              </button>
                             </div>
                           </div>
-                          
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleUnfollow(followingUser.id)}
-                            className="ml-4"
-                          >
-                            Following
-                          </Button>
+
+                          {/* Only show action buttons when viewing own following list */}
+                          {isOwnProfile && (
+                            <div className="flex flex-col items-end gap-1">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUnfollow(followingUser.id)}
+                                disabled={followingInProgress.has(followingUser.id)}
+                              >
+                                {followingInProgress.has(followingUser.id) ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                ) : (
+                                  'Following'
+                                )}
+                              </Button>
+                              {!followingUser.hasProfile && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <span className="text-xs text-gray-400 cursor-help">Not on Yappr yet</span>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="max-w-xs">
+                                      <p>This user hasn&apos;t created a Yappr profile yet, but you&apos;re following them. They&apos;ll see your follow when they join!</p>
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
@@ -544,7 +716,8 @@ function FollowingPage() {
               </LoadingState>
             )}
           </ErrorBoundary>
-      </main>
+        </main>
+      </div>
 
       <RightSidebar />
     </div>

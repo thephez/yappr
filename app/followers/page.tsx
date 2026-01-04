@@ -1,8 +1,9 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { motion } from 'framer-motion'
-import { ArrowPathIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
@@ -10,11 +11,11 @@ import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, profileService } from '@/lib/services'
 import { cacheManager } from '@/lib/cache-manager'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { Button } from '@/components/ui/button'
 import { formatNumber } from '@/lib/utils'
 import { AlsoKnownAs } from '@/components/ui/also-known-as'
+import toast from 'react-hot-toast'
 
 interface Follower {
   id: string
@@ -29,8 +30,16 @@ interface Follower {
 }
 
 function FollowersPage() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
   const { user } = useAuth()
-  const followersState = useAsyncState<Follower[]>([])
+  const followersState = useAsyncState<Follower[]>(null)
+  const [actionInProgress, setActionInProgress] = useState<Set<string>>(new Set())
+  const [targetUserName, setTargetUserName] = useState<string | null>(null)
+
+  // Get target user ID from URL params (if viewing another user's followers list)
+  const targetUserId = searchParams.get('id')
+  const isOwnProfile = !targetUserId || targetUserId === user?.identityId
 
   // Load followers list
   const loadFollowers = useCallback(async (forceRefresh: boolean = false) => {
@@ -40,16 +49,30 @@ function FollowersPage() {
     setError(null)
 
     try {
-      console.log('Followers: Loading followers list...')
-      
-      if (!user?.identityId) {
+      // Determine whose followers list to load
+      const userIdToLoad = targetUserId || user?.identityId
+
+      if (!userIdToLoad) {
         setData([])
         setLoading(false)
         return
       }
 
-      const cacheKey = `followers_${user.identityId}`
-      
+      console.log('Followers: Loading followers list for:', userIdToLoad)
+
+      // If viewing another user, fetch their username for the header
+      if (targetUserId && targetUserId !== user?.identityId) {
+        try {
+          const username = await dpnsService.resolveUsername(targetUserId)
+          setTargetUserName(username || `User ${targetUserId.slice(-6)}`)
+        } catch (error) {
+          console.error('Failed to resolve target user name:', error)
+          setTargetUserName(`User ${targetUserId.slice(-6)}`)
+        }
+      }
+
+      const cacheKey = `followers_${userIdToLoad}`
+
       // Check cache first unless force refresh
       if (!forceRefresh) {
         const cached = cacheManager.get<Follower[]>('followers', cacheKey)
@@ -62,7 +85,7 @@ function FollowersPage() {
       }
 
       // Use followService to get followers list
-      const follows = await followService.getFollowers(user.identityId, { limit: 50 })
+      const follows = await followService.getFollowers(userIdToLoad, { limit: 50 })
       
       console.log('Followers: Raw follows from platform:', follows)
 
@@ -78,7 +101,7 @@ function FollowersPage() {
       }
       
       // Batch fetch DPNS names, all usernames, and profiles
-      const [dpnsNames, allUsernamesData, profiles] = await Promise.all([
+      const [dpnsNames, allUsernamesData, profiles, followerCounts, followingCounts] = await Promise.all([
         // Fetch best DPNS names for all identities
         Promise.all(identityIds.map(async (id) => {
           try {
@@ -100,19 +123,44 @@ function FollowersPage() {
           }
         })),
         // Fetch Yappr profiles
-        profileService.getProfilesByIdentityIds(identityIds)
+        profileService.getProfilesByIdentityIds(identityIds),
+        // Fetch follower counts for all users
+        Promise.all(identityIds.map(async (id) => {
+          try {
+            const count = await followService.countFollowers(id)
+            return { id, count }
+          } catch (error) {
+            console.error(`Failed to get follower count for ${id}:`, error)
+            return { id, count: 0 }
+          }
+        })),
+        // Fetch following counts for all users
+        Promise.all(identityIds.map(async (id) => {
+          try {
+            const count = await followService.countFollowing(id)
+            return { id, count }
+          } catch (error) {
+            console.error(`Failed to get following count for ${id}:`, error)
+            return { id, count: 0 }
+          }
+        }))
       ])
       
-      // Check if we follow them back
-      const followingBack = await Promise.all(
-        identityIds.map(id => followService.isFollowing(id, user.identityId))
-      )
-      const followingBackMap = new Map(identityIds.map((id, index) => [id, followingBack[index]]))
+      // Check if we follow them back (only relevant when viewing own followers)
+      let followingBackMap = new Map<string, boolean>()
+      if (isOwnProfile && user?.identityId) {
+        const followingBack = await Promise.all(
+          identityIds.map(id => followService.isFollowing(id, user.identityId))
+        )
+        followingBackMap = new Map(identityIds.map((id, index) => [id, followingBack[index]]))
+      }
       
       // Create maps for easy lookup
       const dpnsMap = new Map(dpnsNames.map(item => [item.id, item.username]))
       const allUsernamesMap = new Map(allUsernamesData.map(item => [item.id, item.usernames]))
       const profileMap = new Map(profiles.map(p => [p.$ownerId || (p as any).ownerId, p]))
+      const followerCountMap = new Map(followerCounts.map(item => [item.id, item.count]))
+      const followingCountMap = new Map(followingCounts.map(item => [item.id, item.count]))
       
       // Create enriched user data
       const followers = follows.map((follow: any) => {
@@ -125,15 +173,17 @@ function FollowersPage() {
         const username = dpnsMap.get(followerId)
         const allUsernames = allUsernamesMap.get(followerId) || []
         const profile = profileMap.get(followerId)
-        
+        // Handle both formats: direct properties or nested in data
+        const profileData = (profile as any)?.data || profile
+
         return {
           id: followerId,
           username: username || `user_${followerId.slice(-6)}`,
-          displayName: profile?.displayName || username || `User ${followerId.slice(-6)}`,
-          bio: profile?.bio || (profile ? 'Yappr user' : 'Not yet on Yappr'),
+          displayName: profileData?.displayName || username || `User ${followerId.slice(-6)}`,
+          bio: profileData?.bio || (profile ? 'Yappr user' : 'Not yet on Yappr'),
           hasProfile: !!profile,
-          followersCount: 0, // Would need to query this
-          followingCount: 0, // Would need to query this
+          followersCount: followerCountMap.get(followerId) || 0,
+          followingCount: followingCountMap.get(followerId) || 0,
           isFollowingBack: followingBackMap.get(followerId) || false,
           allUsernames: allUsernames
         }
@@ -152,40 +202,110 @@ function FollowersPage() {
     } finally {
       setLoading(false)
     }
-  }, [followersState.setLoading, followersState.setError, followersState.setData, user?.identityId])
+  }, [followersState.setLoading, followersState.setError, followersState.setData, user?.identityId, targetUserId])
 
   useEffect(() => {
-    if (user) {
+    // Load when we have a user (for own profile) or a targetUserId (for viewing others)
+    if (user || targetUserId) {
       loadFollowers()
     }
-  }, [loadFollowers, user])
+  }, [loadFollowers, user, targetUserId])
 
   const handleFollow = async (userId: string) => {
-    console.log('Following user:', userId)
-    // TODO: Implement follow functionality
+    if (!user?.identityId) return
+
+    setActionInProgress(prev => new Set(prev).add(userId))
+
+    try {
+      console.log('Following user:', userId)
+      const result = await followService.followUser(user.identityId, userId)
+
+      if (result.success) {
+        // Update local state - mark as following back
+        followersState.setData((prev: Follower[] | null) =>
+          (prev || []).map(f => f.id === userId ? { ...f, isFollowingBack: true } : f)
+        )
+        // Invalidate following cache since we added a new follow
+        cacheManager.delete('following', `following_${user.identityId}`)
+        toast.success('Following!')
+      } else {
+        console.error('Failed to follow user:', result.error)
+        toast.error('Failed to follow user')
+      }
+    } catch (error) {
+      console.error('Error following user:', error)
+      toast.error('Failed to follow user')
+    } finally {
+      setActionInProgress(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(userId)
+        return newSet
+      })
+    }
   }
 
   const handleUnfollow = async (userId: string) => {
-    console.log('Unfollowing user:', userId)
-    // TODO: Implement unfollow functionality
+    if (!user?.identityId) return
+
+    setActionInProgress(prev => new Set(prev).add(userId))
+
+    try {
+      console.log('Unfollowing user:', userId)
+      const result = await followService.unfollowUser(user.identityId, userId)
+
+      if (result.success) {
+        // Update local state - mark as not following back
+        followersState.setData((prev: Follower[] | null) =>
+          (prev || []).map(f => f.id === userId ? { ...f, isFollowingBack: false } : f)
+        )
+        // Invalidate following cache
+        cacheManager.delete('following', `following_${user.identityId}`)
+        toast.success('Unfollowed')
+      } else {
+        console.error('Failed to unfollow user:', result.error)
+        toast.error('Failed to unfollow user')
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error)
+      toast.error('Failed to unfollow user')
+    } finally {
+      setActionInProgress(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(userId)
+        return newSet
+      })
+    }
   }
 
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
             <div className="px-4 py-3">
               <div className="flex items-center justify-between">
-                <div>
-                  <h1 className="text-xl font-bold">Followers</h1>
-                  <p className="text-sm text-gray-500 mt-1">
-                    {followersState.loading ? 
-                      'Loading...' :
-                      `${followersState.data?.length || 0} ${followersState.data?.length === 1 ? 'follower' : 'followers'}`
-                    }
-                  </p>
+                <div className="flex items-center gap-3">
+                  {!isOwnProfile && (
+                    <button
+                      onClick={() => router.back()}
+                      className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                    >
+                      <ArrowLeftIcon className="h-5 w-5" />
+                    </button>
+                  )}
+                  <div>
+                    <h1 className="text-xl font-bold">
+                      {isOwnProfile ? 'Followers' : `@${targetUserName || 'User'}'s Followers`}
+                    </h1>
+                    <p className="text-sm text-gray-500 mt-1">
+                      {followersState.loading ?
+                        'Loading...' :
+                        `${followersState.data?.length || 0} ${followersState.data?.length === 1 ? 'follower' : 'followers'}`
+                      }
+                    </p>
+                  </div>
                 </div>
                 <Button
                   variant="ghost"
@@ -201,9 +321,9 @@ function FollowersPage() {
 
           <ErrorBoundary level="component">
             <LoadingState
-              loading={followersState.loading}
+              loading={followersState.loading || followersState.data === null}
               error={followersState.error}
-              isEmpty={!followersState.loading && followersState.data?.length === 0}
+              isEmpty={!followersState.loading && followersState.data !== null && followersState.data.length === 0}
               onRetry={loadFollowers}
               loadingText="Loading followers..."
               emptyText="No followers yet"
@@ -218,17 +338,28 @@ function FollowersPage() {
                     className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors"
                   >
                     <div className="flex items-start gap-3">
-                      <div className="h-12 w-12 rounded-full overflow-hidden bg-gray-100">
-                        <AvatarCanvas features={generateAvatarV2(follower.id)} size={48} />
-                      </div>
-                      
+                      <button
+                        onClick={() => router.push(`/user?id=${follower.id}`)}
+                        className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                      >
+                        <img src={getDefaultAvatarUrl(follower.id)} alt={follower.displayName} className="w-12 h-12 rounded-full" />
+                      </button>
+
                       <div className="flex-1">
                         <div className="flex items-start justify-between">
                           <div>
-                            <h3 className="font-semibold hover:underline cursor-pointer">
+                            <h3
+                              onClick={() => router.push(`/user?id=${follower.id}`)}
+                              className="font-semibold hover:underline cursor-pointer"
+                            >
                               {follower.displayName}
                             </h3>
-                            <p className="text-sm text-gray-500">@{follower.username}</p>
+                            <p
+                              onClick={() => router.push(`/user?id=${follower.id}`)}
+                              className="text-sm text-gray-500 hover:underline cursor-pointer"
+                            >
+                              @{follower.username}
+                            </p>
                             {follower.allUsernames && follower.allUsernames.length > 1 && (
                               <AlsoKnownAs 
                                 primaryUsername={follower.username} 
@@ -240,36 +371,55 @@ function FollowersPage() {
                               <p className="text-sm mt-1">{follower.bio}</p>
                             )}
                             <div className="flex gap-4 mt-2 text-sm text-gray-500">
-                              <span>
+                              <button
+                                onClick={() => router.push(`/followers?id=${follower.id}`)}
+                                className="hover:underline"
+                              >
                                 <strong className="text-gray-900 dark:text-gray-100">
                                   {formatNumber(follower.followersCount)}
                                 </strong> followers
-                              </span>
-                              <span>
+                              </button>
+                              <button
+                                onClick={() => router.push(`/following?id=${follower.id}`)}
+                                className="hover:underline"
+                              >
                                 <strong className="text-gray-900 dark:text-gray-100">
                                   {formatNumber(follower.followingCount)}
                                 </strong> following
-                              </span>
+                              </button>
                             </div>
                           </div>
-                          
-                          {follower.isFollowingBack ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handleUnfollow(follower.id)}
-                              className="ml-4"
-                            >
-                              Following
-                            </Button>
-                          ) : (
-                            <Button
-                              size="sm"
-                              onClick={() => handleFollow(follower.id)}
-                              className="ml-4"
-                            >
-                              Follow back
-                            </Button>
+
+                          {/* Only show action buttons when viewing own followers list */}
+                          {isOwnProfile && (
+                            follower.isFollowingBack ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUnfollow(follower.id)}
+                                className="ml-4"
+                                disabled={actionInProgress.has(follower.id)}
+                              >
+                                {actionInProgress.has(follower.id) ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                ) : (
+                                  'Following'
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleFollow(follower.id)}
+                                className="ml-4"
+                                disabled={actionInProgress.has(follower.id)}
+                              >
+                                {actionInProgress.has(follower.id) ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                ) : (
+                                  'Follow back'
+                                )}
+                              </Button>
+                            )
                           )}
                         </div>
                       </div>
@@ -279,7 +429,8 @@ function FollowersPage() {
               </div>
             </LoadingState>
           </ErrorBoundary>
-      </main>
+        </main>
+      </div>
 
       <RightSidebar />
     </div>

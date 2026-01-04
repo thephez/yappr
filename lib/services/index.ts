@@ -14,7 +14,7 @@ export { directMessageService } from './direct-message-service';
 // Export types
 export type { EvoSdkConfig } from './evo-sdk-service';
 export type { IdentityInfo, IdentityBalance } from './identity-service';
-export type { ProfileDocument, AvatarDocument } from './profile-service';
+export type { ProfileDocument } from './profile-service';
 export type { PostDocument, PostStats } from './post-service';
 export type { LikeDocument } from './like-service';
 export type { FollowDocument } from './follow-service';

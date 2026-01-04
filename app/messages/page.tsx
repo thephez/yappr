@@ -16,8 +16,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { withAuth, useAuth } from '@/contexts/auth-context'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { formatDistanceToNow } from 'date-fns'
 import { directMessageService, dpnsService, identityService } from '@/lib/services'
 import { DirectMessage, Conversation } from '@/lib/types'
@@ -217,7 +216,7 @@ function MessagesPage() {
       <main className="flex-1 md:max-w-[1200px] md:border-x border-gray-200 dark:border-gray-800 flex">
         {/* Conversations List */}
         <div className={`w-full md:w-[320px] lg:w-[380px] xl:w-[400px] border-r border-gray-200 dark:border-gray-800 flex flex-col flex-shrink-0 ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
-          <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+          <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between px-4 py-3">
               <h1 className="text-xl font-bold">Messages</h1>
               <button
@@ -264,7 +263,7 @@ function MessagesPage() {
                   }`}
                 >
                   <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                    <AvatarCanvas features={generateAvatarV2(conversation.participantId)} size={48} />
+                    <img src={getDefaultAvatarUrl(conversation.participantId)} alt="User avatar" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full" />
                   </div>
 
                   <div className="flex-1 text-left min-w-0">
@@ -302,7 +301,7 @@ function MessagesPage() {
         {/* Message Thread */}
         {selectedConversation ? (
           <div className="flex-1 flex flex-col min-w-0">
-            <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+            <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {/* Back button - mobile only */}
@@ -313,7 +312,7 @@ function MessagesPage() {
                     <ArrowLeftIcon className="h-5 w-5" />
                   </button>
                   <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                    <AvatarCanvas features={generateAvatarV2(selectedConversation.participantId)} size={40} />
+                    <img src={getDefaultAvatarUrl(selectedConversation.participantId)} alt="User avatar" className="w-10 h-10 rounded-full" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold truncate">

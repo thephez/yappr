@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import { cn } from '@/lib/utils'
 import { SparklesIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { PostCard } from '@/components/post/post-card'
 import { Sidebar } from '@/components/layout/sidebar'
@@ -10,8 +11,7 @@ import { ComposeModal } from '@/components/compose/compose-modal'
 import { useAppStore } from '@/lib/store'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { getDashPlatformClient } from '@/lib/dash-platform-client'
@@ -26,6 +26,7 @@ function FeedPage() {
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [lastPostId, setLastPostId] = useState<string | null>(null)
+  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('following')
 
   // Hook for enriching posts with stats/interactions (handles deduplication internally)
   const { enrich: enrichPosts, reset: resetEnrichment } = usePostEnrichment()
@@ -34,10 +35,7 @@ function FeedPage() {
   useEffect(() => {
     setIsHydrated(true)
   }, [])
-  
-  // Generate avatar based on identity ID (only after hydration)
-  const avatarFeatures = user && isHydrated ? generateAvatarV2(user.identityId) : null
-  
+
   // Load posts function - using real WASM SDK with updated version
   const loadPosts = useCallback(async (forceRefresh: boolean = false, startAfter?: string) => {
     // Use the setter functions directly, not the whole postsState object
@@ -50,11 +48,11 @@ function FeedPage() {
     setError(null)
 
     try {
-      console.log('Feed: Loading posts from Dash Platform...', startAfter ? `(after ${startAfter})` : '')
+      console.log(`Feed: Loading ${activeTab} posts from Dash Platform...`, startAfter ? `(after ${startAfter})` : '')
 
-      const dashClient = getDashPlatformClient()
-
-      const cacheKey = 'feed_for_you'
+      const cacheKey = activeTab === 'following'
+        ? `feed_following_${user?.identityId}`
+        : 'feed_for_you'
 
       // Check cache first unless force refresh or paginating
       if (!forceRefresh && !startAfter) {
@@ -72,50 +70,87 @@ function FeedPage() {
         }
       }
 
-      // Query posts from the platform
-      const queryOptions: any = {
-        limit: 20,
-        forceRefresh: forceRefresh,
-        startAfter: startAfter
-      }
+      let posts: any[]
 
-      console.log('Feed: Loading all posts', startAfter ? `starting after ${startAfter}` : '')
-      
-      const posts = await dashClient.queryPosts(queryOptions)
-
-      // Transform posts to match our UI format (sync - no async work needed here)
-      const transformedPosts = posts.map((doc: any) => {
-        const data = doc.data || doc
-        const authorIdStr = doc.ownerId || 'unknown'
-
-        return {
-          id: doc.id || doc.$id || Math.random().toString(36).substr(2, 9),
-          content: data.content || 'No content',
+      if (activeTab === 'following' && user?.identityId) {
+        // Following feed - get posts from followed users
+        const { postService } = await import('@/lib/services')
+        const result = await postService.getFollowingFeed(user.identityId, {
+          limit: 20,
+          startAfter: startAfter
+        })
+        // Transform the Post objects to match our UI format
+        posts = result.documents.map((post: any) => ({
+          id: post.id,
+          content: post.content || 'No content',
           author: {
-            id: authorIdStr,
-            username: `user_${authorIdStr.slice(-6)}`,
-            handle: `user_${authorIdStr.slice(-6)}`,
-            displayName: `User ${authorIdStr.slice(-6)}`,
+            id: post.author?.id || 'unknown',
+            username: post.author?.username || `user_${(post.author?.id || '').slice(-6)}`,
+            handle: post.author?.username || `user_${(post.author?.id || '').slice(-6)}`,
+            displayName: post.author?.displayName || `User ${(post.author?.id || '').slice(-6)}`,
             avatar: '',
             followers: 0,
             following: 0,
             verified: false,
             joinedAt: new Date()
           },
-          createdAt: new Date(doc.createdAt || Date.now()),
-          likes: 0,
-          replies: 0,
-          reposts: 0,
-          views: 0,
-          liked: false,
-          reposted: false,
-          bookmarked: false
+          createdAt: post.createdAt || new Date(),
+          likes: post.likes || 0,
+          replies: post.replies || 0,
+          reposts: post.reposts || 0,
+          views: post.views || 0,
+          liked: post.liked || false,
+          reposted: post.reposted || false,
+          bookmarked: post.bookmarked || false
+        }))
+      } else {
+        // For You feed - get all posts
+        const dashClient = getDashPlatformClient()
+        const queryOptions: any = {
+          limit: 20,
+          forceRefresh: forceRefresh,
+          startAfter: startAfter
         }
-      })
+
+        console.log('Feed: Loading all posts', startAfter ? `starting after ${startAfter}` : '')
+        const rawPosts = await dashClient.queryPosts(queryOptions)
+
+        // Transform posts to match our UI format
+        posts = rawPosts.map((doc: any) => {
+          const data = doc.data || doc
+          const authorIdStr = doc.ownerId || 'unknown'
+
+          return {
+            id: doc.id || doc.$id || Math.random().toString(36).substr(2, 9),
+            content: data.content || 'No content',
+            author: {
+              id: authorIdStr,
+              username: `user_${authorIdStr.slice(-6)}`,
+              handle: `user_${authorIdStr.slice(-6)}`,
+              displayName: `User ${authorIdStr.slice(-6)}`,
+              avatar: '',
+              followers: 0,
+              following: 0,
+              verified: false,
+              joinedAt: new Date()
+            },
+            createdAt: new Date(doc.createdAt || Date.now()),
+            likes: 0,
+            replies: 0,
+            reposts: 0,
+            views: 0,
+            liked: false,
+            reposted: false,
+            bookmarked: false
+          }
+        })
+      }
 
       // Sort posts by createdAt to ensure newest first
-      const sortedPosts = transformedPosts.sort((a: any, b: any) => {
-        return b.createdAt.getTime() - a.createdAt.getTime()
+      const sortedPosts = posts.sort((a: any, b: any) => {
+        const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
+        const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
+        return bTime - aTime
       })
 
       // If no posts found, show empty state
@@ -188,26 +223,26 @@ function FeedPage() {
       }).catch(err => {
         console.warn('Feed: Failed to enrich posts:', err)
       })
-      
+
     } catch (error) {
       console.error('Feed: Failed to load posts from platform:', error)
-      
+
       // Show specific error message but fall back gracefully
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
       console.log('Feed: Falling back to empty state due to error:', errorMessage)
-      
+
       // Set empty data instead of showing error to user
       setData([])
-      
+
       // Only show error to user if it's a critical issue
-      if (errorMessage.includes('Contract ID not configured') || 
+      if (errorMessage.includes('Contract ID not configured') ||
           errorMessage.includes('Not logged in')) {
         setError(errorMessage)
       }
     } finally {
       setLoading(false)
     }
-  }, [postsState.setLoading, postsState.setError, postsState.setData, enrichPosts])
+  }, [postsState.setLoading, postsState.setError, postsState.setData, enrichPosts, activeTab, user?.identityId])
 
   // Load more posts (pagination)
   const loadMore = useCallback(async () => {
@@ -221,11 +256,8 @@ function FeedPage() {
     }
   }, [lastPostId, isLoadingMore, hasMore, loadPosts])
 
-  // Load posts on mount and listen for new posts
+  // Listen for new posts created
   useEffect(() => {
-    loadPosts()
-
-    // Listen for new posts created
     const handlePostCreated = () => {
       // Reset enrichment tracking so new data gets enriched
       resetEnrichment()
@@ -239,12 +271,24 @@ function FeedPage() {
     }
   }, [loadPosts, resetEnrichment])
 
+  // Load posts on mount and when tab changes
+  // This single effect handles both initial load and tab switches to avoid race conditions
+  useEffect(() => {
+    resetEnrichment()
+    postsState.setData(null) // Clear current posts to show loading state
+    setLastPostId(null)
+    setHasMore(true)
+    loadPosts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab])
+
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-black/80 backdrop-blur-xl">
+
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+        <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl">
           <div className="px-4 py-3 flex items-center justify-between">
             <h1 className="text-xl font-bold">Home</h1>
             <button
@@ -258,6 +302,38 @@ function FeedPage() {
               <ArrowPathIcon className={`h-5 w-5 text-gray-500 ${postsState.loading ? 'animate-spin' : ''}`} />
             </button>
           </div>
+
+          {/* Feed Tabs */}
+          <div className="flex border-b border-gray-200 dark:border-gray-800">
+            <button
+              onClick={() => setActiveTab('forYou')}
+              className={cn(
+                'flex-1 py-4 text-center font-medium transition-colors relative',
+                activeTab === 'forYou'
+                  ? 'text-gray-900 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              )}
+            >
+              For You
+              {activeTab === 'forYou' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-yappr-500 rounded-full" />
+              )}
+            </button>
+            <button
+              onClick={() => setActiveTab('following')}
+              className={cn(
+                'flex-1 py-4 text-center font-medium transition-colors relative',
+                activeTab === 'following'
+                  ? 'text-gray-900 dark:text-white'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              )}
+            >
+              Following
+              {activeTab === 'following' && (
+                <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-yappr-500 rounded-full" />
+              )}
+            </button>
+          </div>
         </header>
 
         <div className="border-b border-gray-200 dark:border-gray-800 px-4 py-2 md:p-4">
@@ -265,13 +341,11 @@ function FeedPage() {
             <div className="flex gap-3">
               <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
                 {isHydrated ? (
-                  avatarFeatures ? (
-                    <AvatarCanvas features={avatarFeatures} size={48} />
-                  ) : (
-                    <Avatar>
-                      <AvatarFallback>{user.identityId.slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  )
+                  <img
+                    src={getDefaultAvatarUrl(user.identityId)}
+                    alt="Your avatar"
+                    className="w-full h-full rounded-full"
+                  />
                 ) : (
                   <div className="w-full h-full bg-gray-300 dark:bg-gray-700 animate-pulse rounded-full" />
                 )}
@@ -305,8 +379,8 @@ function FeedPage() {
             isEmpty={!postsState.loading && postsState.data !== null && postsState.data.length === 0}
             onRetry={loadPosts}
             loadingText="Connecting to Dash Platform..."
-            emptyText="No posts yet"
-            emptyDescription="Be the first to share something!"
+            emptyText={activeTab === 'following' ? "Your following feed is empty" : "No posts yet"}
+            emptyDescription={activeTab === 'following' ? "Follow some people to see their posts here!" : "Be the first to share something!"}
           >
             <div>
               {postsState.data?.map((post) => (
@@ -331,7 +405,8 @@ function FeedPage() {
             </div>
           </LoadingState>
         </ErrorBoundary>
-      </main>
+        </main>
+      </div>
 
       <RightSidebar />
       <ComposeModal />

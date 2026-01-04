@@ -35,8 +35,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useAppStore } from '@/lib/store'
 import { getInitials } from '@/lib/utils'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { generateAvatarV2, decodeAvatarFeaturesV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { useAuth } from '@/contexts/auth-context'
 
 const getNavigation = (isLoggedIn: boolean) => {
@@ -71,9 +70,6 @@ export function Sidebar() {
   
   // Get navigation based on auth status (use safe defaults during SSR)
   const navigation = getNavigation(isHydrated ? !!user : false)
-  
-  // Generate avatar based on identity ID
-  const avatarFeatures = user && isHydrated ? generateAvatarV2(user.identityId) : null
   
   // Format identity ID for display (show first 6 and last 4 chars)
   const formatIdentityId = (id: string) => {
@@ -167,15 +163,11 @@ export function Sidebar() {
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button className="flex items-center gap-3 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors w-full">
-                <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100">
-                  {avatarFeatures ? (
-                    <AvatarCanvas features={avatarFeatures} size={40} />
-                  ) : (
-                    <Avatar>
-                      <AvatarFallback>{formatIdentityId(user.identityId).slice(0, 2).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                  )}
-                </div>
+                <img
+                  src={getDefaultAvatarUrl(user.identityId)}
+                  alt="Your avatar"
+                  className="h-10 w-10 rounded-full"
+                />
                 <div className="flex flex-1 text-left">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">
@@ -190,7 +182,7 @@ export function Sidebar() {
             
             <DropdownMenu.Portal>
               <DropdownMenu.Content
-                className="min-w-[200px] bg-white dark:bg-black rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 py-2 z-50"
+                className="min-w-[200px] bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 py-2 z-50"
                 sideOffset={5}
               >
                 <DropdownMenu.Item 
@@ -201,8 +193,8 @@ export function Sidebar() {
                   <div className="font-mono">
                     {(() => {
                       const balance = user.balance || 0;
-                      // Balance is in duffs, convert to DASH (1 DASH = 100,000,000 duffs)
-                      const dashBalance = balance / 100000000;
+                      // Balance is in credits, convert to DASH (1 DASH = 100,000,000,000 credits)
+                      const dashBalance = balance / 100000000000;
                       return `${dashBalance.toFixed(8)} DASH`;
                     })()}
                   </div>

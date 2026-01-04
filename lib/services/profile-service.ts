@@ -2,6 +2,7 @@ import { BaseDocumentService, QueryOptions, DocumentResult } from './document-se
 import { User } from '../types';
 import { dpnsService } from './dpns-service';
 import { cacheManager } from '../cache-manager';
+import { getDefaultAvatarUrl } from '../avatar-utils';
 
 export interface ProfileDocument {
   $id: string;
@@ -10,19 +11,9 @@ export interface ProfileDocument {
   $updatedAt?: number;
   displayName: string;
   bio?: string;
-  avatarId?: string;
-}
-
-export interface AvatarDocument {
-  $id: string;
-  $ownerId: string;
-  $createdAt: number;
-  $updatedAt?: number;
-  data: string;
 }
 
 class ProfileService extends BaseDocumentService<User> {
-  private readonly AVATAR_CACHE = 'avatars';
   private readonly USERNAME_CACHE = 'usernames';
   private readonly PROFILE_CACHE = 'profiles';
 
@@ -131,8 +122,7 @@ class ProfileService extends BaseDocumentService<User> {
       id: ownerId,
       username: options?.cachedUsername || (ownerId.substring(0, 8) + '...'),
       displayName: data.displayName,
-      avatar: data.avatarId ? `/api/avatar/${ownerId}` : '',
-      avatarId: data.avatarId,
+      avatar: getDefaultAvatarUrl(ownerId),
       bio: data.bio,
       followers: 0,
       following: 0,
@@ -157,14 +147,6 @@ class ProfileService extends BaseDocumentService<User> {
         const username = await this.getUsername(doc.$ownerId);
         if (username) {
           user.username = username;
-        }
-      }
-      
-      // Get avatar data if avatarId exists
-      if (doc.avatarId) {
-        const avatarData = await this.getAvatarData(doc.avatarId);
-        if (avatarData) {
-          user.avatarData = avatarData;
         }
       }
 
@@ -261,25 +243,18 @@ class ProfileService extends BaseDocumentService<User> {
   async createProfile(
     ownerId: string,
     displayName: string,
-    bio?: string,
-    avatarData?: string
+    bio?: string
   ): Promise<User> {
     const data: any = {
       displayName,
       bio: bio || ''
     };
 
-    // If avatar data provided, create avatar document first
-    if (avatarData) {
-      const avatarId = await this.createAvatar(ownerId, avatarData);
-      data.avatarId = avatarId;
-    }
-
     const result = await this.create(ownerId, data);
-    
+
     // Invalidate cache for this user
     cacheManager.invalidateByTag(`user:${ownerId}`);
-    
+
     return result;
   }
 
@@ -291,7 +266,6 @@ class ProfileService extends BaseDocumentService<User> {
     updates: {
       displayName?: string;
       bio?: string;
-      avatarData?: string;
     }
   ): Promise<User | null> {
     try {
@@ -302,28 +276,13 @@ class ProfileService extends BaseDocumentService<User> {
       }
 
       const data: any = {};
-      
+
       if (updates.displayName !== undefined) {
         data.displayName = updates.displayName;
       }
-      
+
       if (updates.bio !== undefined) {
         data.bio = updates.bio;
-      }
-
-      // Handle avatar update
-      if (updates.avatarData !== undefined) {
-        if (updates.avatarData) {
-          // Create or update avatar
-          const avatarId = await this.createOrUpdateAvatar(ownerId, updates.avatarData, profile.avatarId);
-          data.avatarId = avatarId;
-        } else {
-          // Remove avatar
-          data.avatarId = null;
-          if (profile.avatarId) {
-            await this.deleteAvatar(profile.avatarId, ownerId);
-          }
-        }
       }
 
       // Update profile document
@@ -335,10 +294,10 @@ class ProfileService extends BaseDocumentService<User> {
       if (profileDoc.documents.length > 0) {
         const docId = profileDoc.documents[0].id;
         const result = await this.update(docId, ownerId, data);
-        
+
         // Invalidate cache for this user
         cacheManager.invalidateByTag(`user:${ownerId}`);
-        
+
         return result;
       }
 
@@ -374,154 +333,6 @@ class ProfileService extends BaseDocumentService<User> {
     } catch (error) {
       console.error('Error resolving username:', error);
       return null;
-    }
-  }
-
-  /**
-   * Get avatar document
-   */
-  private async getAvatarDocument(avatarId: string): Promise<AvatarDocument | null> {
-    try {
-      const sdk = await getEvoSdk();
-
-      // Use EvoSDK documents facade
-      const response = await sdk.documents.get(
-        this.contractId,
-        'avatar',
-        avatarId
-      );
-
-      if (response) {
-        return response;
-      }
-    } catch (error) {
-      console.error('Error getting avatar document:', error);
-    }
-
-    return null;
-  }
-
-  /**
-   * Get avatar data
-   */
-  private async getAvatarData(avatarId: string): Promise<string | undefined> {
-    // Check cache
-    const cached = cacheManager.get<string>(this.AVATAR_CACHE, avatarId);
-    if (cached) {
-      return cached;
-    }
-
-    try {
-      const sdk = await getEvoSdk();
-
-      // Use EvoSDK documents facade
-      const response = await sdk.documents.get(
-        this.contractId,
-        'avatar',
-        avatarId
-      );
-
-      if (response) {
-        const doc = response as AvatarDocument;
-
-        // Cache the result with avatar tag
-        cacheManager.set(this.AVATAR_CACHE, avatarId, doc.data, {
-          ttl: 1800000, // 30 minutes (avatars change less frequently)
-          tags: ['avatar', `user:${doc.$ownerId}`]
-        });
-
-        return doc.data;
-      }
-    } catch (error) {
-      console.error('Error getting avatar:', error);
-    }
-
-    return undefined;
-  }
-
-  /**
-   * Create avatar document
-   */
-  private async createAvatar(ownerId: string, avatarData: string): Promise<string> {
-    const sdk = await getEvoSdk();
-    
-    const result = await stateTransitionService.createDocument(
-      this.contractId,
-      'avatar',
-      ownerId,
-      { data: avatarData }
-    );
-    
-    if (!result.success) {
-      throw new Error(result.error || 'Failed to create avatar');
-    }
-    
-    return result.document.$id;
-  }
-
-  /**
-   * Create or update avatar
-   */
-  private async createOrUpdateAvatar(
-    ownerId: string,
-    avatarData: string,
-    existingAvatarId?: string
-  ): Promise<string> {
-    if (existingAvatarId) {
-      // Update existing avatar
-      const sdk = await getEvoSdk();
-      
-      // Get current avatar document to find revision
-      const currentAvatar = await this.getAvatarDocument(existingAvatarId);
-      if (!currentAvatar) {
-        throw new Error('Avatar not found');
-      }
-      
-      const result = await stateTransitionService.updateDocument(
-        this.contractId,
-        'avatar',
-        existingAvatarId,
-        ownerId,
-        { data: avatarData },
-        (currentAvatar as any).$revision || 0
-      );
-      
-      if (!result.success) {
-        throw new Error(result.error || 'Failed to update avatar');
-      }
-      
-      // Clear cache
-      cacheManager.delete(this.AVATAR_CACHE, existingAvatarId);
-      
-      return existingAvatarId;
-    } else {
-      // Create new avatar
-      return this.createAvatar(ownerId, avatarData);
-    }
-  }
-
-  /**
-   * Delete avatar document
-   */
-  private async deleteAvatar(avatarId: string, ownerId: string): Promise<void> {
-    try {
-      const sdk = await getEvoSdk();
-      
-      const result = await stateTransitionService.deleteDocument(
-        this.contractId,
-        'avatar',
-        avatarId,
-        ownerId
-      );
-      
-      if (!result.success) {
-        console.error('Failed to delete avatar:', result.error);
-      }
-      
-      // Clear cache
-      cacheManager.delete(this.AVATAR_CACHE, avatarId);
-    } catch (error) {
-      console.error('Error deleting avatar:', error);
     }
   }
 

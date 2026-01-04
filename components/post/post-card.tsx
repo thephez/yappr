@@ -24,8 +24,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
-import { AvatarCanvas } from '@/components/ui/avatar-canvas'
-import { decodeAvatarFeaturesV2, generateAvatarV2 } from '@/lib/avatar-generator-v2'
+import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { LikesModal } from './likes-modal'
 
 interface PostCardProps {
@@ -47,10 +46,6 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
   const [repostLoading, setRepostLoading] = useState(false)
   const [bookmarkLoading, setBookmarkLoading] = useState(false)
   const { setReplyingTo, setComposeOpen } = useAppStore()
-  
-  const avatarFeatures = post.author.avatarData
-    ? decodeAvatarFeaturesV2(post.author.avatarData)
-    : generateAvatarV2(post.author.id)
 
   // Sync local state with prop changes (e.g., when parent enriches post data)
   useEffect(() => {
@@ -196,7 +191,11 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
             onClick={(e) => e.stopPropagation()}
             className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 block flex-shrink-0"
           >
-            <AvatarCanvas features={avatarFeatures} size={48} />
+            <img
+              src={post.author.avatar || getDefaultAvatarUrl(post.author.id)}
+              alt={post.author.displayName}
+              className="w-12 h-12 rounded-full"
+            />
           </Link>
         )}
 
@@ -275,7 +274,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
               
               <DropdownMenu.Portal>
                 <DropdownMenu.Content
-                  className="min-w-[200px] bg-white dark:bg-black rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 py-2 z-50"
+                  className="min-w-[200px] bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 py-2 z-50"
                   sideOffset={5}
                 >
                   <DropdownMenu.Item className="px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer outline-none">
