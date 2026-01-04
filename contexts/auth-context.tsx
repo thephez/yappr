@@ -22,6 +22,7 @@ interface AuthContextType {
   isAuthRestoring: boolean
   error: string | null
   login: (identityId: string, privateKey: string, skipUsernameCheck?: boolean) => Promise<void>
+  loginWithPassword: (username: string, password: string) => Promise<void>
   logout: () => void
   updateDPNSUsername: (username: string) => void
 }
@@ -200,24 +201,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     localStorage.removeItem('yappr_session')
     sessionStorage.removeItem('yappr_dpns_username')
     sessionStorage.removeItem('yappr_skip_dpns')
-    
+    sessionStorage.removeItem('yappr_backup_prompt_shown')
+
     // Clear private key from secure storage
     if (user?.identityId) {
       const { clearPrivateKey } = await import('@/lib/secure-storage')
       clearPrivateKey(user.identityId)
     }
-    
+
     setUser(null)
-    
+
     // Clear DashPlatformClient identity
     import('@/lib/dash-platform-client').then(({ getDashPlatformClient }) => {
       const dashClient = getDashPlatformClient()
       dashClient.setIdentity('')
     })
-    
+
     router.push('/login')
   }, [router])
-  
+
+  const loginWithPassword = useCallback(async (username: string, password: string) => {
+    setIsLoading(true)
+    setError(null)
+
+    try {
+      // Use the encrypted key service to decrypt credentials
+      const { encryptedKeyService } = await import('@/lib/services/encrypted-key-service')
+
+      if (!encryptedKeyService.isConfigured()) {
+        throw new Error('Password login is not yet configured')
+      }
+
+      const result = await encryptedKeyService.loginWithPassword(username, password)
+
+      // Continue with normal login flow using decrypted credentials
+      // Skip username check since we know they have one (they logged in with it)
+      await login(result.identityId, result.privateKey, true)
+    } catch (err) {
+      console.error('Password login error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to login with password')
+      throw err
+    } finally {
+      setIsLoading(false)
+    }
+  }, [login])
+
   const updateDPNSUsername = useCallback((username: string) => {
     if (user) {
       const updatedUser = { ...user, dpnsUsername: username }
@@ -244,6 +272,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthRestoring,
       error,
       login,
+      loginWithPassword,
       logout,
       updateDPNSUsername
     }}>

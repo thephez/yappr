@@ -26,6 +26,7 @@ import * as RadioGroup from '@radix-ui/react-radio-group'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
+import { KeyBackupSettings } from '@/components/settings/key-backup-settings'
 
 type SettingsSection = 'main' | 'account' | 'notifications' | 'privacy' | 'appearance' | 'about'
 
@@ -186,6 +187,9 @@ function SettingsPage() {
 
   const renderPrivacySettings = () => (
     <div className="p-6 space-y-6">
+      {/* Key Backup Section */}
+      <KeyBackupSettings />
+
       <div>
         <h3 className="font-semibold mb-4">Privacy</h3>
         <div className="space-y-4">

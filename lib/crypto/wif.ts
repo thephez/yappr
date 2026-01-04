@@ -46,3 +46,23 @@ export function validateWifNetwork(
   const expectedPrefix = network === 'mainnet' ? MAINNET_WIF_PREFIX : TESTNET_WIF_PREFIX
   return prefix === expectedPrefix
 }
+
+/**
+ * Check if a string looks like a WIF private key
+ * Used to auto-detect whether user entered a password or private key
+ */
+export function isLikelyWif(input: string): boolean {
+  // Quick format check - WIF is 51-52 chars
+  if (input.length < 50 || input.length > 53) return false
+
+  // Testnet WIF starts with 'c' or '9', mainnet with 'X' or '7'
+  if (!/^[cC9X7]/.test(input)) return false
+
+  // Try to decode - if valid WIF with checksum, it's a private key
+  try {
+    wifToPrivateKey(input)
+    return true
+  } catch {
+    return false
+  }
+}

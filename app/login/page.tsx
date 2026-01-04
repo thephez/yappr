@@ -14,6 +14,10 @@ import {
 import { identityService } from '@/lib/services/identity-service'
 import { dpnsService } from '@/lib/services/dpns-service'
 import { keyValidationService, type KeyValidationResult } from '@/lib/services/key-validation-service'
+import { encryptedKeyService } from '@/lib/services/encrypted-key-service'
+import { isLikelyWif } from '@/lib/crypto/wif'
+import { useKeyBackupModal } from '@/hooks/use-key-backup-modal'
+import { Loader2, Eye, EyeOff } from 'lucide-react'
 
 // Check if input looks like an Identity ID (base58, ~44 chars)
 function isLikelyIdentityId(input: string): boolean {
@@ -27,6 +31,8 @@ interface ResolvedIdentity {
   dpnsUsername?: string
 }
 
+type CredentialType = 'key' | 'password' | null
+
 export default function LoginPage() {
   // Identity lookup states
   const [identityInput, setIdentityInput] = useState('')
@@ -34,8 +40,13 @@ export default function LoginPage() {
   const [lookupError, setLookupError] = useState<string | null>(null)
   const [resolvedIdentity, setResolvedIdentity] = useState<ResolvedIdentity | null>(null)
 
-  // Private key states
-  const [privateKey, setPrivateKey] = useState('')
+  // Unified credential field (password OR private key)
+  const [credential, setCredential] = useState('')
+  const [showCredential, setShowCredential] = useState(false)
+  const [detectedCredentialType, setDetectedCredentialType] = useState<CredentialType>(null)
+  const [hasOnchainBackup, setHasOnchainBackup] = useState<boolean | null>(null) // null = not checked yet
+
+  // Key validation states (only used when credential is detected as a key)
   const [keyValidationStatus, setKeyValidationStatus] = useState<'idle' | 'validating' | 'valid' | 'invalid'>('idle')
   const [keyValidationResult, setKeyValidationResult] = useState<KeyValidationResult | null>(null)
 
@@ -51,8 +62,9 @@ export default function LoginPage() {
   const [showPasswordSetModal, setShowPasswordSetModal] = useState(false)
   const [pendingCredentials, setPendingCredentials] = useState<{ identityId: string; privateKey: string } | null>(null)
 
-  const { login } = useAuth()
+  const { login, loginWithPassword } = useAuth()
   const router = useRouter()
+  const openBackupModal = useKeyBackupModal((state) => state.open)
 
   // Check for stored credentials on mount
   useEffect(() => {
@@ -73,6 +85,7 @@ export default function LoginPage() {
     if (!identityInput || identityInput.length < 3) {
       setResolvedIdentity(null)
       setLookupError(null)
+      setHasOnchainBackup(null)
       return
     }
 
@@ -80,6 +93,7 @@ export default function LoginPage() {
       setIsLookingUp(true)
       setLookupError(null)
       setResolvedIdentity(null)
+      setHasOnchainBackup(null)
       // Reset key validation when identity changes
       setKeyValidationStatus('idle')
       setKeyValidationResult(null)
@@ -122,6 +136,15 @@ export default function LoginPage() {
           publicKeys: identity.publicKeys,
           dpnsUsername
         })
+
+        // Check for on-chain backup (don't block on this)
+        if (encryptedKeyService.isConfigured()) {
+          encryptedKeyService.hasBackup(identityId)
+            .then(hasBackup => setHasOnchainBackup(hasBackup))
+            .catch(() => setHasOnchainBackup(false))
+        } else {
+          setHasOnchainBackup(false)
+        }
       } catch (err) {
         console.error('Identity lookup error:', err)
         setLookupError('Failed to lookup identity')
@@ -133,9 +156,21 @@ export default function LoginPage() {
     return () => clearTimeout(timeoutId)
   }, [identityInput])
 
-  // Debounced private key validation
+  // Credential type detection and key validation
   useEffect(() => {
-    if (!privateKey || !resolvedIdentity) {
+    if (!credential || !resolvedIdentity) {
+      setKeyValidationStatus('idle')
+      setKeyValidationResult(null)
+      setDetectedCredentialType(null)
+      return
+    }
+
+    // Detect credential type based on format
+    const isKey = isLikelyWif(credential)
+    setDetectedCredentialType(isKey ? 'key' : 'password')
+
+    // Only validate if it's a private key
+    if (!isKey) {
       setKeyValidationStatus('idle')
       setKeyValidationResult(null)
       return
@@ -146,7 +181,7 @@ export default function LoginPage() {
 
       try {
         const result = await keyValidationService.validatePrivateKey(
-          privateKey,
+          credential,
           resolvedIdentity.id,
           'testnet'
         )
@@ -164,7 +199,7 @@ export default function LoginPage() {
     }, 300)
 
     return () => clearTimeout(timeoutId)
-  }, [privateKey, resolvedIdentity])
+  }, [credential, resolvedIdentity])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -172,13 +207,36 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      // Use the resolved identity ID
       const identityId = resolvedIdentity?.id || identityInput
-      await login(identityId, privateKey)
 
-      if (rememberMe) {
-        setPendingCredentials({ identityId, privateKey })
-        setShowPasswordSetModal(true)
+      if (detectedCredentialType === 'key') {
+        // Key-based login
+        if (keyValidationStatus !== 'valid') {
+          setError('Private key does not match this identity')
+          setIsLoading(false)
+          return
+        }
+
+        await login(identityId, credential)
+
+        // Handle remember me for local device storage
+        if (rememberMe) {
+          setPendingCredentials({ identityId, privateKey: credential })
+          setShowPasswordSetModal(true)
+        }
+
+        // Prompt for on-chain backup if none exists (and not already prompted this session)
+        if (encryptedKeyService.isConfigured() && !sessionStorage.getItem('yappr_backup_prompt_shown')) {
+          const hasBackup = await encryptedKeyService.hasBackup(identityId)
+          if (!hasBackup) {
+            sessionStorage.setItem('yappr_backup_prompt_shown', 'true')
+            openBackupModal(identityId, resolvedIdentity?.dpnsUsername || '', credential, false)
+          }
+        }
+      } else {
+        // Password-based login
+        const username = resolvedIdentity?.dpnsUsername || identityInput
+        await loginWithPassword(username, credential)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
@@ -205,9 +263,10 @@ export default function LoginPage() {
     setShowUnlockModal(false)
     setHasStoredCred(false)
     setIdentityInput('')
-    setPrivateKey('')
+    setCredential('')
     setStoredIdentityId(null)
     setResolvedIdentity(null)
+    setDetectedCredentialType(null)
   }
 
   const handlePasswordSetSuccess = async (password: string) => {
@@ -227,7 +286,19 @@ export default function LoginPage() {
     setPendingCredentials(null)
   }
 
-  const canSubmit = resolvedIdentity && keyValidationStatus === 'valid' && !isLoading
+  // Submit button enabled based on credential type
+  const canSubmit = (() => {
+    if (!resolvedIdentity || isLoading || !credential) return false
+
+    if (detectedCredentialType === 'key') {
+      return keyValidationStatus === 'valid'
+    } else if (detectedCredentialType === 'password') {
+      // Only allow password login if there's an on-chain backup
+      return hasOnchainBackup && credential.length >= 16
+    }
+
+    return false
+  })()
 
   return (
     <div className="min-h-screen bg-white dark:bg-black flex items-center justify-center px-4">
@@ -237,6 +308,7 @@ export default function LoginPage() {
           <p className="text-gray-600 dark:text-gray-400">Sign in with your Dash Platform identity</p>
         </div>
 
+        {/* Unified Login Form */}
         <form onSubmit={handleSubmit} className="mt-8 space-y-6">
           <div className="space-y-4">
             {/* Identity ID / DPNS Input */}
@@ -281,36 +353,52 @@ export default function LoginPage() {
               )}
             </div>
 
-            {/* Private Key Input */}
+            {/* Password or Private Key Input */}
             <div>
-              <label htmlFor="privateKey" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                Private Key (WIF format)
+              <label htmlFor="credential" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                {hasOnchainBackup ? 'Password or Private Key' : 'Private Key'}
               </label>
               <div className="relative">
                 <input
-                  id="privateKey"
-                  type="password"
-                  value={privateKey}
-                  onChange={(e) => setPrivateKey(e.target.value)}
-                  placeholder={resolvedIdentity ? "Enter your private key..." : "First enter Identity ID above"}
+                  id="credential"
+                  type={showCredential ? 'text' : 'password'}
+                  value={credential}
+                  onChange={(e) => setCredential(e.target.value)}
+                  placeholder={
+                    !resolvedIdentity
+                      ? "First enter your username above"
+                      : hasOnchainBackup
+                      ? "Enter your password or private key..."
+                      : "Enter your private key..."
+                  }
                   disabled={!resolvedIdentity}
-                  className="w-full px-3 py-2 pr-10 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-3 py-2 pr-20 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   required
                 />
-                {/* Status indicator */}
-                <div className="absolute inset-y-0 right-0 flex items-center pr-3">
-                  {keyValidationStatus === 'validating' && (
+                {/* Eye toggle and status indicator */}
+                <div className="absolute inset-y-0 right-0 flex items-center pr-3 gap-2">
+                  {/* Show/hide toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setShowCredential(!showCredential)}
+                    className="text-gray-400 hover:text-gray-600"
+                    tabIndex={-1}
+                  >
+                    {showCredential ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                  </button>
+                  {/* Validation status for keys */}
+                  {detectedCredentialType === 'key' && keyValidationStatus === 'validating' && (
                     <svg className="animate-spin h-5 w-5 text-gray-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                       <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                       <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                     </svg>
                   )}
-                  {keyValidationStatus === 'valid' && (
+                  {detectedCredentialType === 'key' && keyValidationStatus === 'valid' && (
                     <svg className="h-5 w-5 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                     </svg>
                   )}
-                  {keyValidationStatus === 'invalid' && (
+                  {detectedCredentialType === 'key' && keyValidationStatus === 'invalid' && (
                     <svg className="h-5 w-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                     </svg>
@@ -318,9 +406,30 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {/* Key validation error */}
-              {keyValidationStatus === 'invalid' && keyValidationResult?.error && (
-                <p className="mt-1 text-sm text-red-600 dark:text-red-400">{keyValidationResult.error}</p>
+              {/* Dynamic helper text based on detected credential type */}
+              {credential && detectedCredentialType && (
+                <p className={`mt-1 text-sm ${
+                  (detectedCredentialType === 'key' && keyValidationStatus === 'invalid') ||
+                  (detectedCredentialType === 'password' && !hasOnchainBackup)
+                    ? 'text-red-600 dark:text-red-400'
+                    : 'text-gray-500 dark:text-gray-400'
+                }`}>
+                  {detectedCredentialType === 'key' ? (
+                    keyValidationStatus === 'valid'
+                      ? 'Valid private key for this identity'
+                      : keyValidationStatus === 'validating'
+                      ? 'Validating key...'
+                      : keyValidationStatus === 'invalid' && keyValidationResult?.error
+                      ? keyValidationResult.error
+                      : 'Detected as private key'
+                  ) : hasOnchainBackup ? (
+                    credential.length < 16
+                      ? `Password must be at least 16 characters (${credential.length}/16)`
+                      : 'Will use as backup password'
+                  ) : (
+                    'No backup found - please enter your private key'
+                  )}
+                </p>
               )}
             </div>
 
@@ -409,10 +518,9 @@ export default function LoginPage() {
           </div>
 
           <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-2">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">Requirements:</h3>
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">Sign in with:</h3>
             <ul className="list-disc list-inside space-y-1">
-              <li>A Dash Platform identity</li>
-              <li>A HIGH or CRITICAL security key</li>
+              <li>Backup password (if you set one up)</li>
               <li>Private key in WIF format</li>
             </ul>
           </div>

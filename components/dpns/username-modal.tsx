@@ -10,6 +10,8 @@ import { dpnsService } from '@/lib/services/dpns-service'
 import toast from 'react-hot-toast'
 import { CheckCircle2, XCircle, Loader2, RefreshCw, X, Edit2 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { useKeyBackupModal } from '@/hooks/use-key-backup-modal'
+import { encryptedKeyService } from '@/lib/services/encrypted-key-service'
 
 interface UsernameModalProps {
   isOpen: boolean
@@ -165,14 +167,25 @@ export function UsernameModal({ isOpen, onClose, customIdentityId: initialIdenti
       await dpnsService.registerUsername(username, currentIdentityId, suitableKey.id, privateKey)
       
       toast.success('DPNS username registered successfully!')
-      
+
       // Update user in auth context if it's the current user
       if (currentIdentityId === user?.identityId) {
         updateDPNSUsername(username)
       }
-      
+
       onClose()
-      
+
+      // Prompt for key backup if the feature is configured
+      if (encryptedKeyService.isConfigured()) {
+        // Check if they already have a backup
+        const hasBackup = await encryptedKeyService.hasBackup(currentIdentityId)
+        if (!hasBackup && privateKey) {
+          // Open the key backup modal
+          useKeyBackupModal.getState().open(currentIdentityId, username, privateKey)
+          return // Don't redirect yet - let the backup modal handle it
+        }
+      }
+
       // Redirect to profile creation
       router.push('/profile/create')
     } catch (error: any) {
