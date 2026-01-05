@@ -16,7 +16,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { withAuth, useAuth } from '@/contexts/auth-context'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { formatDistanceToNow } from 'date-fns'
 import { directMessageService, dpnsService, identityService } from '@/lib/services'
 import { DirectMessage, Conversation } from '@/lib/types'
@@ -262,8 +262,8 @@ function MessagesPage() {
                     selectedConversation?.id === conversation.id ? 'bg-gray-50 dark:bg-gray-950' : ''
                   }`}
                 >
-                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img src={getDefaultAvatarUrl(conversation.participantId)} alt="User avatar" className="w-10 sm:w-12 h-10 sm:h-12 rounded-full" />
+                  <div className="h-10 w-10 sm:h-12 sm:w-12 rounded-full overflow-hidden bg-white dark:bg-neutral-900 flex-shrink-0">
+                    <UserAvatar userId={conversation.participantId} size="lg" alt="User avatar" />
                   </div>
 
                   <div className="flex-1 text-left min-w-0">
@@ -311,8 +311,8 @@ function MessagesPage() {
                   >
                     <ArrowLeftIcon className="h-5 w-5" />
                   </button>
-                  <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
-                    <img src={getDefaultAvatarUrl(selectedConversation.participantId)} alt="User avatar" className="w-10 h-10 rounded-full" />
+                  <div className="h-10 w-10 rounded-full overflow-hidden bg-white dark:bg-neutral-900 flex-shrink-0">
+                    <UserAvatar userId={selectedConversation.participantId} size="md" alt="User avatar" />
                   </div>
                   <div className="min-w-0">
                     <p className="font-semibold truncate">

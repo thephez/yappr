@@ -24,7 +24,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { LikesModal } from './likes-modal'
 import { PostContent } from './post-content'
 
@@ -191,13 +191,9 @@ export function PostCard({ post, hideAvatar = false, isOwnPost = false }: PostCa
           <Link
             href={`/user?id=${post.author.id}`}
             onClick={(e) => e.stopPropagation()}
-            className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 block flex-shrink-0"
+            className="h-12 w-12 rounded-full overflow-hidden bg-white dark:bg-neutral-900 block flex-shrink-0"
           >
-            <img
-              src={post.author.avatar || getDefaultAvatarUrl(post.author.id)}
-              alt={post.author.displayName}
-              className="w-12 h-12 rounded-full"
-            />
+            <UserAvatar userId={post.author.id} size="lg" alt={post.author.displayName} />
           </Link>
         )}
 

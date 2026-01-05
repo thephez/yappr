@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { ArrowRightOnRectangleIcon, Cog6ToothIcon } from '@heroicons/react/24/outline'
 
@@ -25,11 +25,7 @@ export function MobileHeader() {
         <DropdownMenu.Root>
           <DropdownMenu.Trigger asChild>
             <button className="h-8 w-8 rounded-full overflow-hidden focus:outline-none focus:ring-2 focus:ring-yappr-500">
-              <img
-                src={getDefaultAvatarUrl(user.identityId)}
-                alt="Your avatar"
-                className="h-8 w-8 rounded-full"
-              />
+              <UserAvatar userId={user.identityId} size="sm" alt="Your avatar" />
             </button>
           </DropdownMenu.Trigger>
 

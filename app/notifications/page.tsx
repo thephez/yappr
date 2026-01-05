@@ -16,7 +16,7 @@ import { RightSidebar } from '@/components/layout/right-sidebar'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { withAuth, useAuth } from '@/contexts/auth-context'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import Link from 'next/link'
 
 type NotificationType = 'like' | 'repost' | 'reply' | 'follow' | 'mention'
@@ -198,8 +198,8 @@ function NotificationsPage() {
                   
                   <div className="flex-1">
                     <div className="flex items-start gap-3">
-                      <div className="h-10 w-10 rounded-full overflow-hidden bg-gray-100">
-                        <img src={getDefaultAvatarUrl(notification.actorId)} alt="User avatar" className="w-10 h-10 rounded-full" />
+                      <div className="h-10 w-10 rounded-full overflow-hidden bg-white dark:bg-neutral-900">
+                        <UserAvatar userId={notification.actorId} size="md" alt="User avatar" />
                       </div>
                       
                       <div className="flex-1">

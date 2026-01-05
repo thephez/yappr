@@ -11,7 +11,7 @@ import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, profileService } from '@/lib/services'
 import { cacheManager } from '@/lib/cache-manager'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { Button } from '@/components/ui/button'
 import { formatNumber } from '@/lib/utils'
 import { AlsoKnownAs } from '@/components/ui/also-known-as'
@@ -340,9 +340,9 @@ function FollowersPage() {
                     <div className="flex items-start gap-3">
                       <button
                         onClick={() => router.push(`/user?id=${follower.id}`)}
-                        className="h-12 w-12 rounded-full overflow-hidden bg-gray-100 cursor-pointer hover:opacity-80 transition-opacity"
+                        className="h-12 w-12 rounded-full overflow-hidden bg-white dark:bg-neutral-900 cursor-pointer hover:opacity-80 transition-opacity"
                       >
-                        <img src={getDefaultAvatarUrl(follower.id)} alt={follower.displayName} className="w-12 h-12 rounded-full" />
+                        <UserAvatar userId={follower.id} size="lg" alt={follower.displayName} />
                       </button>
 
                       <div className="flex-1">

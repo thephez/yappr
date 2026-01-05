@@ -11,7 +11,7 @@ import { ComposeModal } from '@/components/compose/compose-modal'
 import { useAppStore } from '@/lib/store'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { getDashPlatformClient } from '@/lib/dash-platform-client'
@@ -369,13 +369,9 @@ function FeedPage() {
         <div className="border-b border-gray-200 dark:border-gray-800 px-4 py-2 md:p-4">
           {user ? (
             <div className="flex gap-3">
-              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden bg-gray-100 flex-shrink-0">
+              <div className="h-10 w-10 md:h-12 md:w-12 rounded-full overflow-hidden bg-white dark:bg-neutral-900 flex-shrink-0">
                 {isHydrated ? (
-                  <img
-                    src={getDefaultAvatarUrl(user.identityId)}
-                    alt="Your avatar"
-                    className="w-full h-full rounded-full"
-                  />
+                  <UserAvatar userId={user.identityId} size="lg" alt="Your avatar" />
                 ) : (
                   <div className="w-full h-full bg-gray-300 dark:bg-gray-700 animate-pulse rounded-full" />
                 )}

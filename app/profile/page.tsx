@@ -11,13 +11,15 @@ import {
   CalendarIcon,
   Cog6ToothIcon,
   ArrowLeftIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/lib/store'
 import { formatNumber, cn } from '@/lib/utils'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar, invalidateAvatarImageCache } from '@/components/ui/avatar-image'
+import { AvatarCustomization } from '@/components/settings/avatar-customization'
 import toast from 'react-hot-toast'
 import { withAuth, useAuth } from '@/contexts/auth-context'
 
@@ -25,6 +27,8 @@ function ProfilePage() {
   const router = useRouter()
   const { user } = useAuth()
   const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false)
+  const [avatarKey, setAvatarKey] = useState(0) // Key to force re-render of UserAvatar
   const [userPosts, setUserPosts] = useState<any[]>([])
   const [isLoadingPosts, setIsLoadingPosts] = useState(true)
   const [followCounts, setFollowCounts] = useState({ followers: 0, following: 0 })
@@ -137,12 +141,22 @@ function ProfilePage() {
           <div className="relative flex justify-between items-start -mt-16 mb-4">
             <div className="relative">
               <div className="h-32 w-32 rounded-full bg-white dark:bg-neutral-900 p-1">
-                <img
-                  src={getDefaultAvatarUrl(user?.identityId || 'default')}
+                <UserAvatar
+                  key={avatarKey}
+                  userId={user?.identityId || 'default'}
                   alt="Your avatar"
-                  className="h-full w-full rounded-full"
+                  size="full"
                 />
               </div>
+              {isEditingProfile && (
+                <button
+                  onClick={() => setIsEditingAvatar(true)}
+                  className="absolute bottom-1 right-1 p-2 bg-yappr-500 rounded-full hover:bg-yappr-600 transition-colors shadow-lg"
+                  title="Change avatar"
+                >
+                  <SparklesIcon className="h-4 w-4 text-white" />
+                </button>
+              )}
             </div>
             
             <div className="mt-20">
@@ -307,6 +321,40 @@ function ProfilePage() {
       </div>
 
       <RightSidebar />
+
+      {/* Avatar Customization Modal */}
+      {isEditingAvatar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setIsEditingAvatar(false)}
+          />
+          <div className="relative bg-white dark:bg-neutral-900 rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Customize Avatar</h2>
+              <button
+                onClick={() => setIsEditingAvatar(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <AvatarCustomization
+              compact
+              onSave={() => {
+                setIsEditingAvatar(false)
+                // Invalidate cache and force re-render
+                if (user?.identityId) {
+                  invalidateAvatarImageCache(user.identityId)
+                }
+                setAvatarKey(prev => prev + 1)
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

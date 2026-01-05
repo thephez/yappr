@@ -15,6 +15,7 @@ import { Button } from '@/components/ui/button'
 import { PostCard } from '@/components/post/post-card'
 import { formatNumber } from '@/lib/utils'
 import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -262,10 +263,10 @@ function UserProfileContent() {
               <div className="relative flex justify-between items-start -mt-16 mb-4">
                 <div className="relative">
                   <div className="h-32 w-32 rounded-full bg-white dark:bg-neutral-900 p-1">
-                    <img
-                      src={getDefaultAvatarUrl(userId || 'default')}
+                    <UserAvatar
+                      userId={userId || 'default'}
                       alt={displayName}
-                      className="h-full w-full rounded-full"
+                      size="full"
                     />
                   </div>
                 </div>

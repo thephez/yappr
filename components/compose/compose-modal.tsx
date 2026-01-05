@@ -11,7 +11,7 @@ import { getInitials } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { extractHashtags } from '@/lib/post-helpers'
 import { hashtagService } from '@/lib/services/hashtag-service'
 
@@ -173,12 +173,8 @@ export function ComposeModal() {
                   )}
                   
                   <div className="flex gap-3">
-                    <img
-                      src={user ? getDefaultAvatarUrl(user.identityId) : ''}
-                      alt="Your avatar"
-                      className="h-12 w-12 rounded-full"
-                    />
-                    
+                    {user && <UserAvatar userId={user.identityId} size="lg" alt="Your avatar" />}
+
                     <div className="flex-1">
                       <textarea
                         ref={textareaRef}

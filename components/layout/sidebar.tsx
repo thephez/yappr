@@ -35,7 +35,7 @@ import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { useAppStore } from '@/lib/store'
 import { getInitials } from '@/lib/utils'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import { useAuth } from '@/contexts/auth-context'
 
 const getNavigation = (isLoggedIn: boolean) => {
@@ -163,11 +163,7 @@ export function Sidebar() {
           <DropdownMenu.Root>
             <DropdownMenu.Trigger asChild>
               <button className="flex items-center gap-3 p-3 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors w-full">
-                <img
-                  src={getDefaultAvatarUrl(user.identityId)}
-                  alt="Your avatar"
-                  className="h-10 w-10 rounded-full"
-                />
+                <UserAvatar userId={user.identityId} size="md" alt="Your avatar" />
                 <div className="flex flex-1 text-left">
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-semibold truncate">

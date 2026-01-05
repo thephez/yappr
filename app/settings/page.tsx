@@ -27,6 +27,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { KeyBackupSettings } from '@/components/settings/key-backup-settings'
+import { AvatarCustomization } from '@/components/settings/avatar-customization'
 
 type SettingsSection = 'main' | 'account' | 'notifications' | 'privacy' | 'appearance' | 'about'
 
@@ -286,7 +287,10 @@ function SettingsPage() {
 
   const renderAppearanceSettings = () => (
     <div className="p-6 space-y-6">
-      <div>
+      {/* Avatar Customization */}
+      <AvatarCustomization />
+
+      <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
         <h3 className="font-semibold mb-4">Theme</h3>
         <RadioGroup.Root
           value={theme}
