@@ -105,7 +105,8 @@ function FeedPage() {
           views: post.views || 0,
           liked: post.liked || false,
           reposted: post.reposted || false,
-          bookmarked: post.bookmarked || false
+          bookmarked: post.bookmarked || false,
+          replyToId: post.replyToId || undefined
         }))
       } else {
         // For You feed - get all posts
@@ -123,6 +124,23 @@ function FeedPage() {
         posts = rawPosts.map((doc: any) => {
           const data = doc.data || doc
           const authorIdStr = doc.ownerId || 'unknown'
+
+          // Convert replyToPostId from bytes to base58 string if present
+          let replyToId: string | undefined
+          const rawReplyToId = data.replyToPostId || doc.replyToPostId
+          if (rawReplyToId) {
+            if (typeof rawReplyToId === 'string') {
+              replyToId = rawReplyToId
+            } else if (rawReplyToId instanceof Uint8Array || Array.isArray(rawReplyToId)) {
+              try {
+                const bs58 = require('bs58')
+                const bytes = rawReplyToId instanceof Uint8Array ? rawReplyToId : new Uint8Array(rawReplyToId)
+                replyToId = bs58.encode(bytes)
+              } catch (e) {
+                console.warn('Failed to convert replyToPostId to base58:', e)
+              }
+            }
+          }
 
           return {
             id: doc.id || doc.$id || Math.random().toString(36).substr(2, 9),
@@ -145,7 +163,8 @@ function FeedPage() {
             views: 0,
             liked: false,
             reposted: false,
-            bookmarked: false
+            bookmarked: false,
+            replyToId: replyToId || undefined
           }
         })
       }
@@ -203,6 +222,7 @@ function FeedPage() {
                 liked: enriched.liked,
                 reposted: enriched.reposted,
                 bookmarked: enriched.bookmarked,
+                replyTo: enriched.replyTo,
                 author: {
                   ...post.author,
                   username: enriched.author?.username || post.author.username,

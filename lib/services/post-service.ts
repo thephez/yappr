@@ -51,8 +51,40 @@ class PostService extends BaseDocumentService<Post> {
     // Content and other fields may be in data or at root level
     const content = data.content || doc.content || '';
     const mediaUrl = data.mediaUrl || doc.mediaUrl;
-    const replyToId = data.replyToPostId || doc.replyToPostId;
-    const quotedPostId = data.quotedPostId || doc.quotedPostId;
+
+    // Convert replyToPostId from bytes to base58 string if present
+    let replyToId: string | undefined;
+    const rawReplyToId = data.replyToPostId || doc.replyToPostId;
+    if (rawReplyToId) {
+      if (typeof rawReplyToId === 'string') {
+        replyToId = rawReplyToId;
+      } else if (rawReplyToId instanceof Uint8Array || Array.isArray(rawReplyToId)) {
+        try {
+          const bs58 = require('bs58');
+          const bytes = rawReplyToId instanceof Uint8Array ? rawReplyToId : new Uint8Array(rawReplyToId);
+          replyToId = bs58.encode(bytes);
+        } catch (e) {
+          console.warn('Failed to convert replyToPostId to base58:', e);
+        }
+      }
+    }
+
+    // Convert quotedPostId from bytes to base58 string if present
+    let quotedPostId: string | undefined;
+    const rawQuotedPostId = data.quotedPostId || doc.quotedPostId;
+    if (rawQuotedPostId) {
+      if (typeof rawQuotedPostId === 'string') {
+        quotedPostId = rawQuotedPostId;
+      } else if (rawQuotedPostId instanceof Uint8Array || Array.isArray(rawQuotedPostId)) {
+        try {
+          const bs58 = require('bs58');
+          const bytes = rawQuotedPostId instanceof Uint8Array ? rawQuotedPostId : new Uint8Array(rawQuotedPostId);
+          quotedPostId = bs58.encode(bytes);
+        } catch (e) {
+          console.warn('Failed to convert quotedPostId to base58:', e);
+        }
+      }
+    }
 
     // Return a basic Post object - additional data will be loaded separately
     const post: Post = {
@@ -159,6 +191,51 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
+   * Batch fetch parent posts to get their owner IDs.
+   * Returns a Map of postId -> ownerId
+   */
+  private async getParentPostOwners(parentPostIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
+    if (parentPostIds.length === 0) return result;
+
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+      const sdk = await getEvoSdk();
+
+      // Batch fetch parent posts using 'in' query
+      const response = await sdk.documents.query({
+        contractId: this.contractId,
+        type: 'post',
+        where: [['$id', 'in', parentPostIds]],
+        limit: parentPostIds.length
+      });
+
+      let documents: any[] = [];
+      if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && response.documents) {
+        documents = response.documents;
+      } else if (response && typeof response.toJSON === 'function') {
+        const json = response.toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      }
+
+      // Extract owner IDs
+      for (const doc of documents) {
+        const postId = doc.$id || doc.id;
+        const ownerId = doc.$ownerId || doc.ownerId;
+        if (postId && ownerId) {
+          result.set(postId, ownerId);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching parent post owners:', error);
+    }
+
+    return result;
+  }
+
+  /**
    * Batch enrich multiple posts efficiently.
    * Uses batch queries to minimize network requests.
    * Returns new Post objects with enriched data.
@@ -170,12 +247,24 @@ class PostService extends BaseDocumentService<Post> {
       const postIds = posts.map(p => p.id);
       const authorIds = Array.from(new Set(posts.map(p => p.author.id).filter(Boolean)));
 
-      const [statsMap, interactionsMap, usernameMap, profiles] = await Promise.all([
+      // Collect parent post IDs from replies
+      const parentPostIds = Array.from(new Set(
+        posts.map(p => p.replyToId).filter((id): id is string => !!id)
+      ));
+
+      const [statsMap, interactionsMap, usernameMap, profiles, parentOwnerMap] = await Promise.all([
         this.getBatchPostStats(postIds),
         this.getBatchUserInteractions(postIds),
         dpnsService.resolveUsernamesBatch(authorIds),
-        profileService.getProfilesByIdentityIds(authorIds)
+        profileService.getProfilesByIdentityIds(authorIds),
+        this.getParentPostOwners(parentPostIds)
       ]);
+
+      // Resolve usernames for parent post owners
+      const parentOwnerIds = Array.from(new Set(parentOwnerMap.values()));
+      const parentUsernameMap = parentOwnerIds.length > 0
+        ? await dpnsService.resolveUsernamesBatch(parentOwnerIds)
+        : new Map<string, string>();
 
       // Build profile map for quick lookup
       const profileMap = new Map<string, any>();
@@ -193,6 +282,34 @@ class PostService extends BaseDocumentService<Post> {
         const profile = profileMap.get(post.author.id);
         const profileData = profile?.data || profile;
 
+        // Build replyTo if this is a reply
+        let replyTo = post.replyTo;
+        if (post.replyToId && !replyTo) {
+          const parentOwnerId = parentOwnerMap.get(post.replyToId);
+          if (parentOwnerId) {
+            const parentUsername = parentUsernameMap.get(parentOwnerId);
+            replyTo = {
+              id: post.replyToId,
+              author: {
+                id: parentOwnerId,
+                username: parentUsername || `${parentOwnerId.slice(0, 8)}...`,
+                displayName: parentUsername || 'Unknown User',
+                avatar: '',
+                followers: 0,
+                following: 0,
+                verified: false,
+                joinedAt: new Date()
+              },
+              content: '',
+              createdAt: new Date(),
+              likes: 0,
+              reposts: 0,
+              replies: 0,
+              views: 0
+            };
+          }
+        }
+
         return {
           ...post,
           likes: stats?.likes ?? post.likes,
@@ -202,6 +319,7 @@ class PostService extends BaseDocumentService<Post> {
           liked: interactions?.liked ?? post.liked,
           reposted: interactions?.reposted ?? post.reposted,
           bookmarked: interactions?.bookmarked ?? post.bookmarked,
+          replyTo,
           author: {
             ...post.author,
             username: username || post.author.username,
