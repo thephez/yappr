@@ -7,6 +7,7 @@ import {
   CalendarIcon,
   MapPinIcon,
   LinkIcon,
+  ShareIcon,
 } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -43,6 +44,7 @@ function UserProfileContent() {
   const [isLoading, setIsLoading] = useState(true)
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
+  const [postCount, setPostCount] = useState<number | null>(null)
 
   const displayName = profile?.displayName || (userId ? `User ${userId.slice(-6)}` : 'Unknown')
 
@@ -55,11 +57,14 @@ function UserProfileContent() {
 
         const { profileService, postService, followService } = await import('@/lib/services')
 
-        // Fetch profile and posts in parallel
-        const [profileResult, postsResult] = await Promise.all([
+        // Fetch profile, posts, and post count in parallel
+        const [profileResult, postsResult, totalPostCount] = await Promise.all([
           profileService.getProfile(userId).catch(() => null),
-          postService.getUserPosts(userId, { limit: 50 }).catch(() => ({ documents: [], hasMore: false }))
+          postService.getUserPosts(userId, { limit: 50 }).catch(() => ({ documents: [], hasMore: false })),
+          postService.countUserPosts(userId).catch(() => 0)
         ])
+
+        setPostCount(totalPostCount)
 
         // Process profile
         let profileDisplayName = `User ${userId.slice(-6)}`
@@ -233,7 +238,7 @@ function UserProfileContent() {
             </button>
             <div className="flex-1">
               <h1 className="text-xl font-bold">{displayName}</h1>
-              <p className="text-sm text-gray-500">{posts.length} posts</p>
+              <p className="text-sm text-gray-500">{postCount !== null ? postCount : '–'} posts</p>
             </div>
           </div>
         </header>
@@ -265,7 +270,31 @@ function UserProfileContent() {
                   </div>
                 </div>
 
-                <div className="mt-20">
+                <div className="mt-20 flex items-center gap-2">
+                  <Tooltip.Provider>
+                    <Tooltip.Root>
+                      <Tooltip.Trigger asChild>
+                        <button
+                          onClick={() => {
+                            const profileUrl = `${window.location.origin}/user?id=${userId}`
+                            navigator.clipboard.writeText(profileUrl)
+                            toast.success('Profile link copied!')
+                          }}
+                          className="p-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                        >
+                          <ShareIcon className="h-4 w-4" />
+                        </button>
+                      </Tooltip.Trigger>
+                      <Tooltip.Portal>
+                        <Tooltip.Content
+                          className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded"
+                          sideOffset={5}
+                        >
+                          Share profile
+                        </Tooltip.Content>
+                      </Tooltip.Portal>
+                    </Tooltip.Root>
+                  </Tooltip.Provider>
                   {isOwnProfile ? (
                     <Button
                       variant="outline"
@@ -366,7 +395,7 @@ function UserProfileContent() {
 
             <div className="border-t border-gray-200 dark:border-gray-800">
               <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
-                <h3 className="font-semibold">Posts</h3>
+                <h3 className="font-semibold">{postCount !== null ? postCount : '–'} Posts</h3>
               </div>
 
               {posts.length === 0 ? (
