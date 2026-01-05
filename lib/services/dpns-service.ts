@@ -1,5 +1,6 @@
 import { getEvoSdk } from './evo-sdk-service';
 import { DPNS_CONTRACT_ID, DPNS_DOCUMENT_TYPE } from '../constants';
+import bs58 from 'bs58';
 
 interface DpnsDocument {
   $id: string;
@@ -25,6 +26,22 @@ class DpnsService {
   private cache: Map<string, { value: string; timestamp: number }> = new Map();
   private reverseCache: Map<string, { value: string; timestamp: number }> = new Map();
   private readonly CACHE_TTL = 3600000; // 1 hour cache for DPNS
+
+  /**
+   * Convert a value to base58 string if it's bytes, or return as-is if already a string
+   */
+  private toBase58String(value: unknown): string | null {
+    if (typeof value === 'string') {
+      return value;
+    }
+    if (value instanceof Uint8Array) {
+      return bs58.encode(value);
+    }
+    if (Array.isArray(value)) {
+      return bs58.encode(new Uint8Array(value));
+    }
+    return null;
+  }
 
   /**
    * Helper method to cache entries in both directions
@@ -167,33 +184,20 @@ class DpnsService {
       let documents: any[] = [];
       if (Array.isArray(response)) {
         documents = response;
-      } else if (response && response.documents) {
+      } else if (response?.documents) {
         documents = response.documents;
-      } else if (response && typeof response.toJSON === 'function') {
+      } else if (response?.toJSON) {
         const json = response.toJSON();
         documents = Array.isArray(json) ? json : json.documents || [];
       }
 
-      // Import bs58 for conversion
-      const bs58 = require('bs58');
-
       for (const doc of documents) {
         const data = doc.data || doc;
-        let identityId = data.records?.identity || data.records?.dashUniqueIdentityId;
+        const rawId = data.records?.identity || data.records?.dashUniqueIdentityId;
+        const identityId = this.toBase58String(rawId);
         const label = data.label || data.normalizedLabel;
         const parentDomain = data.normalizedParentDomainName || 'dash';
         const username = `${label}.${parentDomain}`;
-
-        // Convert identityId from bytes to base58 string if needed
-        if (identityId && typeof identityId !== 'string') {
-          try {
-            const bytes = identityId instanceof Uint8Array ? identityId : new Uint8Array(identityId);
-            identityId = bs58.encode(bytes);
-          } catch (e) {
-            console.warn('DPNS: Failed to convert identityId to base58:', e);
-            continue;
-          }
-        }
 
         if (identityId && label) {
           results.set(identityId, username);
@@ -248,32 +252,39 @@ class DpnsService {
    */
   async resolveIdentity(username: string): Promise<string | null> {
     try {
-      const normalizedUsername = username.toLowerCase().replace('.dash', '');
-      
-      // Check cache
+      // Normalize: lowercase and remove .dash suffix
+      const normalizedUsername = username.toLowerCase().replace(/\.dash$/, '');
+
+      // Check cache first
       const cached = this.cache.get(normalizedUsername);
       if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
-        console.log(`DPNS: Returning cached identity for ${normalizedUsername}: ${cached.value}`);
         return cached.value;
       }
 
-      console.log(`DPNS: Resolving identity for username: ${normalizedUsername}`);
-      
       const sdk = await getEvoSdk();
 
       // Try native resolution first using EvoSDK facade
       try {
-        const result = await sdk.dpns.resolveName(normalizedUsername);
-        if (result && result.identity_id) {
-          console.log(`DPNS: Found identity ${result.identity_id} for username ${normalizedUsername} via native resolver`);
-          this._cacheEntry(normalizedUsername, result.identity_id);
-          return result.identity_id;
+        if (sdk.dpns?.resolveName) {
+          const result = await sdk.dpns.resolveName(normalizedUsername);
+
+          if (result) {
+            // Handle various return formats from the SDK
+            const rawId = result.identity_id || result.identityId || result.id ||
+                         (typeof result === 'string' ? result : null);
+            const identityId = this.toBase58String(rawId);
+
+            if (identityId) {
+              this._cacheEntry(normalizedUsername, identityId);
+              return identityId;
+            }
+          }
         }
       } catch (error) {
-        console.warn('DPNS: Native resolver failed, trying document query:', error);
+        console.warn('DPNS: Native resolver failed, falling back to document query:', error);
       }
 
-      // Fallback: Query DPNS documents
+      // Fallback: Query DPNS documents directly
       const parts = normalizedUsername.split('.');
       const label = parts[0];
       const parentDomain = parts.slice(1).join('.') || 'dash';
@@ -292,9 +303,9 @@ class DpnsService {
       let documents: any[] = [];
       if (Array.isArray(response)) {
         documents = response;
-      } else if (response && response.documents) {
+      } else if (response?.documents) {
         documents = response.documents;
-      } else if (response && typeof response.toJSON === 'function') {
+      } else if (response?.toJSON) {
         const json = response.toJSON();
         documents = Array.isArray(json) ? json : json.documents || [];
       }
@@ -302,10 +313,10 @@ class DpnsService {
       if (documents.length > 0) {
         const doc = documents[0];
         const data = doc.data || doc;
-        const identityId = data.records?.identity || data.records?.dashUniqueIdentityId || data.records?.dashAliasIdentityId;
+        const rawId = data.records?.identity || data.records?.dashUniqueIdentityId || data.records?.dashAliasIdentityId;
+        const identityId = this.toBase58String(rawId);
 
         if (identityId) {
-          console.log(`DPNS: Found identity ${identityId} for username ${normalizedUsername} via document query`);
           this._cacheEntry(normalizedUsername, identityId);
           return identityId;
         }
