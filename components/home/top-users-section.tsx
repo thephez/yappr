@@ -101,7 +101,7 @@ export function TopUsersSection({
               transition={{ delay: index * 0.05 }}
             >
               <Link
-                href={`/profile/${user.id}`}
+                href={`/user?id=${user.id}`}
                 className="block p-4 bg-gray-50 dark:bg-gray-950 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
               >
                 <div className="flex items-center gap-3">
