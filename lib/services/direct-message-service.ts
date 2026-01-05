@@ -112,16 +112,23 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
 
       const ecdsaKey = authHighKey || fallbackKey
 
-      if (!ecdsaKey) {
-        console.warn('No suitable authentication key found. Available keys:',
-          recipientPublicKeys.map((pk: any) => ({ id: pk.id, type: pk.type, securityLevel: pk.securityLevel, purpose: pk.purpose })))
-        return {
-          success: false,
-          error: 'Recipient does not have a compatible authentication key for encrypted messaging.'
-        }
-      }
+      let publicKeyBytes: Uint8Array
 
-      const publicKeyBytes = this.extractPublicKeyBytes(ecdsaKey)
+      if (ecdsaKey) {
+        publicKeyBytes = this.extractPublicKeyBytes(ecdsaKey)
+      } else {
+        // Fallback: try to get public key from message history (for HASH160 users)
+        const cachedPublicKey = await this.getPublicKeyFromMessageHistory(senderId, recipientId)
+        if (!cachedPublicKey) {
+          console.warn('No ECDSA key on-chain and no message history to extract from. Available keys:',
+            recipientPublicKeys.map((pk: any) => ({ id: pk.id, type: pk.type, securityLevel: pk.securityLevel, purpose: pk.purpose })))
+          return {
+            success: false,
+            error: 'Recipient does not have a compatible authentication key for encrypted messaging.'
+          }
+        }
+        publicKeyBytes = cachedPublicKey
+      }
 
       // 2. Get sender's private key for encryption
       const privateKey = this.getPrivateKeyFromStorage(senderId)
@@ -449,26 +456,29 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
       // Sender viewing OR legacy format: fetch other party's public key from identity
       const otherPublicKeys = await identityService.getPublicKeys(otherPartyId)
 
-      if (!otherPublicKeys || otherPublicKeys.length === 0) {
-        console.warn('Could not get public key for:', otherPartyId)
-        return null
+      let ecdsaKey = null
+      if (otherPublicKeys && otherPublicKeys.length > 0) {
+        // Find the authentication HIGH key (type 0, securityLevel 2, purpose 0)
+        const authHighKey = otherPublicKeys.find((pk: any) =>
+          pk.type === 0 && pk.securityLevel === 2 && pk.purpose === 0
+        )
+        const fallbackKey = !authHighKey ? otherPublicKeys.find((pk: any) =>
+          pk.type === 0 && pk.securityLevel === 2
+        ) : null
+        ecdsaKey = authHighKey || fallbackKey
       }
 
-      // Find the authentication HIGH key (type 0, securityLevel 2, purpose 0)
-      const authHighKey = otherPublicKeys.find((pk: any) =>
-        pk.type === 0 && pk.securityLevel === 2 && pk.purpose === 0
-      )
-      const fallbackKey = !authHighKey ? otherPublicKeys.find((pk: any) =>
-        pk.type === 0 && pk.securityLevel === 2
-      ) : null
-      const ecdsaKey = authHighKey || fallbackKey
-
-      if (!ecdsaKey) {
-        console.warn('No suitable authentication key found for:', otherPartyId)
-        return null
+      if (ecdsaKey) {
+        otherPartyPublicKeyBytes = this.extractPublicKeyBytes(ecdsaKey)
+      } else {
+        // Fallback: try to get public key from message history (for HASH160 users)
+        const cachedPublicKey = await this.getPublicKeyFromMessageHistory(currentUserId, otherPartyId)
+        if (!cachedPublicKey) {
+          console.warn('No ECDSA key and no message history for:', otherPartyId)
+          return null
+        }
+        otherPartyPublicKeyBytes = cachedPublicKey
       }
-
-      otherPartyPublicKeyBytes = this.extractPublicKeyBytes(ecdsaKey)
     }
 
     // Decrypt the message
@@ -577,6 +587,39 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
    */
   private getPrivateKeyFromStorage(identityId: string): string | null {
     return getPrivateKey(identityId)
+  }
+
+  /**
+   * Extract a user's public key from previous messages they sent.
+   * Useful when their on-chain identity uses HASH160 (no full public key available).
+   */
+  private async getPublicKeyFromMessageHistory(
+    currentUserId: string,
+    targetUserId: string
+  ): Promise<Uint8Array | null> {
+    try {
+      // Query messages received by currentUserId using receiverMessages index
+      // Then filter for messages from targetUserId
+      const result = await this.query({
+        where: [['recipientId', '==', currentUserId]],
+        orderBy: [['$createdAt', 'desc']],
+        limit: 50  // Fetch more to increase chance of finding one from targetUserId
+      })
+
+      // Find a message from the target user
+      const messageFromTarget = result.documents.find(doc => doc.$ownerId === targetUserId)
+      if (!messageFromTarget) return null
+
+      const encrypted = parseEncryptedContent(messageFromTarget.encryptedContent)
+      if (!encrypted.senderPublicKey || encrypted.senderPublicKey.length === 0) {
+        return null
+      }
+
+      return base64ToUint8Array(encrypted.senderPublicKey)
+    } catch (error) {
+      console.warn('Failed to get public key from message history:', error)
+      return null
+    }
   }
 }
 
