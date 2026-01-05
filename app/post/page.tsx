@@ -80,11 +80,13 @@ function PostDetailContent() {
     return (
       <div className="min-h-[calc(100vh-40px)] flex">
         <Sidebar />
-        <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-          <div className="p-8 text-center text-gray-500">
-            <p>Post not found</p>
-          </div>
-        </main>
+        <div className="flex-1 flex justify-center min-w-0">
+          <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+            <div className="p-8 text-center text-gray-500">
+              <p>Post not found</p>
+            </div>
+          </main>
+        </div>
         <RightSidebar />
       </div>
     )
@@ -94,7 +96,8 @@ function PostDetailContent() {
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
 
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
         <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
           <div className="flex items-center gap-4 px-4 py-3">
             <button
@@ -183,7 +186,8 @@ function PostDetailContent() {
             <p className="text-gray-500">Post not found</p>
           </div>
         )}
-      </main>
+        </main>
+      </div>
 
       <RightSidebar />
     </div>
@@ -194,12 +198,14 @@ function LoadingFallback() {
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
       <Sidebar />
-      <main className="flex-1 min-w-0 md:max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
-        <div className="p-8 text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
-          <p className="text-gray-500">Loading post...</p>
-        </div>
-      </main>
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+          <div className="p-8 text-center">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600 mx-auto mb-4"></div>
+            <p className="text-gray-500">Loading post...</p>
+          </div>
+        </main>
+      </div>
       <RightSidebar />
     </div>
   )
