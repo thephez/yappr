@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { motion } from 'framer-motion'
 import {
   CameraIcon,
@@ -243,14 +244,14 @@ function ProfilePage() {
               </div>
               
               <div className="flex gap-4 text-sm">
-                <a href="/following" className="hover:underline">
+                <Link href="/following" className="hover:underline">
                   <span className="font-bold">{formatNumber(followCounts.following)}</span>
                   <span className="text-gray-500"> Following</span>
-                </a>
-                <a href="/followers" className="hover:underline">
+                </Link>
+                <Link href="/followers" className="hover:underline">
                   <span className="font-bold">{formatNumber(followCounts.followers)}</span>
                   <span className="text-gray-500"> Followers</span>
-                </a>
+                </Link>
               </div>
             </>
           )}
