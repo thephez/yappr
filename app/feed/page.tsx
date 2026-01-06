@@ -18,6 +18,7 @@ import { getDashPlatformClient } from '@/lib/dash-platform-client'
 import { cacheManager } from '@/lib/cache-manager'
 import { usePostEnrichment } from '@/hooks/use-post-enrichment'
 import { identifierToBase58 } from '@/lib/services/sdk-helpers'
+import { getBlockedUserIds } from '@/hooks/use-block'
 
 function FeedPage() {
   const [isHydrated, setIsHydrated] = useState(false)
@@ -160,11 +161,20 @@ function FeedPage() {
       }
 
       // Sort posts by createdAt to ensure newest first
-      const sortedPosts = posts.sort((a: any, b: any) => {
+      let sortedPosts = posts.sort((a: any, b: any) => {
         const aTime = a.createdAt instanceof Date ? a.createdAt.getTime() : new Date(a.createdAt).getTime()
         const bTime = b.createdAt instanceof Date ? b.createdAt.getTime() : new Date(b.createdAt).getTime()
         return bTime - aTime
       })
+
+      // Filter out posts from blocked users
+      if (user?.identityId) {
+        const blockedIds = await getBlockedUserIds(user.identityId)
+        if (blockedIds.length > 0) {
+          const blockedSet = new Set(blockedIds)
+          sortedPosts = sortedPosts.filter((post: any) => !blockedSet.has(post.author.id))
+        }
+      }
 
       // If no posts found, show empty state
       if (sortedPosts.length === 0) {

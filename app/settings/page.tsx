@@ -28,6 +28,7 @@ import { useRouter } from 'next/navigation'
 import toast from 'react-hot-toast'
 import { KeyBackupSettings } from '@/components/settings/key-backup-settings'
 import { AvatarCustomization } from '@/components/settings/avatar-customization'
+import { BlockedUsersSettings } from '@/components/settings/blocked-users'
 
 type SettingsSection = 'main' | 'account' | 'notifications' | 'privacy' | 'appearance' | 'about'
 
@@ -281,6 +282,11 @@ function SettingsPage() {
             </label>
           </div>
         </RadioGroup.Root>
+      </div>
+
+      {/* Blocked Users Section */}
+      <div className="border-t border-gray-200 dark:border-gray-800 pt-6">
+        <BlockedUsersSettings />
       </div>
     </div>
   )

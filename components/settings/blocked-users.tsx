@@ -1,0 +1,186 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/contexts/auth-context'
+import { Button } from '@/components/ui/button'
+import { UserAvatar } from '@/components/ui/avatar-image'
+import { NoSymbolIcon } from '@heroicons/react/24/outline'
+import toast from 'react-hot-toast'
+import Link from 'next/link'
+
+interface BlockedUser {
+  id: string
+  username?: string
+  displayName: string
+  hasDpns: boolean
+}
+
+export function BlockedUsersSettings() {
+  const { user } = useAuth()
+  const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [unblockingId, setUnblockingId] = useState<string | null>(null)
+
+  const loadBlockedUsers = useCallback(async () => {
+    if (!user?.identityId) {
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      setIsLoading(true)
+      const { blockService } = await import('@/lib/services/block-service')
+      const { dpnsService } = await import('@/lib/services/dpns-service')
+      const { profileService } = await import('@/lib/services/profile-service')
+
+      // Get all blocks
+      const blocks = await blockService.getUserBlocks(user.identityId)
+
+      if (blocks.length === 0) {
+        setBlockedUsers([])
+        return
+      }
+
+      // Resolve usernames and profiles for blocked users
+      const usersWithDetails = await Promise.all(
+        blocks.map(async (block) => {
+          const blockedId = block.blockedId
+          let username: string | undefined
+          let displayName = `User ${blockedId.slice(-6)}`
+          let hasDpns = false
+
+          // Try to get DPNS username
+          try {
+            const resolvedUsername = await dpnsService.resolveUsername(blockedId)
+            if (resolvedUsername) {
+              username = resolvedUsername
+              hasDpns = true
+            }
+          } catch {
+            // DPNS resolution is optional
+          }
+
+          // Try to get profile display name
+          try {
+            const profile = await profileService.getProfile(blockedId)
+            if (profile?.displayName) {
+              displayName = profile.displayName
+            }
+          } catch {
+            // Profile is optional
+          }
+
+          return {
+            id: blockedId,
+            username,
+            displayName,
+            hasDpns
+          }
+        })
+      )
+
+      setBlockedUsers(usersWithDetails)
+    } catch (error) {
+      console.error('Error loading blocked users:', error)
+      toast.error('Failed to load blocked users')
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user?.identityId])
+
+  useEffect(() => {
+    loadBlockedUsers()
+  }, [loadBlockedUsers])
+
+  const handleUnblock = async (blockedUserId: string) => {
+    if (!user?.identityId || unblockingId) return
+
+    setUnblockingId(blockedUserId)
+
+    try {
+      const { blockService } = await import('@/lib/services/block-service')
+      const result = await blockService.unblockUser(user.identityId, blockedUserId)
+
+      if (result.success) {
+        // Remove from local state
+        setBlockedUsers(prev => prev.filter(u => u.id !== blockedUserId))
+        toast.success('User unblocked')
+      } else {
+        throw new Error(result.error || 'Failed to unblock user')
+      }
+    } catch (error) {
+      console.error('Error unblocking user:', error)
+      toast.error('Failed to unblock user')
+    } finally {
+      setUnblockingId(null)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        <div className="flex items-center gap-2">
+          <NoSymbolIcon className="h-5 w-5" />
+          <h3 className="font-semibold">Blocked Users</h3>
+        </div>
+        <div className="space-y-3">
+          {[1, 2].map(i => (
+            <div key={i} className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-950 rounded-lg">
+              <div className="flex items-center gap-3">
+                <div className="h-10 w-10 rounded-full bg-gray-200 dark:bg-gray-800 animate-pulse" />
+                <div>
+                  <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded animate-pulse mb-1" />
+                  <div className="h-3 w-16 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+                </div>
+              </div>
+              <div className="h-8 w-20 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <NoSymbolIcon className="h-5 w-5" />
+        <h3 className="font-semibold">Blocked Users</h3>
+      </div>
+
+      {blockedUsers.length === 0 ? (
+        <p className="text-gray-500 text-sm">You haven&apos;t blocked anyone</p>
+      ) : (
+        <div className="space-y-3">
+          {blockedUsers.map(blockedUser => (
+            <div
+              key={blockedUser.id}
+              className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-950 rounded-lg"
+            >
+              <Link
+                href={`/user?id=${blockedUser.id}`}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity"
+              >
+                <UserAvatar userId={blockedUser.id} size="md" />
+                <div>
+                  <p className="font-medium">{blockedUser.displayName}</p>
+                  {blockedUser.hasDpns && blockedUser.username && (
+                    <p className="text-sm text-gray-500">@{blockedUser.username}</p>
+                  )}
+                </div>
+              </Link>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleUnblock(blockedUser.id)}
+                disabled={unblockingId === blockedUser.id}
+              >
+                {unblockingId === blockedUser.id ? 'Unblocking...' : 'Unblock'}
+              </Button>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}

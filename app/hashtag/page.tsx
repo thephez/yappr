@@ -11,11 +11,14 @@ import { formatNumber } from '@/lib/utils'
 import { hashtagService } from '@/lib/services/hashtag-service'
 import { HASHTAG_CONTRACT_ID } from '@/lib/constants'
 import { Post } from '@/lib/types'
+import { useAuth } from '@/contexts/auth-context'
+import { getBlockedUserIds } from '@/hooks/use-block'
 
 function HashtagPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const tag = searchParams.get('tag') || ''
+  const { user } = useAuth()
 
   const [posts, setPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -75,7 +78,17 @@ function HashtagPageContent() {
         fetchedPosts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
 
         // Enrich posts with author data (DPNS names, displayNames, stats)
-        const enrichedPosts = await postService.enrichPostsBatch(fetchedPosts)
+        let enrichedPosts = await postService.enrichPostsBatch(fetchedPosts)
+
+        // Filter out posts from blocked users
+        if (user?.identityId) {
+          const blockedIds = await getBlockedUserIds(user.identityId)
+          if (blockedIds.length > 0) {
+            const blockedSet = new Set(blockedIds)
+            enrichedPosts = enrichedPosts.filter(post => !blockedSet.has(post.author.id))
+          }
+        }
+
         setPosts(enrichedPosts)
         setPostCount(enrichedPosts.length)
       } catch (error) {

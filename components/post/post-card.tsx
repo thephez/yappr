@@ -29,6 +29,7 @@ import { UserAvatar } from '@/components/ui/avatar-image'
 import { LikesModal } from './likes-modal'
 import { PostContent } from './post-content'
 import { useTipModal } from '@/hooks/use-tip-modal'
+import { useBlock } from '@/hooks/use-block'
 
 interface PostCardProps {
   post: Post
@@ -53,6 +54,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp }:
   const [bookmarkLoading, setBookmarkLoading] = useState(false)
   const { setReplyingTo, setComposeOpen } = useAppStore()
   const { open: openTipModal } = useTipModal()
+  const { isBlocked, isLoading: blockLoading, toggleBlock } = useBlock(post.author.id)
 
   // Sync local state with prop changes (e.g., when parent enriches post data)
   useEffect(() => {
@@ -298,8 +300,12 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp }:
                   <DropdownMenu.Item className="px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer outline-none">
                     Mute {(post.author as any).hasDpns ? `@${post.author.username}` : post.author.displayName}
                   </DropdownMenu.Item>
-                  <DropdownMenu.Item className="px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer outline-none text-red-500">
-                    Block {(post.author as any).hasDpns ? `@${post.author.username}` : post.author.displayName}
+                  <DropdownMenu.Item
+                    onClick={(e) => { e.stopPropagation(); toggleBlock(); }}
+                    disabled={blockLoading}
+                    className="px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer outline-none text-red-500 disabled:opacity-50"
+                  >
+                    {isBlocked ? 'Unblock' : 'Block'} {(post.author as any).hasDpns ? `@${post.author.username}` : post.author.displayName}
                   </DropdownMenu.Item>
                 </DropdownMenu.Content>
               </DropdownMenu.Portal>

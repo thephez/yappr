@@ -8,6 +8,7 @@ import {
   MapPinIcon,
   LinkIcon,
   ShareIcon,
+  NoSymbolIcon,
 } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -20,6 +21,7 @@ import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import type { Post } from '@/lib/types'
+import { useBlock } from '@/hooks/use-block'
 
 interface ProfileData {
   displayName: string
@@ -46,6 +48,9 @@ function UserProfileContent() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [postCount, setPostCount] = useState<number | null>(null)
+
+  // Block state - only check if viewing another user's profile
+  const { isBlocked: isBlockedByMe, isLoading: blockLoading, toggleBlock } = useBlock(userId || '')
 
   const displayName = profile?.displayName || (userId ? `User ${userId.slice(-6)}` : 'Unknown')
 
@@ -393,6 +398,31 @@ function UserProfileContent() {
                 </button>
               </div>
             </div>
+
+            {/* Blocked User Notice */}
+            {isBlockedByMe && !isOwnProfile && (
+              <div className="p-4 bg-gray-50 dark:bg-gray-950 border-y border-gray-200 dark:border-gray-800">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 bg-red-100 dark:bg-red-900/30 rounded-full">
+                      <NoSymbolIcon className="h-6 w-6 text-red-500" />
+                    </div>
+                    <div>
+                      <p className="font-semibold">You blocked this user</p>
+                      <p className="text-sm text-gray-500">You won&apos;t see their posts in your feeds</p>
+                    </div>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={toggleBlock}
+                    disabled={blockLoading}
+                  >
+                    Unblock
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <div className="border-t border-gray-200 dark:border-gray-800">
               <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">

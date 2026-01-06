@@ -8,6 +8,7 @@ export { likeService } from './like-service';
 export { followService } from './follow-service';
 export { repostService } from './repost-service';
 export { bookmarkService } from './bookmark-service';
+export { blockService } from './block-service';
 export { stateTransitionService } from './state-transition-service';
 export { directMessageService } from './direct-message-service';
 export { hashtagService } from './hashtag-service';
@@ -23,6 +24,7 @@ export type { LikeDocument } from './like-service';
 export type { FollowDocument } from './follow-service';
 export type { RepostDocument } from './repost-service';
 export type { BookmarkDocument } from './bookmark-service';
+export type { BlockDocument } from './block-service';
 export type { StateTransitionResult } from './state-transition-service';
 export type { QueryOptions, DocumentResult } from './document-service';
 export type {

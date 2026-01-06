@@ -10,9 +10,12 @@ import { formatNumber } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { hashtagService, TrendingHashtag } from '@/lib/services/hashtag-service'
 import { HASHTAG_CONTRACT_ID } from '@/lib/constants'
+import { useAuth } from '@/contexts/auth-context'
+import { getBlockedUserIds } from '@/hooks/use-block'
 
 export default function ExplorePage() {
   const router = useRouter()
+  const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearchFocused, setIsSearchFocused] = useState(false)
   const [searchResults, setSearchResults] = useState<any[]>([])
@@ -63,10 +66,17 @@ export default function ExplorePage() {
 
         const allPosts = await dashClient.queryPosts({ limit: 100 })
 
+        // Get blocked user IDs for filtering
+        const blockedIds = user?.identityId
+          ? await getBlockedUserIds(user.identityId)
+          : []
+        const blockedSet = new Set(blockedIds)
+
         const filtered = allPosts
           .filter((post: any) =>
             post.$ownerId &&
-            post.content?.toLowerCase().includes(searchQuery.toLowerCase())
+            post.content?.toLowerCase().includes(searchQuery.toLowerCase()) &&
+            !blockedSet.has(post.$ownerId)
           )
           .map((post: any) => ({
             id: post.$id,
