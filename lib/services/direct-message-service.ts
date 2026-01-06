@@ -32,6 +32,7 @@ import bs58 from 'bs58'
  */
 class DirectMessageService {
   private contractId = YAPPR_DM_CONTRACT_ID
+  private publicKeyCache = new Map<string, Uint8Array>()
 
   /**
    * Send a direct message
@@ -318,6 +319,41 @@ class DirectMessageService {
   }
 
   /**
+   * Poll for new messages - 1 query, only decrypts messages not in existingIds
+   * Returns only the NEW messages (already decrypted)
+   */
+  async pollNewMessages(
+    conversationId: string,
+    existingIds: Set<string>,
+    userId: string,
+    participantId: string
+  ): Promise<DirectMessage[]> {
+    try {
+      // Single query to get all messages
+      const allDocs = await this.getConversationMessagesRaw(conversationId, 100)
+
+      // Filter to only new messages
+      const newDocs = allDocs.filter(doc => !existingIds.has(doc.$id))
+      if (newDocs.length === 0) return []
+
+      // Decrypt only new messages (public key is cached after first call)
+      const messages: DirectMessage[] = []
+      for (const doc of newDocs) {
+        try {
+          const msg = await this.decryptMessage(doc, userId, participantId)
+          if (msg) messages.push(msg)
+        } catch {
+          // Skip failed decryption
+        }
+      }
+      return messages
+    } catch (error) {
+      console.error('Error polling messages:', error)
+      return []
+    }
+  }
+
+  /**
    * Get raw message documents for a conversation
    */
   private async getConversationMessagesRaw(
@@ -464,26 +500,35 @@ class DirectMessageService {
   }
 
   /**
-   * Get public key for a user
-   * First checks their invite for embedded key, then falls back to identity
+   * Get public key for a user (cached to avoid repeated lookups)
+   * First checks cache, then invite, then falls back to identity
    */
   private async getPublicKeyForUser(
     userId: string,
     currentUserId: string
   ): Promise<Uint8Array | null> {
-    // First, check if they sent us an invite with their public key
+    // Check cache first
+    const cached = this.publicKeyCache.get(userId)
+    if (cached) return cached
+
+    // Check if they sent us an invite with their public key
     const theirInvite = await this.getInviteFromUser(userId, currentUserId)
     if (theirInvite) {
       const senderPubKey = this.extractByteArray(
         theirInvite.senderPubKey || theirInvite.data?.senderPubKey
       )
       if (senderPubKey && senderPubKey.length === 33) {
+        this.publicKeyCache.set(userId, senderPubKey)
         return senderPubKey
       }
     }
 
     // Fall back to identity
-    return this.getPublicKeyFromIdentity(userId)
+    const pubKey = await this.getPublicKeyFromIdentity(userId)
+    if (pubKey) {
+      this.publicKeyCache.set(userId, pubKey)
+    }
+    return pubKey
   }
 
   /**

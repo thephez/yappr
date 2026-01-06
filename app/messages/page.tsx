@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { motion } from 'framer-motion'
 import {
   MagnifyingGlassIcon,
@@ -37,6 +37,14 @@ function MessagesPage() {
   const [newConversationInput, setNewConversationInput] = useState('')
   const [isResolvingUser, setIsResolvingUser] = useState(false)
   const [participantLastRead, setParticipantLastRead] = useState<number | null>(null)
+
+  // Refs for polling (to avoid stale closures and dependency issues)
+  const userRef = useRef(user)
+  userRef.current = user
+  const selectedConversationRef = useRef(selectedConversation)
+  selectedConversationRef.current = selectedConversation
+  const messagesRef = useRef(messages)
+  messagesRef.current = messages
 
   // Load conversations on mount
   useEffect(() => {
@@ -97,6 +105,57 @@ function MessagesPage() {
     }
     loadMessages()
   }, [selectedConversation, user])
+
+  // Poll for new messages in active conversation (1 query per poll)
+  useEffect(() => {
+    const convId = selectedConversation?.id
+    if (!convId || !user?.identityId) return
+
+    let timeoutId: NodeJS.Timeout | null = null
+    let cancelled = false
+
+    const pollMessages = async () => {
+      if (cancelled) return
+
+      const currentConv = selectedConversationRef.current
+      const currentUser = userRef.current
+      if (!currentConv || !currentUser) return
+
+      try {
+        // Get existing message IDs from ref to avoid re-processing
+        const existingIds = new Set(messagesRef.current.map(m => m.id))
+
+        // Single query - only returns NEW messages (already decrypted)
+        const newMsgs = await directMessageService.pollNewMessages(
+          currentConv.id,
+          existingIds,
+          currentUser.identityId,
+          currentConv.participantId
+        )
+
+        if (cancelled) return
+
+        if (newMsgs.length > 0) {
+          setMessages(prev => [...prev, ...newMsgs])
+        }
+      } catch (error) {
+        console.debug('Message poll error:', error)
+      }
+
+      // Schedule next poll AFTER this one completes
+      if (!cancelled) {
+        timeoutId = setTimeout(pollMessages, 3000)
+      }
+    }
+
+    // Start first poll after 3s
+    timeoutId = setTimeout(pollMessages, 3000)
+
+    return () => {
+      cancelled = true
+      if (timeoutId) clearTimeout(timeoutId)
+    }
+  }, [selectedConversation?.id, user?.identityId])
 
   const sendMessage = async () => {
     if (!newMessage.trim() || !selectedConversation || !user || isSending) return
