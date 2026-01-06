@@ -319,24 +319,21 @@ class DirectMessageService {
   }
 
   /**
-   * Poll for new messages - 1 query, only decrypts messages not in existingIds
+   * Poll for new messages - queries only messages newer than sinceTimestamp
    * Returns only the NEW messages (already decrypted)
    */
   async pollNewMessages(
     conversationId: string,
-    existingIds: Set<string>,
+    sinceTimestamp: number,
     userId: string,
     participantId: string
   ): Promise<DirectMessage[]> {
     try {
-      // Single query to get all messages
-      const allDocs = await this.getConversationMessagesRaw(conversationId, 100)
-
-      // Filter to only new messages
-      const newDocs = allDocs.filter(doc => !existingIds.has(doc.$id))
+      // Query only messages newer than sinceTimestamp (uses index efficiently)
+      const newDocs = await this.getConversationMessagesRaw(conversationId, 100, sinceTimestamp)
       if (newDocs.length === 0) return []
 
-      // Decrypt only new messages (public key is cached after first call)
+      // Decrypt the new messages (public key is cached after first call)
       const messages: DirectMessage[] = []
       for (const doc of newDocs) {
         try {
@@ -355,10 +352,12 @@ class DirectMessageService {
 
   /**
    * Get raw message documents for a conversation
+   * @param sinceTimestamp - If provided, only fetch messages with $createdAt > sinceTimestamp
    */
   private async getConversationMessagesRaw(
     conversationId: string,
-    limit: number = 100
+    limit: number = 100,
+    sinceTimestamp?: number
   ): Promise<any[]> {
     try {
       const sdk = await getEvoSdk()
@@ -366,10 +365,16 @@ class DirectMessageService {
       const convIdBytes = bs58.decode(conversationId)
       const convIdBase64 = Buffer.from(convIdBytes).toString('base64')
 
+      // Build where clause - add timestamp filter if provided
+      const where: any[] = [['conversationId', '==', convIdBase64]]
+      if (sinceTimestamp) {
+        where.push(['$createdAt', '>', sinceTimestamp])
+      }
+
       const response = await sdk.documents.query({
         dataContractId: this.contractId,
         documentTypeName: 'directMessage',
-        where: [['conversationId', '==', convIdBase64]],
+        where,
         orderBy: [['$createdAt', 'asc']],
         limit
       } as any)

@@ -106,7 +106,7 @@ function MessagesPage() {
     loadMessages()
   }, [selectedConversation, user])
 
-  // Poll for new messages in active conversation (1 query per poll)
+  // Poll for new messages in active conversation (timestamp-based, efficient)
   useEffect(() => {
     const convId = selectedConversation?.id
     if (!convId || !user?.identityId) return
@@ -122,13 +122,16 @@ function MessagesPage() {
       if (!currentConv || !currentUser) return
 
       try {
-        // Get existing message IDs from ref to avoid re-processing
-        const existingIds = new Set(messagesRef.current.map(m => m.id))
+        // Get the latest message timestamp - only fetch messages newer than this
+        const currentMessages = messagesRef.current
+        const lastTimestamp = currentMessages.length > 0
+          ? Math.max(...currentMessages.map(m => m.createdAt.getTime()))
+          : 0
 
-        // Single query - only returns NEW messages (already decrypted)
+        // Query only messages newer than lastTimestamp (efficient, uses index)
         const newMsgs = await directMessageService.pollNewMessages(
           currentConv.id,
-          existingIds,
+          lastTimestamp,
           currentUser.identityId,
           currentConv.participantId
         )
