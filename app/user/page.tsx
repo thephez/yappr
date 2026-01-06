@@ -9,6 +9,8 @@ import {
   LinkIcon,
   ShareIcon,
   NoSymbolIcon,
+  Cog6ToothIcon,
+  SparklesIcon,
 } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -16,7 +18,8 @@ import { Button } from '@/components/ui/button'
 import { PostCard } from '@/components/post/post-card'
 import { formatNumber } from '@/lib/utils'
 import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
-import { UserAvatar } from '@/components/ui/avatar-image'
+import { UserAvatar, invalidateAvatarImageCache } from '@/components/ui/avatar-image'
+import { AvatarCustomization } from '@/components/settings/avatar-customization'
 import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -48,6 +51,16 @@ function UserProfileContent() {
   const [isFollowing, setIsFollowing] = useState(false)
   const [followLoading, setFollowLoading] = useState(false)
   const [postCount, setPostCount] = useState<number | null>(null)
+
+  // Edit profile state
+  const [isEditingProfile, setIsEditingProfile] = useState(false)
+  const [isEditingAvatar, setIsEditingAvatar] = useState(false)
+  const [avatarKey, setAvatarKey] = useState(0)
+  const [editDisplayName, setEditDisplayName] = useState('')
+  const [editBio, setEditBio] = useState('')
+  const [editLocation, setEditLocation] = useState('')
+  const [editWebsite, setEditWebsite] = useState('')
+  const [isSaving, setIsSaving] = useState(false)
 
   // Block state - only check if viewing another user's profile
   const { isBlocked: isBlockedByMe, isLoading: blockLoading, toggleBlock } = useBlock(userId || '')
@@ -208,8 +221,52 @@ function UserProfileContent() {
     }
   }
 
-  const handleEditProfile = () => {
-    router.push('/profile')
+  const handleStartEdit = () => {
+    setEditDisplayName(profile?.displayName || '')
+    setEditBio(profile?.bio || '')
+    setEditLocation(profile?.location || '')
+    setEditWebsite(profile?.website || '')
+    setIsEditingProfile(true)
+  }
+
+  const handleCancelEdit = () => {
+    setIsEditingProfile(false)
+    setEditDisplayName('')
+    setEditBio('')
+    setEditLocation('')
+    setEditWebsite('')
+  }
+
+  const handleSaveProfile = async () => {
+    if (!currentUser?.identityId) return
+
+    setIsSaving(true)
+    try {
+      const { profileService } = await import('@/lib/services')
+      await profileService.updateProfile(currentUser.identityId, {
+        displayName: editDisplayName,
+        bio: editBio,
+        location: editLocation,
+        website: editWebsite,
+      })
+
+      // Update local profile state
+      setProfile(prev => prev ? {
+        ...prev,
+        displayName: editDisplayName,
+        bio: editBio,
+        location: editLocation,
+        website: editWebsite,
+      } : null)
+
+      setIsEditingProfile(false)
+      toast.success('Profile updated!')
+    } catch (error) {
+      console.error('Failed to update profile:', error)
+      toast.error('Failed to update profile')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   if (!userId) {
@@ -269,11 +326,21 @@ function UserProfileContent() {
                 <div className="relative">
                   <div className="h-32 w-32 rounded-full bg-white dark:bg-neutral-900 p-1">
                     <UserAvatar
+                      key={avatarKey}
                       userId={userId || 'default'}
                       alt={displayName}
                       size="full"
                     />
                   </div>
+                  {isOwnProfile && isEditingProfile && (
+                    <button
+                      onClick={() => setIsEditingAvatar(true)}
+                      className="absolute bottom-1 right-1 p-2 bg-yappr-500 rounded-full hover:bg-yappr-600 transition-colors shadow-lg"
+                      title="Change avatar"
+                    >
+                      <SparklesIcon className="h-4 w-4 text-white" />
+                    </button>
+                  )}
                 </div>
 
                 <div className="mt-20 flex items-center gap-2">
@@ -301,14 +368,47 @@ function UserProfileContent() {
                       </Tooltip.Portal>
                     </Tooltip.Root>
                   </Tooltip.Provider>
+                  {isOwnProfile && (
+                    <Tooltip.Provider>
+                      <Tooltip.Root>
+                        <Tooltip.Trigger asChild>
+                          <button
+                            onClick={() => router.push('/settings')}
+                            className="p-2 rounded-full border border-gray-200 dark:border-gray-700 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                          >
+                            <Cog6ToothIcon className="h-4 w-4" />
+                          </button>
+                        </Tooltip.Trigger>
+                        <Tooltip.Portal>
+                          <Tooltip.Content
+                            className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded"
+                            sideOffset={5}
+                          >
+                            Settings
+                          </Tooltip.Content>
+                        </Tooltip.Portal>
+                      </Tooltip.Root>
+                    </Tooltip.Provider>
+                  )}
                   {isOwnProfile ? (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleEditProfile}
-                    >
-                      Edit profile
-                    </Button>
+                    isEditingProfile ? (
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="ghost" onClick={handleCancelEdit} disabled={isSaving}>
+                          Cancel
+                        </Button>
+                        <Button size="sm" onClick={handleSaveProfile} disabled={isSaving}>
+                          {isSaving ? 'Saving...' : 'Save'}
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleStartEdit}
+                      >
+                        Edit profile
+                      </Button>
+                    )
                   ) : (
                     <Button
                       variant={isFollowing ? "outline" : "default"}
@@ -322,81 +422,133 @@ function UserProfileContent() {
                 </div>
               </div>
 
-              <div className="mb-3">
-                <h2 className="text-xl font-bold">{displayName}</h2>
-                {hasDpns ? (
-                  <p className="text-gray-500">@{username}</p>
-                ) : (
-                  <Tooltip.Provider>
-                    <Tooltip.Root>
-                      <Tooltip.Trigger asChild>
-                        <button
-                          onClick={() => {
-                            if (userId) {
-                              navigator.clipboard.writeText(userId)
-                              toast.success('Identity ID copied')
-                            }
-                          }}
-                          className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono text-sm"
-                        >
-                          {userId?.slice(0, 8)}...{userId?.slice(-6)}
-                        </button>
-                      </Tooltip.Trigger>
-                      <Tooltip.Portal>
-                        <Tooltip.Content
-                          className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded max-w-xs"
-                          sideOffset={5}
-                        >
-                          Click to copy full identity ID
-                        </Tooltip.Content>
-                      </Tooltip.Portal>
-                    </Tooltip.Root>
-                  </Tooltip.Provider>
-                )}
-              </div>
+              {isOwnProfile && isEditingProfile ? (
+                <div className="space-y-4">
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Name</label>
+                    <input
+                      type="text"
+                      value={editDisplayName}
+                      onChange={(e) => setEditDisplayName(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-yappr-500"
+                      maxLength={50}
+                    />
+                  </div>
 
-              {profile?.bio && <p className="mb-3">{profile.bio}</p>}
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Bio</label>
+                    <textarea
+                      value={editBio}
+                      onChange={(e) => setEditBio(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-yappr-500 resize-none"
+                      rows={3}
+                      maxLength={160}
+                    />
+                    <p className="text-xs text-gray-500 mt-1">{editBio.length}/160</p>
+                  </div>
 
-              <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
-                {profile?.location && (
-                  <span className="flex items-center gap-1">
-                    <MapPinIcon className="h-4 w-4" />
-                    {profile.location}
-                  </span>
-                )}
-                {profile?.website && (
-                  <a
-                    href={profile.website}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1 text-yappr-500 hover:underline"
-                  >
-                    <LinkIcon className="h-4 w-4" />
-                    {profile.website.replace(/^https?:\/\//, '')}
-                  </a>
-                )}
-                <span className="flex items-center gap-1">
-                  <CalendarIcon className="h-4 w-4" />
-                  Joined recently
-                </span>
-              </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Location</label>
+                    <input
+                      type="text"
+                      value={editLocation}
+                      onChange={(e) => setEditLocation(e.target.value)}
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-yappr-500"
+                      maxLength={50}
+                    />
+                  </div>
 
-              <div className="flex gap-4 text-sm">
-                <button
-                  onClick={() => router.push(`/following?id=${userId}`)}
-                  className="hover:underline"
-                >
-                  <span className="font-bold">{formatNumber(profile?.followingCount || 0)}</span>
-                  <span className="text-gray-500"> Following</span>
-                </button>
-                <button
-                  onClick={() => router.push(`/followers?id=${userId}`)}
-                  className="hover:underline"
-                >
-                  <span className="font-bold">{formatNumber(profile?.followersCount || 0)}</span>
-                  <span className="text-gray-500"> Followers</span>
-                </button>
-              </div>
+                  <div>
+                    <label className="text-sm font-medium text-gray-700 dark:text-gray-300">Website</label>
+                    <input
+                      type="text"
+                      value={editWebsite}
+                      onChange={(e) => setEditWebsite(e.target.value)}
+                      placeholder="https://example.com"
+                      className="mt-1 w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-transparent focus:outline-none focus:ring-2 focus:ring-yappr-500"
+                      maxLength={100}
+                    />
+                  </div>
+                </div>
+              ) : (
+                <>
+                  <div className="mb-3">
+                    <h2 className="text-xl font-bold">{displayName}</h2>
+                    {hasDpns ? (
+                      <p className="text-gray-500">@{username}</p>
+                    ) : (
+                      <Tooltip.Provider>
+                        <Tooltip.Root>
+                          <Tooltip.Trigger asChild>
+                            <button
+                              onClick={() => {
+                                if (userId) {
+                                  navigator.clipboard.writeText(userId)
+                                  toast.success('Identity ID copied')
+                                }
+                              }}
+                              className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono text-sm"
+                            >
+                              {userId?.slice(0, 8)}...{userId?.slice(-6)}
+                            </button>
+                          </Tooltip.Trigger>
+                          <Tooltip.Portal>
+                            <Tooltip.Content
+                              className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded max-w-xs"
+                              sideOffset={5}
+                            >
+                              Click to copy full identity ID
+                            </Tooltip.Content>
+                          </Tooltip.Portal>
+                        </Tooltip.Root>
+                      </Tooltip.Provider>
+                    )}
+                  </div>
+
+                  {profile?.bio && <p className="mb-3">{profile.bio}</p>}
+
+                  <div className="flex flex-wrap gap-3 text-sm text-gray-500 mb-3">
+                    {profile?.location && (
+                      <span className="flex items-center gap-1">
+                        <MapPinIcon className="h-4 w-4" />
+                        {profile.location}
+                      </span>
+                    )}
+                    {profile?.website && (
+                      <a
+                        href={profile.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-yappr-500 hover:underline"
+                      >
+                        <LinkIcon className="h-4 w-4" />
+                        {profile.website.replace(/^https?:\/\//, '')}
+                      </a>
+                    )}
+                    <span className="flex items-center gap-1">
+                      <CalendarIcon className="h-4 w-4" />
+                      Joined recently
+                    </span>
+                  </div>
+
+                  <div className="flex gap-4 text-sm">
+                    <button
+                      onClick={() => router.push(`/following?id=${userId}`)}
+                      className="hover:underline"
+                    >
+                      <span className="font-bold">{formatNumber(profile?.followingCount || 0)}</span>
+                      <span className="text-gray-500"> Following</span>
+                    </button>
+                    <button
+                      onClick={() => router.push(`/followers?id=${userId}`)}
+                      className="hover:underline"
+                    >
+                      <span className="font-bold">{formatNumber(profile?.followersCount || 0)}</span>
+                      <span className="text-gray-500"> Followers</span>
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
 
             {/* Blocked User Notice */}
@@ -447,6 +599,39 @@ function UserProfileContent() {
       </div>
 
       <RightSidebar />
+
+      {/* Avatar Customization Modal */}
+      {isEditingAvatar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setIsEditingAvatar(false)}
+          />
+          <div className="relative bg-white dark:bg-neutral-900 rounded-xl p-6 max-w-md w-full mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold">Customize Avatar</h2>
+              <button
+                onClick={() => setIsEditingAvatar(false)}
+                className="p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <AvatarCustomization
+              compact
+              onSave={() => {
+                setIsEditingAvatar(false)
+                if (userId) {
+                  invalidateAvatarImageCache(userId)
+                }
+                setAvatarKey(prev => prev + 1)
+              }}
+            />
+          </div>
+        </div>
+      )}
     </div>
   )
 }

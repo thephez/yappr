@@ -287,6 +287,8 @@ class ProfileService extends BaseDocumentService<User> {
     updates: {
       displayName?: string;
       bio?: string;
+      location?: string;
+      website?: string;
     }
   ): Promise<User | null> {
     try {
@@ -304,6 +306,14 @@ class ProfileService extends BaseDocumentService<User> {
 
       if (updates.bio !== undefined) {
         data.bio = updates.bio;
+      }
+
+      if (updates.location !== undefined) {
+        data.location = updates.location;
+      }
+
+      if (updates.website !== undefined) {
+        data.website = updates.website;
       }
 
       // Update profile document
