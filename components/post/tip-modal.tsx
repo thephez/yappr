@@ -22,7 +22,6 @@ export function TipModal() {
 
   const [amount, setAmount] = useState('')
   const [transferKey, setTransferKey] = useState('')
-  const [keyId, setKeyId] = useState('')
   const [state, setState] = useState<ModalState>('input')
   const [error, setError] = useState<string | null>(null)
   const [balance, setBalance] = useState<number | null>(null)
@@ -44,7 +43,6 @@ export function TipModal() {
     if (!isOpen) {
       setAmount('')
       setTransferKey('')
-      setKeyId('')
       setState('input')
       setError(null)
     }
@@ -98,19 +96,15 @@ export function TipModal() {
     const dashAmount = parseFloat(amount)
     const credits = tipService.dashToCredits(dashAmount)
 
-    const parsedKeyId = keyId.trim() ? parseInt(keyId.trim(), 10) : undefined
-
     const result = await tipService.sendTip(
       user.identityId,
       post.author.id,
       credits,
-      transferKey,
-      !isNaN(parsedKeyId as number) ? parsedKeyId : undefined
+      transferKey
     )
 
     // Clear sensitive data from memory immediately
     setTransferKey('')
-    setKeyId('')
 
     if (result.success) {
       setState('success')
@@ -128,7 +122,6 @@ export function TipModal() {
     if (state === 'processing') return // Don't allow closing during processing
     // Clear sensitive data
     setTransferKey('')
-    setKeyId('')
     close()
   }
 
@@ -152,16 +145,16 @@ export function TipModal() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 z-50"
-              />
-            </Dialog.Overlay>
-            <Dialog.Content asChild>
-              <motion.div
-                initial={{ opacity: 0, scale: 0.95 }}
-                animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                className="fixed top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-neutral-900 rounded-2xl p-6 w-[420px] max-w-[90vw] shadow-xl z-50"
+                className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4"
               >
+                <Dialog.Content asChild>
+                  <motion.div
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="bg-white dark:bg-neutral-900 rounded-2xl p-6 w-[420px] max-w-[90vw] shadow-xl relative"
+                    onClick={(e) => e.stopPropagation()}
+                  >
                 <Dialog.Title className="text-xl font-bold mb-4 flex items-center gap-2">
                   <CurrencyDollarIcon className="h-6 w-6 text-amber-500" />
                   {state === 'success' ? 'Tip Sent!' : state === 'error' ? 'Transfer Failed' : 'Send Tip'}
@@ -243,24 +236,6 @@ export function TipModal() {
                       />
                       <p className="mt-1 text-xs text-gray-500">
                         Your key is never stored and is cleared after the transaction.
-                      </p>
-                    </div>
-
-                    {/* Key ID input (optional) */}
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                        Key ID <span className="text-gray-400 font-normal">(optional)</span>
-                      </label>
-                      <input
-                        type="text"
-                        inputMode="numeric"
-                        value={keyId}
-                        onChange={(e) => setKeyId(e.target.value.replace(/\D/g, ''))}
-                        placeholder="e.g., 0, 1, 2..."
-                        className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-neutral-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
-                      />
-                      <p className="mt-1 text-xs text-gray-500">
-                        Specify if your identity has multiple keys with transfer permission.
                       </p>
                     </div>
 
@@ -364,8 +339,10 @@ export function TipModal() {
                     </div>
                   </div>
                 )}
+                  </motion.div>
+                </Dialog.Content>
               </motion.div>
-            </Dialog.Content>
+            </Dialog.Overlay>
           </Dialog.Portal>
         )}
       </AnimatePresence>
