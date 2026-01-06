@@ -17,24 +17,23 @@ class FollowService extends BaseDocumentService<FollowDocument> {
 
   /**
    * Transform document
+   * SDK v3: System fields ($id, $ownerId) are base58, byte array fields (followingId) are base64
    */
   protected transformDocument(doc: Record<string, unknown>): FollowDocument {
-    // Handle both direct properties and nested data structure
-    const id = (doc.$id || doc.id) as string;
-    const ownerId = (doc.$ownerId || doc.ownerId) as string;
-    const createdAt = (doc.$createdAt || doc.createdAt) as number;
     const data = (doc.data || doc) as Record<string, unknown>;
-
-    // SDK v3 toJSON() returns byte array fields as base64 strings
-    // Convert to base58 for consistent handling
     const rawFollowingId = data.followingId;
-    const followingId = identifierToBase58(rawFollowingId) || String(rawFollowingId);
+
+    // Convert followingId from base64 to base58 (byte array field)
+    const followingId = rawFollowingId ? identifierToBase58(rawFollowingId) : '';
+    if (rawFollowingId && !followingId) {
+      console.error('FollowService: Invalid followingId format:', rawFollowingId);
+    }
 
     return {
-      $id: id,
-      $ownerId: ownerId,
-      $createdAt: createdAt,
-      followingId
+      $id: doc.$id as string,
+      $ownerId: doc.$ownerId as string,
+      $createdAt: doc.$createdAt as number,
+      followingId: followingId || ''
     };
   }
 

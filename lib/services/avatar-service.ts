@@ -39,6 +39,10 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
     super('avatar');
   }
 
+  /**
+   * Transform document
+   * SDK v3: System fields use $ prefix, content may be nested under 'data' property
+   */
   protected transformDocument(doc: any): AvatarDocument {
     // SDK v3 may nest content fields under 'data' property
     // Check if doc.data is an object (nested content) or string (actual data field)
@@ -49,11 +53,11 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
     const avatarData = isNestedFormat ? content.data : doc.data;
 
     return {
-      $id: doc.$id || doc.id,
-      $ownerId: doc.$ownerId || doc.ownerId,
-      $createdAt: doc.$createdAt || doc.createdAt,
-      $updatedAt: doc.$updatedAt || doc.updatedAt,
-      $revision: doc.$revision || doc.revision,
+      $id: doc.$id,
+      $ownerId: doc.$ownerId,
+      $createdAt: doc.$createdAt,
+      $updatedAt: doc.$updatedAt,
+      $revision: doc.$revision,
       version: content.version || 1,
       data: typeof avatarData === 'string' ? avatarData : '',
       style: content.style,

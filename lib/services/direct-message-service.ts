@@ -2,6 +2,7 @@ import { BaseDocumentService, QueryOptions, DocumentResult } from './document-se
 import { stateTransitionService } from './state-transition-service'
 import { identityService } from './identity-service'
 import { dpnsService } from './dpns-service'
+import { identifierToBase58 } from './sdk-helpers'
 import { DirectMessage, Conversation } from '../types'
 import {
   encryptMessage,
@@ -33,31 +34,34 @@ class DirectMessageService extends BaseDocumentService<DirectMessageDocument> {
     super('directMessage', YAPPR_DM_CONTRACT_ID)
   }
 
+  /**
+   * Transform document
+   * SDK v3: System fields ($id, $ownerId) are base58, byte array fields (recipientId, conversationId) are base64
+   */
   protected transformDocument(doc: any): DirectMessageDocument {
-    const id = doc.$id || doc.id
-    const ownerId = doc.$ownerId || doc.ownerId
-    const createdAt = doc.$createdAt || doc.createdAt
-    const revision = doc.$revision || doc.revision
     const data = doc.data || doc
 
-    // Convert byte arrays to base58 strings if needed
-    let recipientId = data.recipientId
-    let conversationId = data.conversationId
+    // Convert byte array fields from base64 to base58
+    const rawRecipientId = data.recipientId
+    const rawConversationId = data.conversationId
 
-    if (Array.isArray(recipientId)) {
-      recipientId = bs58.encode(Buffer.from(recipientId))
+    const recipientId = rawRecipientId ? identifierToBase58(rawRecipientId) : ''
+    const conversationId = rawConversationId ? identifierToBase58(rawConversationId) : ''
+
+    if (rawRecipientId && !recipientId) {
+      console.error('DirectMessageService: Invalid recipientId format:', rawRecipientId)
     }
-    if (Array.isArray(conversationId)) {
-      conversationId = bs58.encode(Buffer.from(conversationId))
+    if (rawConversationId && !conversationId) {
+      console.error('DirectMessageService: Invalid conversationId format:', rawConversationId)
     }
 
     return {
-      $id: id,
-      $ownerId: ownerId,
-      $createdAt: createdAt,
-      $revision: revision,
-      recipientId,
-      conversationId,
+      $id: doc.$id,
+      $ownerId: doc.$ownerId,
+      $createdAt: doc.$createdAt,
+      $revision: doc.$revision,
+      recipientId: recipientId || '',
+      conversationId: conversationId || '',
       encryptedContent: data.encryptedContent,
       read: data.read ?? false
     }

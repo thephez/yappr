@@ -44,16 +44,12 @@ class PostService extends BaseDocumentService<Post> {
     // SDK may nest document fields under 'data' property
     const data = doc.data || doc;
 
-    // Handle different field naming conventions from SDK
     // SDK v3 toJSON() returns:
-    // - System fields ($id, $ownerId): base58 strings
-    // - Byte array fields (replyToPostId, etc): base64 strings
-    // identifierToBase58 handles both formats
-    const rawId = doc.$id || doc.id;
-    const rawOwnerId = doc.$ownerId || doc.ownerId;
-    const id = identifierToBase58(rawId) || String(rawId);
-    const ownerId = identifierToBase58(rawOwnerId) || String(rawOwnerId);
-    const createdAt = doc.$createdAt || doc.createdAt;
+    // - System fields ($id, $ownerId, $createdAt): base58 strings
+    // - Byte array fields (replyToPostId, etc): base64 strings (need conversion)
+    const id = doc.$id;
+    const ownerId = doc.$ownerId;
+    const createdAt = doc.$createdAt;
 
     // Content and other fields may be in data or at root level
     const content = data.content || doc.content || '';
@@ -219,12 +215,10 @@ class PostService extends BaseDocumentService<Post> {
         documents = Array.isArray(json) ? json : json.documents || [];
       }
 
-      // Extract owner IDs, using identifierToBase58 to handle various formats
+      // Extract owner IDs (system fields are already base58 in v3)
       for (const doc of documents) {
-        const rawPostId = doc.$id || doc.id;
-        const rawOwnerId = doc.$ownerId || doc.ownerId;
-        const postId = identifierToBase58(rawPostId);
-        const ownerId = identifierToBase58(rawOwnerId);
+        const postId = doc.$id;
+        const ownerId = doc.$ownerId;
         if (postId && ownerId) {
           result.set(postId, ownerId);
         }
@@ -270,9 +264,8 @@ class PostService extends BaseDocumentService<Post> {
       // Build profile map for quick lookup
       const profileMap = new Map<string, any>();
       profiles.forEach((profile: any) => {
-        const ownerId = profile.$ownerId || profile.ownerId;
-        if (ownerId) {
-          profileMap.set(ownerId, profile);
+        if (profile.$ownerId) {
+          profileMap.set(profile.$ownerId, profile);
         }
       });
 
@@ -614,11 +607,10 @@ class PostService extends BaseDocumentService<Post> {
 
         // Get the last document's ID for pagination
         const lastDoc = documents[documents.length - 1];
-        const lastId = lastDoc.$id || lastDoc.id;
-        if (!lastId) {
+        if (!lastDoc.$id) {
           break;
         }
-        startAfter = lastId;
+        startAfter = lastDoc.$id;
       }
 
       return totalCount;
@@ -1048,9 +1040,8 @@ class PostService extends BaseDocumentService<Post> {
 
         // Collect unique author IDs
         for (const doc of documents) {
-          const ownerId = doc.$ownerId || doc.ownerId;
-          if (ownerId) {
-            uniqueAuthors.add(ownerId);
+          if (doc.$ownerId) {
+            uniqueAuthors.add(doc.$ownerId);
           }
         }
 
@@ -1061,11 +1052,10 @@ class PostService extends BaseDocumentService<Post> {
 
         // Get the last document's ID for pagination
         const lastDoc = documents[documents.length - 1];
-        const lastId = lastDoc.$id || lastDoc.id;
-        if (!lastId) {
+        if (!lastDoc.$id) {
           break;
         }
-        startAfter = lastId;
+        startAfter = lastDoc.$id;
       }
 
       return uniqueAuthors.size;
@@ -1160,9 +1150,8 @@ class PostService extends BaseDocumentService<Post> {
 
         // Count posts per author
         for (const doc of documents) {
-          const ownerId = doc.$ownerId || doc.ownerId;
-          if (ownerId) {
-            authorCounts.set(ownerId, (authorCounts.get(ownerId) || 0) + 1);
+          if (doc.$ownerId) {
+            authorCounts.set(doc.$ownerId, (authorCounts.get(doc.$ownerId) || 0) + 1);
           }
         }
 
@@ -1175,11 +1164,10 @@ class PostService extends BaseDocumentService<Post> {
 
         // Get the last document's ID for pagination
         const lastDoc = documents[documents.length - 1];
-        const lastId = lastDoc.$id || lastDoc.id;
-        if (!lastId) {
+        if (!lastDoc.$id) {
           break;
         }
-        startAfter = lastId;
+        startAfter = lastDoc.$id;
       }
 
       return authorCounts;

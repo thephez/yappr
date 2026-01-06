@@ -29,21 +29,24 @@ class HashtagService extends BaseDocumentService<PostHashtagDocument> {
 
   /**
    * Transform document from SDK response to typed object
+   * SDK v3: System fields ($id, $ownerId) are base58, byte array fields (postId) are base64
    */
   protected transformDocument(doc: any): PostHashtagDocument {
     const data = doc.data || doc;
     const rawPostId = data.postId || doc.postId;
     const hashtag = data.hashtag || doc.hashtag;
 
-    // SDK v3 toJSON() returns byte array fields as base64 strings
-    // Convert to base58 for consistent handling
-    const postId = identifierToBase58(rawPostId) || String(rawPostId);
+    // Convert postId from base64 to base58 (byte array field)
+    const postId = rawPostId ? identifierToBase58(rawPostId) : '';
+    if (rawPostId && !postId) {
+      console.error('HashtagService: Invalid postId format:', rawPostId);
+    }
 
     return {
-      $id: doc.$id || doc.id,
-      $ownerId: doc.$ownerId || doc.ownerId,
-      $createdAt: doc.$createdAt || doc.createdAt,
-      postId,
+      $id: doc.$id,
+      $ownerId: doc.$ownerId,
+      $createdAt: doc.$createdAt,
+      postId: postId || '',
       hashtag
     };
   }

@@ -127,15 +127,15 @@ class ProfileService extends BaseDocumentService<User> {
 
   /**
    * Transform document to User type
+   * SDK v3: System fields use $ prefix
    */
   protected transformDocument(doc: Record<string, unknown>, options?: Record<string, unknown>): User {
     console.log('ProfileService: transformDocument input:', doc);
     const profileDoc = doc as unknown as ProfileDocument;
     const cachedUsername = options?.cachedUsername as string | undefined;
 
-    // Handle both $ prefixed and non-prefixed properties
-    const ownerId = profileDoc.$ownerId || (doc as Record<string, unknown>).ownerId as string;
-    const createdAt = profileDoc.$createdAt || (doc as Record<string, unknown>).createdAt;
+    const ownerId = profileDoc.$ownerId;
+    const createdAt = profileDoc.$createdAt;
     const data = (doc as Record<string, unknown>).data || doc;
 
     // Return a basic User object - additional data will be loaded separately

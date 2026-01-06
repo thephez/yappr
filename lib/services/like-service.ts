@@ -16,26 +16,23 @@ class LikeService extends BaseDocumentService<LikeDocument> {
 
   /**
    * Transform document
+   * SDK v3: System fields ($id, $ownerId) are base58, byte array fields (postId) are base64
    */
   protected transformDocument(doc: any): LikeDocument {
-    // Handle different document structures from SDK
-    // Batch queries return: { id, ownerId, data: { postId } }
-    // Regular queries return: { $id, $ownerId, postId }
     const data = doc.data || doc;
     const rawPostId = data.postId || doc.postId;
-    const rawId = doc.$id || doc.id;
-    const rawOwnerId = doc.$ownerId || doc.ownerId;
 
-    // Use identifierToBase58 for proper conversion from any format
-    const postId = rawPostId ? identifierToBase58(rawPostId) || String(rawPostId) : '';
-    const id = identifierToBase58(rawId) || String(rawId);
-    const ownerId = identifierToBase58(rawOwnerId) || String(rawOwnerId);
+    // Convert postId from base64 to base58 (byte array field)
+    const postId = rawPostId ? identifierToBase58(rawPostId) : '';
+    if (rawPostId && !postId) {
+      console.error('LikeService: Invalid postId format:', rawPostId);
+    }
 
     return {
-      $id: id,
-      $ownerId: ownerId,
-      $createdAt: doc.$createdAt || doc.createdAt,
-      postId
+      $id: doc.$id,
+      $ownerId: doc.$ownerId,
+      $createdAt: doc.$createdAt,
+      postId: postId || ''
     };
   }
 
