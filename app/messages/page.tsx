@@ -281,13 +281,13 @@ function MessagesPage() {
   }
 
   return (
-    <div className="min-h-[calc(100vh-40px)] flex">
+    <div className="h-[calc(100vh-40px)] flex overflow-hidden">
       <Sidebar />
 
-      <main className="flex-1 md:max-w-[1200px] md:border-x border-gray-200 dark:border-gray-800 flex">
+      <main className="flex-1 md:max-w-[1200px] md:border-x border-gray-200 dark:border-gray-800 flex overflow-hidden">
         {/* Conversations List */}
-        <div className={`w-full md:w-[320px] lg:w-[380px] xl:w-[400px] border-r border-gray-200 dark:border-gray-800 flex flex-col flex-shrink-0 ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
-          <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <div className={`w-full md:w-[320px] lg:w-[380px] xl:w-[400px] border-r border-gray-200 dark:border-gray-800 flex flex-col flex-shrink-0 overflow-hidden ${selectedConversation ? 'hidden md:flex' : 'flex'}`}>
+          <header className="flex-shrink-0 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-gray-800">
             <div className="flex items-center justify-between px-4 py-3">
               <h1 className="text-xl font-bold">Messages</h1>
               <button
@@ -371,8 +371,8 @@ function MessagesPage() {
 
         {/* Message Thread */}
         {selectedConversation ? (
-          <div className="flex-1 flex flex-col min-w-0">
-            <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800 px-4 py-3">
+          <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+            <header className="flex-shrink-0 bg-white dark:bg-neutral-900 border-b border-gray-200 dark:border-gray-800 px-4 py-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   {/* Back button - mobile only */}
@@ -457,7 +457,7 @@ function MessagesPage() {
               )}
             </div>
 
-            <div className="border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4">
+            <div className="flex-shrink-0 border-t border-gray-200 dark:border-gray-800 p-3 sm:p-4">
               <form
                 onSubmit={(e) => {
                   e.preventDefault()
