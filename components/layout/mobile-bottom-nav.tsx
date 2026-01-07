@@ -48,10 +48,10 @@ export function MobileBottomNav() {
     },
     {
       name: 'Profile',
-      href: '/profile',
+      href: user ? `/user?id=${user.identityId}` : '/login',
       icon: UserIcon,
       activeIcon: UserIconSolid,
-      match: (path: string) => path === '/profile'
+      match: (path: string) => path === '/user' && user !== null
     },
   ]
 

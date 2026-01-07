@@ -38,14 +38,14 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { useAuth } from '@/contexts/auth-context'
 
-const getNavigation = (isLoggedIn: boolean) => {
+const getNavigation = (isLoggedIn: boolean, userId?: string) => {
   if (!isLoggedIn) {
     return [
       { name: 'Home', href: '/', icon: HomeIcon, activeIcon: HomeIconSolid },
       { name: 'Following', href: '/following', icon: UserGroupIcon, activeIcon: UserGroupIconSolid },
     ]
   }
-  
+
   return [
     { name: 'Home', href: '/feed', icon: HomeIcon, activeIcon: HomeIconSolid },
     { name: 'Following', href: '/following', icon: UserGroupIcon, activeIcon: UserGroupIconSolid },
@@ -53,7 +53,7 @@ const getNavigation = (isLoggedIn: boolean) => {
     { name: 'Explore', href: '/explore', icon: HashtagIcon, activeIcon: HashtagIconSolid },
     { name: 'Messages', href: '/messages', icon: EnvelopeIcon, activeIcon: EnvelopeIconSolid },
     { name: 'Bookmarks', href: '/bookmarks', icon: BookmarkIcon, activeIcon: BookmarkIconSolid },
-    { name: 'Profile', href: '/profile', icon: UserIcon, activeIcon: UserIconSolid },
+    { name: 'Profile', href: `/user?id=${userId}`, icon: UserIcon, activeIcon: UserIconSolid },
   ]
 }
 
@@ -69,7 +69,7 @@ export function Sidebar() {
   }, [])
   
   // Get navigation based on auth status (use safe defaults during SSR)
-  const navigation = getNavigation(isHydrated ? !!user : false)
+  const navigation = getNavigation(isHydrated ? !!user : false, user?.identityId)
   
   // Format identity ID for display (show first 6 and last 4 chars)
   const formatIdentityId = (id: string) => {
