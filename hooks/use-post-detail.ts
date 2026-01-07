@@ -173,6 +173,31 @@ export function usePostDetail({
     }))
   }, [])
 
+  // Listen for post-created events (from ComposeModal) to add replies
+  useEffect(() => {
+    if (!postId) return
+
+    const handlePostCreated = (event: CustomEvent<{ post: any }>) => {
+      const newPost = event.detail?.post
+      if (!newPost) return
+
+      // Check if this is a reply to the current post or any reply we're showing
+      const replyToId = newPost.replyToPostId || newPost.replyToId
+      const isReplyToCurrentPost = replyToId === postId
+      const isReplyToAReply = state.replies.some(r => r.id === replyToId)
+
+      if (isReplyToCurrentPost || isReplyToAReply) {
+        // Refresh to get the new reply with proper data
+        refresh()
+      }
+    }
+
+    window.addEventListener('post-created', handlePostCreated as EventListener)
+    return () => {
+      window.removeEventListener('post-created', handlePostCreated as EventListener)
+    }
+  }, [postId, state.replies, refresh])
+
   return {
     post: state.post,
     parentPost: state.parentPost,
