@@ -1,13 +1,21 @@
 'use client'
 
 /**
- * Secure storage for sensitive data like private keys using sessionStorage
- * - Survives page reloads within the same tab
- * - Automatically cleared when tab/browser is closed
- * - Isolated per tab (other tabs cannot access)
+ * Secure storage for sensitive data like private keys
+ * Supports two modes:
+ * - localStorage: "Remember me" - shared across tabs, persists until logout
+ * - sessionStorage: Default - isolated per tab, cleared when tab closes
  */
 class SecureStorage {
   private prefix = 'yappr_secure_'
+  private rememberKey = 'yappr_remember_me'
+
+  private getStorage(): Storage | null {
+    if (typeof window === 'undefined') return null
+    // Check if "remember me" was selected
+    const remember = localStorage.getItem(this.rememberKey) === 'true'
+    return remember ? localStorage : sessionStorage
+  }
 
   private isAvailable(): boolean {
     if (typeof window === 'undefined') return false
@@ -22,12 +30,34 @@ class SecureStorage {
   }
 
   /**
+   * Set whether to remember the session across tabs
+   */
+  setRememberMe(remember: boolean): void {
+    if (typeof window === 'undefined') return
+    if (remember) {
+      localStorage.setItem(this.rememberKey, 'true')
+    } else {
+      localStorage.removeItem(this.rememberKey)
+    }
+  }
+
+  /**
+   * Check if "remember me" is enabled
+   */
+  isRememberMe(): boolean {
+    if (typeof window === 'undefined') return false
+    return localStorage.getItem(this.rememberKey) === 'true'
+  }
+
+  /**
    * Store a value securely
    */
   set(key: string, value: any): void {
     if (!this.isAvailable()) return
+    const storage = this.getStorage()
+    if (!storage) return
     try {
-      sessionStorage.setItem(this.prefix + key, JSON.stringify(value))
+      storage.setItem(this.prefix + key, JSON.stringify(value))
     } catch (e) {
       console.error('SecureStorage: Failed to store value:', e)
     }
@@ -38,9 +68,17 @@ class SecureStorage {
    */
   get(key: string): any {
     if (!this.isAvailable()) return null
+    // Check both storages - user might have switched modes
     try {
-      const item = sessionStorage.getItem(this.prefix + key)
-      return item ? JSON.parse(item) : null
+      const storage = this.getStorage()
+      if (!storage) return null
+      const item = storage.getItem(this.prefix + key)
+      if (item) return JSON.parse(item)
+
+      // Fallback: check the other storage in case mode changed
+      const otherStorage = this.isRememberMe() ? sessionStorage : localStorage
+      const fallback = otherStorage.getItem(this.prefix + key)
+      return fallback ? JSON.parse(fallback) : null
     } catch {
       return null
     }
@@ -51,7 +89,12 @@ class SecureStorage {
    */
   has(key: string): boolean {
     if (!this.isAvailable()) return false
-    return sessionStorage.getItem(this.prefix + key) !== null
+    const storage = this.getStorage()
+    if (!storage) return false
+    if (storage.getItem(this.prefix + key) !== null) return true
+    // Check other storage as fallback
+    const otherStorage = this.isRememberMe() ? sessionStorage : localStorage
+    return otherStorage.getItem(this.prefix + key) !== null
   }
 
   /**
@@ -60,23 +103,39 @@ class SecureStorage {
   delete(key: string): boolean {
     if (!this.isAvailable()) return false
     const existed = this.has(key)
+    // Clear from both storages
+    localStorage.removeItem(this.prefix + key)
     sessionStorage.removeItem(this.prefix + key)
     return existed
   }
 
   /**
-   * Clear all stored values with our prefix
+   * Clear all stored values with our prefix (from both storages)
    */
   clear(): void {
     if (!this.isAvailable()) return
-    const keysToRemove: string[] = []
+    // Clear from localStorage
+    const localKeys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(this.prefix)) {
+        localKeys.push(key)
+      }
+    }
+    localKeys.forEach(key => localStorage.removeItem(key))
+
+    // Clear from sessionStorage
+    const sessionKeys: string[] = []
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i)
       if (key?.startsWith(this.prefix)) {
-        keysToRemove.push(key)
+        sessionKeys.push(key)
       }
     }
-    keysToRemove.forEach(key => sessionStorage.removeItem(key))
+    sessionKeys.forEach(key => sessionStorage.removeItem(key))
+
+    // Also clear the remember me preference
+    localStorage.removeItem(this.rememberKey)
   }
 
   /**
@@ -84,14 +143,21 @@ class SecureStorage {
    */
   keys(): string[] {
     if (!this.isAvailable()) return []
-    const keys: string[] = []
+    const keys = new Set<string>()
+    // Check both storages
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key?.startsWith(this.prefix)) {
+        keys.add(key.slice(this.prefix.length))
+      }
+    }
     for (let i = 0; i < sessionStorage.length; i++) {
       const key = sessionStorage.key(i)
       if (key?.startsWith(this.prefix)) {
-        keys.push(key.slice(this.prefix.length))
+        keys.add(key.slice(this.prefix.length))
       }
     }
-    return keys
+    return Array.from(keys)
   }
 
   /**
@@ -125,4 +191,12 @@ export const clearAllPrivateKeys = (): void => {
   keys.filter(key => key.startsWith('pk_')).forEach(key => {
     secureStorage.delete(key)
   })
+}
+
+export const setRememberMe = (remember: boolean): void => {
+  secureStorage.setRememberMe(remember)
+}
+
+export const isRememberMe = (): boolean => {
+  return secureStorage.isRememberMe()
 }

@@ -21,8 +21,8 @@ interface AuthContextType {
   isLoading: boolean
   isAuthRestoring: boolean
   error: string | null
-  login: (identityId: string, privateKey: string, skipUsernameCheck?: boolean) => Promise<void>
-  loginWithPassword: (username: string, password: string) => Promise<void>
+  login: (identityId: string, privateKey: string, options?: { skipUsernameCheck?: boolean; rememberMe?: boolean }) => Promise<void>
+  loginWithPassword: (username: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => void
   updateDPNSUsername: (username: string) => void
 }
@@ -90,7 +90,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })
   }, [])
 
-  const login = useCallback(async (identityId: string, privateKey: string, skipUsernameCheck = false) => {
+  const login = useCallback(async (identityId: string, privateKey: string, options: { skipUsernameCheck?: boolean; rememberMe?: boolean } = {}) => {
+    const { skipUsernameCheck = false, rememberMe = false } = options
     setIsLoading(true)
     setError(null)
 
@@ -112,15 +113,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('Fetching identity with EvoSDK...')
       const identityData = await identityService.getIdentity(identityId)
-      
+
       if (!identityData) {
         throw new Error('Identity not found')
       }
-      
+
       // Check for DPNS username
       const { dpnsService } = await import('@/lib/services/dpns-service')
       const dpnsUsername = await dpnsService.resolveUsername(identityData.id)
-      
+
       const authUser: AuthUser = {
         identityId: identityData.id,
         balance: identityData.balance,
@@ -139,9 +140,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       localStorage.setItem('yappr_session', JSON.stringify(sessionData))
 
-      // Store private key securely in memory for this session only
-      // This is needed for signing transactions
-      const { storePrivateKey } = await import('@/lib/secure-storage')
+      // Set storage mode based on "remember me" choice
+      // - rememberMe=true: localStorage (shared across tabs, persists)
+      // - rememberMe=false: sessionStorage (single tab, cleared on close)
+      const { storePrivateKey, setRememberMe } = await import('@/lib/secure-storage')
+      setRememberMe(rememberMe)
       storePrivateKey(identityId, privateKey)
 
       setUser(authUser)
@@ -209,7 +212,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     router.push('/login')
   }, [router])
 
-  const loginWithPassword = useCallback(async (username: string, password: string) => {
+  const loginWithPassword = useCallback(async (username: string, password: string, rememberMe = false) => {
     setIsLoading(true)
     setError(null)
 
@@ -225,7 +228,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       // Continue with normal login flow using decrypted credentials
       // Skip username check since we know they have one (they logged in with it)
-      await login(result.identityId, result.privateKey, true)
+      await login(result.identityId, result.privateKey, { skipUsernameCheck: true, rememberMe })
     } catch (err) {
       console.error('Password login error:', err)
       setError(err instanceof Error ? err.message : 'Failed to login with password')

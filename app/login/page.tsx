@@ -4,12 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { useRouter } from 'next/navigation'
-import { PasswordSetModal } from '@/components/auth/password-set-modal'
 import { PasswordUnlockModal } from '@/components/auth/password-unlock-modal'
 import {
   hasStoredCredential,
-  getLastUsedIdentityId,
-  storeEncryptedCredential
+  getLastUsedIdentityId
 } from '@/lib/password-encrypted-storage'
 import { identityService } from '@/lib/services/identity-service'
 import { dpnsService } from '@/lib/services/dpns-service'
@@ -53,14 +51,12 @@ export default function LoginPage() {
   // Form states
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [rememberMe, setRememberMe] = useState(false)
+  const [rememberMe, setRememberMe] = useState(true)
 
   // Stored credential states
   const [storedIdentityId, setStoredIdentityId] = useState<string | null>(null)
   const [hasStoredCred, setHasStoredCred] = useState(false)
   const [showUnlockModal, setShowUnlockModal] = useState(false)
-  const [showPasswordSetModal, setShowPasswordSetModal] = useState(false)
-  const [pendingCredentials, setPendingCredentials] = useState<{ identityId: string; privateKey: string } | null>(null)
 
   const { login, loginWithPassword } = useAuth()
   const router = useRouter()
@@ -217,13 +213,7 @@ export default function LoginPage() {
           return
         }
 
-        await login(identityId, credential)
-
-        // Handle remember me for local device storage
-        if (rememberMe) {
-          setPendingCredentials({ identityId, privateKey: credential })
-          setShowPasswordSetModal(true)
-        }
+        await login(identityId, credential, { rememberMe })
 
         // Prompt for on-chain backup if none exists (and not already prompted this session)
         if (encryptedKeyService.isConfigured() && !sessionStorage.getItem('yappr_backup_prompt_shown')) {
@@ -236,7 +226,7 @@ export default function LoginPage() {
       } else {
         // Password-based login
         const username = resolvedIdentity?.dpnsUsername || identityInput
-        await loginWithPassword(username, credential)
+        await loginWithPassword(username, credential, rememberMe)
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
@@ -251,7 +241,8 @@ export default function LoginPage() {
     setIsLoading(true)
 
     try {
-      await login(storedIdentityId!, decryptedPrivateKey)
+      // User stored credentials locally, so they want to be remembered
+      await login(storedIdentityId!, decryptedPrivateKey, { rememberMe: true })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
     } finally {
@@ -267,23 +258,6 @@ export default function LoginPage() {
     setStoredIdentityId(null)
     setResolvedIdentity(null)
     setDetectedCredentialType(null)
-  }
-
-  const handlePasswordSetSuccess = async (password: string) => {
-    if (pendingCredentials) {
-      await storeEncryptedCredential(
-        pendingCredentials.identityId,
-        pendingCredentials.privateKey,
-        password
-      )
-    }
-    setShowPasswordSetModal(false)
-    setPendingCredentials(null)
-  }
-
-  const handlePasswordSetCancel = () => {
-    setShowPasswordSetModal(false)
-    setPendingCredentials(null)
   }
 
   // Submit button enabled based on credential type
@@ -436,7 +410,7 @@ export default function LoginPage() {
             {/* Remember Me Toggle */}
             <div className="flex items-center justify-between">
               <label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-400">
-                Remember me on this device
+                Stay signed in across tabs
               </label>
               <button
                 type="button"
@@ -539,13 +513,6 @@ export default function LoginPage() {
         onSuccess={handleUnlockSuccess}
         onCancel={() => setShowUnlockModal(false)}
         onUseDifferent={handleUseDifferent}
-      />
-
-      {/* Password Set Modal for new "remember me" users */}
-      <PasswordSetModal
-        isOpen={showPasswordSetModal}
-        onSuccess={handlePasswordSetSuccess}
-        onCancel={handlePasswordSetCancel}
       />
     </div>
   )
