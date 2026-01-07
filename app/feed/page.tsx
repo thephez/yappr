@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
-import { SparklesIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { PostCard } from '@/components/post/post-card'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -28,6 +28,7 @@ function FeedPage() {
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [lastPostId, setLastPostId] = useState<string | null>(null)
+  const [followingNextWindow, setFollowingNextWindow] = useState<{ start: Date; end: Date; windowHours: number } | null>(null)
   const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou')
 
   // Hook for enriching posts with stats/interactions (handles deduplication internally)
@@ -43,25 +44,29 @@ function FeedPage() {
   }, [])
 
   // Load posts function - using real WASM SDK with updated version
-  const loadPosts = useCallback(async (forceRefresh: boolean = false, startAfter?: string) => {
+  const loadPosts = useCallback(async (
+    forceRefresh: boolean = false,
+    pagination?: { startAfter?: string; timeWindow?: { start: Date; end: Date; windowHours?: number } }
+  ) => {
     // Use the setter functions directly, not the whole postsState object
     const { setLoading, setError, setData } = postsState
+    const isPaginating = pagination?.startAfter || pagination?.timeWindow
 
     // Only show main loading state for initial load
-    if (!startAfter) {
+    if (!isPaginating) {
       setLoading(true)
     }
     setError(null)
 
     try {
-      console.log(`Feed: Loading ${activeTab} posts from Dash Platform...`, startAfter ? `(after ${startAfter})` : '')
+      console.log(`Feed: Loading ${activeTab} posts from Dash Platform...`, isPaginating ? '(paginating)' : '')
 
       const cacheKey = activeTab === 'following'
         ? `feed_following_${user?.identityId}`
         : 'feed_for_you'
 
       // Check cache first unless force refresh or paginating
-      if (!forceRefresh && !startAfter) {
+      if (!forceRefresh && !isPaginating) {
         const cached = cacheManager.get<any[]>('feed', cacheKey)
         if (cached) {
           console.log('Feed: Using cached data')
@@ -78,13 +83,52 @@ function FeedPage() {
 
       let posts: any[]
 
+      let followingCursor: { start: Date; end: Date; windowHours: number } | null = null
+
       if (activeTab === 'following' && user?.identityId) {
-        // Following feed - get posts from followed users
+        // Following feed - get posts from followed users using time-window pagination
+        // Auto-retry on empty windows until we find posts or hit Jan 1, 2025
         const { postService } = await import('@/lib/services')
-        const result = await postService.getFollowingFeed(user.identityId, {
-          limit: 20,
-          startAfter: startAfter
-        })
+        const MIN_DATE = new Date('2025-01-01T00:00:00Z')
+
+        let currentWindow = pagination?.timeWindow
+        let result: Awaited<ReturnType<typeof postService.getFollowingFeed>>
+
+        do {
+          result = await postService.getFollowingFeed(user.identityId, {
+            timeWindowStart: currentWindow?.start,
+            timeWindowEnd: currentWindow?.end,
+            windowHours: currentWindow?.windowHours
+          })
+
+          // Parse cursor for next iteration or final state
+          followingCursor = null
+          if (result.nextCursor) {
+            try {
+              const cursor = JSON.parse(result.nextCursor)
+              followingCursor = {
+                start: new Date(cursor.start),
+                end: new Date(cursor.end),
+                windowHours: cursor.windowHours || 24
+              }
+            } catch (e) {
+              console.warn('Failed to parse following feed cursor:', e)
+            }
+          }
+
+          // If empty result, prepare next window for retry
+          if (result.documents.length === 0 && followingCursor) {
+            // Check if we've gone back past Jan 1, 2025
+            if (followingCursor.end < MIN_DATE) {
+              console.log('Feed: Reached Jan 1 2025 limit, stopping search')
+              followingCursor = null // No more to fetch
+              break
+            }
+            console.log(`Feed: Empty window, auto-retrying from ${followingCursor.end.toISOString()}`)
+            currentWindow = followingCursor
+          }
+        } while (result.documents.length === 0 && followingCursor)
+
         // Transform the Post objects to match our UI format
         posts = result.documents.map((post: any) => ({
           id: post.id,
@@ -116,10 +160,10 @@ function FeedPage() {
         const queryOptions: any = {
           limit: 20,
           forceRefresh: forceRefresh,
-          startAfter: startAfter
+          startAfter: pagination?.startAfter
         }
 
-        console.log('Feed: Loading all posts', startAfter ? `starting after ${startAfter}` : '')
+        console.log('Feed: Loading all posts', pagination?.startAfter ? `starting after ${pagination.startAfter}` : '')
         const rawPosts = await dashClient.queryPosts(queryOptions)
 
         // Transform posts to match our UI format
@@ -176,25 +220,42 @@ function FeedPage() {
         }
       }
 
-      // If no posts found, show empty state
-      if (sortedPosts.length === 0) {
-        console.log('Feed: No posts found on platform')
-        if (!startAfter) {
-          setData([])
+      // Update pagination state based on feed type
+      if (activeTab === 'following') {
+        setFollowingNextWindow(followingCursor)
+        // Has more if service returned a cursor (can search further back)
+        setHasMore(followingCursor !== null)
+
+        // For following feed: empty window doesn't mean done, just skip to next window
+        if (sortedPosts.length === 0) {
+          console.log('Feed: No posts in this time window, cursor points to next window')
+          if (!isPaginating) {
+            setData([])
+          }
+          return
         }
-        setHasMore(false)
-        return
+      } else {
+        // For You feed: empty means done
+        if (sortedPosts.length === 0) {
+          console.log('Feed: No posts found on platform')
+          if (!isPaginating) {
+            setData([])
+          }
+          setHasMore(false)
+          return
+        }
+        setLastPostId(sortedPosts[sortedPosts.length - 1].id)
+        setHasMore(sortedPosts.length >= 20)
       }
 
-      // Update pagination state
-      setLastPostId(sortedPosts[sortedPosts.length - 1].id)
-      setHasMore(sortedPosts.length >= 20)
-
       // Show posts immediately with placeholder data
-      if (startAfter) {
+      if (isPaginating) {
         setData((currentPosts: any[] | null) => {
-          const allPosts = [...(currentPosts || []), ...sortedPosts]
-          console.log(`Feed: Appended ${sortedPosts.length} posts to ${currentPosts?.length || 0} existing`)
+          // Deduplicate - filter out posts that already exist
+          const existingIds = new Set((currentPosts || []).map(p => p.id))
+          const newPosts = sortedPosts.filter(p => !existingIds.has(p.id))
+          const allPosts = [...(currentPosts || []), ...newPosts]
+          console.log(`Feed: Appended ${newPosts.length} new posts (${sortedPosts.length - newPosts.length} duplicates filtered)`)
           return allPosts
         })
       } else {
@@ -236,7 +297,7 @@ function FeedPage() {
         })
 
         // Cache after enrichment
-        if (!startAfter) {
+        if (!isPaginating) {
           setData((currentPosts: any[] | null) => {
             if (currentPosts && currentPosts.length > 0) {
               cacheManager.set('feed', cacheKey, currentPosts)
@@ -270,15 +331,26 @@ function FeedPage() {
 
   // Load more posts (pagination)
   const loadMore = useCallback(async () => {
-    if (!lastPostId || isLoadingMore || !hasMore) return
+    if (isLoadingMore || !hasMore) return
+
+    // Check appropriate pagination state based on active tab
+    if (activeTab === 'following') {
+      if (!followingNextWindow) return
+    } else {
+      if (!lastPostId) return
+    }
 
     setIsLoadingMore(true)
     try {
-      await loadPosts(false, lastPostId)
+      if (activeTab === 'following' && followingNextWindow) {
+        await loadPosts(false, { timeWindow: followingNextWindow })
+      } else if (lastPostId) {
+        await loadPosts(false, { startAfter: lastPostId })
+      }
     } finally {
       setIsLoadingMore(false)
     }
-  }, [lastPostId, isLoadingMore, hasMore, loadPosts])
+  }, [activeTab, lastPostId, followingNextWindow, isLoadingMore, hasMore, loadPosts])
 
   // Listen for new posts created
   useEffect(() => {
@@ -301,6 +373,7 @@ function FeedPage() {
     resetEnrichment()
     postsState.setData(null) // Clear current posts to show loading state
     setLastPostId(null)
+    setFollowingNextWindow(null)
     setHasMore(true)
     loadPosts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -381,9 +454,6 @@ function FeedPage() {
                 className="flex-1 text-left px-4 py-3 bg-gray-50 dark:bg-gray-950 rounded-full text-gray-500 hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
               >
                 What&apos;s happening?
-              </button>
-              <button className="p-3 rounded-full hover:bg-yappr-50 dark:hover:bg-yappr-950 text-yappr-500">
-                <SparklesIcon className="h-5 w-5" />
               </button>
             </div>
           ) : (

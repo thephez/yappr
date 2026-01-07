@@ -387,69 +387,156 @@ class PostService extends BaseDocumentService<Post> {
 
   /**
    * Get posts from followed users (following feed)
-   * Uses $ownerId 'in' query for efficiency
+   * Uses compound query with $ownerId 'in' + $createdAt range via ownerAndTime index
+   * to prevent prolific users from dominating the feed.
+   *
+   * Features adaptive window sizing based on post density to target ~50 posts per load.
    */
   async getFollowingFeed(
     userId: string,
-    options: QueryOptions = {}
+    options: QueryOptions & {
+      timeWindowStart?: Date;  // For pagination - start of time window
+      timeWindowEnd?: Date;    // For pagination - end of time window
+      windowHours?: number;    // Suggested window size (adaptive based on density)
+    } = {}
   ): Promise<DocumentResult<Post>> {
+    const TARGET_POSTS = 50;
+    const DEFAULT_WINDOW_HOURS = 24;
+    const MIN_WINDOW_HOURS = 1;
+    // No arbitrary max - let it search as far back as needed
+
     try {
-      // Get list of followed user IDs
+      // Get list of followed user IDs (up to 100 - platform limit for 'in' clause)
       const { followService } = await import('./follow-service');
       const following = await followService.getFollowing(userId, { limit: 100 });
 
       // Include the current user's ID so they see their own posts in the feed
       const followingIds = [...following.map(f => f.followingId), userId];
 
-      // Query posts where $ownerId is in the following list
-      // SDK v3 expects identifier strings for 'in' queries
-      // Note: 'in' queries require orderBy on the 'in' field first
+      if (followingIds.length === 0) {
+        return { documents: [], nextCursor: undefined, prevCursor: undefined };
+      }
+
       const { getEvoSdk } = await import('./evo-sdk-service');
       const sdk = await getEvoSdk();
 
-      const queryParams: any = {
-        dataContractId: this.contractId,
-        documentTypeName: 'post',
-        where: [['$ownerId', 'in', followingIds]],
-        orderBy: [['$ownerId', 'asc']],  // Required for 'in' queries
-        limit: options.limit || 50,
+      const now = new Date();
+
+      // Determine time window
+      const windowEndMs = options.timeWindowEnd?.getTime() || now.getTime();
+      let windowHours = options.windowHours || DEFAULT_WINDOW_HOURS;
+      windowHours = Math.max(MIN_WINDOW_HOURS, windowHours);
+      let windowStartMs = options.timeWindowStart?.getTime()
+        || (windowEndMs - windowHours * 60 * 60 * 1000);
+
+      // Helper to execute query and extract documents
+      const executeQuery = async (whereClause: any[]): Promise<Post[]> => {
+        const queryParams: any = {
+          dataContractId: this.contractId,
+          documentTypeName: 'post',
+          where: whereClause,
+          orderBy: [['$ownerId', 'asc'], ['$createdAt', 'asc']],
+          limit: 100,
+        };
+
+        const response = await sdk.documents.query(queryParams as any);
+
+        // Handle Map response (v3 SDK)
+        let documents: any[];
+        if (response instanceof Map) {
+          documents = Array.from(response.values())
+            .filter(Boolean)
+            .map((doc: any) => typeof doc.toJSON === 'function' ? doc.toJSON() : doc);
+        } else if (Array.isArray(response)) {
+          documents = response;
+        } else if (response && (response as any).documents) {
+          documents = (response as any).documents;
+        } else if (response && typeof (response as any).toJSON === 'function') {
+          const json = (response as any).toJSON();
+          documents = Array.isArray(json) ? json : json.documents || [];
+        } else {
+          documents = [];
+        }
+
+        return documents.map(doc => this.transformDocument(doc));
       };
 
-      if (options.startAfter) {
-        queryParams.startAfter = options.startAfter;
+      // Build compound query using ownerAndTime index
+      const buildWhere = (startMs: number, endMs?: number): any[] => {
+        const where: any[] = [
+          ['$ownerId', 'in', followingIds],
+          ['$createdAt', '>=', startMs]
+        ];
+        if (endMs) {
+          where.push(['$createdAt', '<', endMs]);
+        }
+        return where;
+      };
+
+      // Initial query
+      let posts = await executeQuery(
+        buildWhere(windowStartMs, options.timeWindowEnd?.getTime())
+      );
+      let actualWindowHours = (windowEndMs - windowStartMs) / (60 * 60 * 1000);
+
+      // Handle different scenarios:
+      // 1. Got 100 results (window may be incomplete) - narrow the window
+      // 2. Got 0 results - expand the window to find posts (initial load only)
+      // 3. Got 1-99 results - good, use these
+
+      if (posts.length === 100 && !options.timeWindowEnd) {
+        // Too many results - binary halve until < 100
+        let currentWindowMs = windowHours * 60 * 60 * 1000;
+        while (posts.length === 100) {
+          currentWindowMs /= 2;
+          windowStartMs = windowEndMs - currentWindowMs;
+          posts = await executeQuery(buildWhere(windowStartMs));
+          actualWindowHours = currentWindowMs / (60 * 60 * 1000);
+        }
+      } else if (posts.length === 0 && !options.timeWindowEnd) {
+        // No posts in initial window - keep doubling until we find some
+        let currentWindowMs = windowHours * 60 * 60 * 1000;
+        const maxExpansions = 20; // Safety limit: 24h * 2^20 = ~2800 years
+        let expansions = 0;
+        while (posts.length === 0 && expansions < maxExpansions) {
+          currentWindowMs *= 2;
+          windowStartMs = windowEndMs - currentWindowMs;
+          posts = await executeQuery(buildWhere(windowStartMs));
+          actualWindowHours = currentWindowMs / (60 * 60 * 1000);
+          expansions++;
+        }
       }
 
-      const response = await sdk.documents.query(queryParams as any);
-
-      // Handle Map response (v3 SDK)
-      let documents: any[];
-      if (response instanceof Map) {
-        documents = Array.from(response.values())
-          .filter(Boolean)
-          .map((doc: any) => typeof doc.toJSON === 'function' ? doc.toJSON() : doc);
-      } else if (Array.isArray(response)) {
-        documents = response;
-      } else if (response && (response as any).documents) {
-        documents = (response as any).documents;
-      } else if (response && typeof (response as any).toJSON === 'function') {
-        const json = (response as any).toJSON();
-        documents = Array.isArray(json) ? json : json.documents || [];
-      } else {
-        documents = [];
-      }
-
-      // Transform documents
-      const posts = documents.map(doc => this.transformDocument(doc));
-
-      // Sort by createdAt descending (since 'in' query can't order by $createdAt)
+      // Sort by createdAt descending (newest first)
       posts.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
 
-      // Determine next cursor for pagination
-      const lastPost = posts.length > 0 ? posts[posts.length - 1] : null;
+      // Calculate post density and suggested window for next load
+      const postsPerHour = posts.length > 0 ? posts.length / actualWindowHours : 0;
+      let suggestedNextWindowHours: number;
+
+      if (postsPerHour > 0) {
+        // Calculate window size to get ~TARGET_POSTS posts
+        suggestedNextWindowHours = TARGET_POSTS / postsPerHour;
+        suggestedNextWindowHours = Math.max(MIN_WINDOW_HOURS, suggestedNextWindowHours);
+      } else {
+        // No posts found - try a larger window next time
+        suggestedNextWindowHours = actualWindowHours * 2;
+      }
+
+      // Calculate next pagination window (goes backwards in time)
+      const nextWindowEnd = new Date(windowStartMs);
+      const nextWindowStart = new Date(windowStartMs - suggestedNextWindowHours * 60 * 60 * 1000);
+
+      // Only return undefined cursor if we did an exhaustive initial search and found nothing
+      const exhaustedSearch = posts.length === 0 && !options.timeWindowEnd;
 
       return {
         documents: posts,
-        nextCursor: lastPost ? lastPost.id : undefined,
+        nextCursor: exhaustedSearch ? undefined : JSON.stringify({
+          start: nextWindowStart.toISOString(),
+          end: nextWindowEnd.toISOString(),
+          windowHours: suggestedNextWindowHours
+        }),
         prevCursor: undefined
       };
     } catch (error) {
@@ -464,12 +551,17 @@ class PostService extends BaseDocumentService<Post> {
   async getUserPosts(userId: string, options: QueryOptions = {}): Promise<DocumentResult<Post>> {
     const queryOptions: QueryOptions = {
       where: [['$ownerId', '==', userId]],
-      orderBy: [['$createdAt', 'desc']],
+      orderBy: [['$ownerId', 'asc'], ['$createdAt', 'asc']],
       limit: 20,
       ...options
     };
 
-    return this.query(queryOptions);
+    const result = await this.query(queryOptions);
+
+    // Sort by createdAt descending (platform returns in index order which is asc)
+    result.documents.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+
+    return result;
   }
 
   /**
