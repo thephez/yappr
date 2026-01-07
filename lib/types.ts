@@ -1,5 +1,7 @@
 export interface User {
   id: string
+  documentId?: string  // The profile document $id (for updates)
+  $revision?: number   // Document revision (for updates)
   username: string  // From DPNS - not stored in profile document
   displayName: string
   avatar: string // URL for display (DiceBear generated from user ID)

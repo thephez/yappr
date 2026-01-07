@@ -9,6 +9,7 @@ export interface ProfileDocument {
   $ownerId: string;
   $createdAt: number;
   $updatedAt?: number;
+  $revision?: number;
   displayName: string;
   bio?: string;
 }
@@ -139,10 +140,13 @@ class ProfileService extends BaseDocumentService<User> {
     const data = (doc as Record<string, unknown>).data || doc;
 
     // Return a basic User object - additional data will be loaded separately
+    const rawDisplayName = ((data as Record<string, unknown>).displayName as string || '').trim();
     const user: User = {
       id: ownerId,
+      documentId: profileDoc.$id,  // Store document $id for updates
+      $revision: profileDoc.$revision,  // Store revision for updates
       username: cachedUsername || (ownerId.substring(0, 8) + '...'),
-      displayName: (data as Record<string, unknown>).displayName as string,
+      displayName: rawDisplayName || cachedUsername || (ownerId.substring(0, 8) + '...'),
       avatar: getDefaultAvatarUrl(ownerId),
       bio: (data as Record<string, unknown>).bio as string | undefined,
       followers: 0,
@@ -292,6 +296,9 @@ class ProfileService extends BaseDocumentService<User> {
     }
   ): Promise<User | null> {
     try {
+      // Invalidate cache first to ensure we get fresh data with current revision
+      cacheManager.invalidateByTag(`user:${ownerId}`);
+
       // Get existing profile
       const profile = await this.getProfile(ownerId);
       if (!profile) {
@@ -301,19 +308,21 @@ class ProfileService extends BaseDocumentService<User> {
       const data: any = {};
 
       if (updates.displayName !== undefined) {
-        data.displayName = updates.displayName;
+        data.displayName = updates.displayName.trim();
       }
 
-      if (updates.bio !== undefined) {
-        data.bio = updates.bio;
+      // Only include optional fields if they have actual values
+      // Empty strings fail schema validation for fields with regex patterns
+      if (updates.bio !== undefined && updates.bio.trim() !== '') {
+        data.bio = updates.bio.trim();
       }
 
-      if (updates.location !== undefined) {
-        data.location = updates.location;
+      if (updates.location !== undefined && updates.location.trim() !== '') {
+        data.location = updates.location.trim();
       }
 
-      if (updates.website !== undefined) {
-        data.website = updates.website;
+      if (updates.website !== undefined && updates.website.trim() !== '') {
+        data.website = updates.website.trim();
       }
 
       // Update profile document
@@ -323,7 +332,10 @@ class ProfileService extends BaseDocumentService<User> {
       });
 
       if (profileDoc.documents.length > 0) {
-        const docId = profileDoc.documents[0].id;
+        const docId = profileDoc.documents[0].documentId;
+        if (!docId) {
+          throw new Error('Profile document ID not found');
+        }
         const result = await this.update(docId, ownerId, data);
 
         // Invalidate cache for this user

@@ -141,12 +141,16 @@ export abstract class BaseDocumentService<T> {
     try {
       console.log(`Updating ${this.documentType} document ${documentId}:`, data);
 
+      // Clear cache to ensure we get fresh revision from network
+      this.cache.delete(documentId);
+
       // Get current document to find revision
       const currentDoc = await this.get(documentId);
       if (!currentDoc) {
         throw new Error('Document not found');
       }
       const revision = (currentDoc as Record<string, unknown>).$revision as number || 0;
+      console.log(`Current revision for ${this.documentType} document ${documentId}: ${revision}`);
 
       const result = await stateTransitionService.updateDocument(
         this.contractId,

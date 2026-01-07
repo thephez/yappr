@@ -114,11 +114,22 @@ class StateTransitionService {
         revision: BigInt(revision),
         privateKeyWif: privateKey
       });
-      
+
+      // Normalize document fields to use $ prefix (SDK returns without prefix)
+      const doc = result.document || result;
+      const normalizedDoc = {
+        $id: doc.$id || doc.id,
+        $ownerId: doc.$ownerId || doc.ownerId,
+        $createdAt: doc.$createdAt || doc.createdAt,
+        $updatedAt: doc.$updatedAt || doc.updatedAt,
+        $revision: doc.$revision || doc.revision,
+        ...(doc.data || {}),
+      };
+
       return {
         success: true,
         transactionHash: result.stateTransition?.$id || result.transitionId,
-        document: result.document || result
+        document: normalizedDoc
       };
     } catch (error) {
       console.error('Error updating document:', error);
