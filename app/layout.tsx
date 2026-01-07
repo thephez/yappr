@@ -9,12 +9,14 @@ import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav'
 
 const inter = Inter({ subsets: ['latin'] })
 
+const basePath = process.env.GITHUB_PAGES === 'true' ? '/yappr' : ''
+
 export const metadata: Metadata = {
   title: 'Yappr - Share Your Voice',
   description: 'A modern social platform for sharing thoughts and connecting with others',
   icons: {
-    icon: '/yappr.png',
-    apple: '/yappr.png',
+    icon: `${basePath}/yappr.png`,
+    apple: `${basePath}/yappr.png`,
   },
 }
 
