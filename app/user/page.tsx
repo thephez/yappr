@@ -17,7 +17,6 @@ import { RightSidebar } from '@/components/layout/right-sidebar'
 import { Button } from '@/components/ui/button'
 import { PostCard } from '@/components/post/post-card'
 import { formatNumber } from '@/lib/utils'
-import { getDefaultAvatarUrl } from '@/lib/avatar-utils'
 import { UserAvatar, invalidateAvatarImageCache } from '@/components/ui/avatar-image'
 import { AvatarCustomization } from '@/components/settings/avatar-customization'
 import { useAuth } from '@/contexts/auth-context'
@@ -131,12 +130,13 @@ function UserProfileContent() {
                 id: authorIdStr,
                 username: `user_${authorIdStr.slice(-6)}`,
                 displayName: profileDisplayName,
-                avatar: getDefaultAvatarUrl(authorIdStr),
+                avatar: '', // Let UserAvatar fetch the actual avatar
                 verified: false,
                 followers: 0,
                 following: 0,
                 joinedAt: new Date(),
-              },
+                hasDpns: false, // Set to false initially, will update if DPNS found
+              } as any,
               createdAt: new Date(doc.$createdAt || doc.createdAt || Date.now()),
               likes: 0,
               reposts: 0,
