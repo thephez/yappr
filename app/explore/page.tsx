@@ -35,7 +35,7 @@ export default function ExplorePage() {
       try {
         setIsLoadingTrends(true)
         const trending = await hashtagService.getTrendingHashtags({
-          timeWindowHours: 48,
+          timeWindowHours: 168, // 1 week
           minPosts: 1,
           limit: 12
         })
