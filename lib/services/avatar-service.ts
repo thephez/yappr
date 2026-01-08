@@ -52,12 +52,13 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
     // The 'data' field in avatar document contains JSON string {"seed":"...", "style":"..."}
     const avatarData = isNestedFormat ? content.data : doc.data;
 
+    // Handle both $ prefixed (query responses) and non-prefixed (creation responses) fields
     return {
-      $id: doc.$id,
-      $ownerId: doc.$ownerId,
-      $createdAt: doc.$createdAt,
-      $updatedAt: doc.$updatedAt,
-      $revision: doc.$revision,
+      $id: doc.$id || doc.id,
+      $ownerId: doc.$ownerId || doc.ownerId,
+      $createdAt: doc.$createdAt || doc.createdAt,
+      $updatedAt: doc.$updatedAt || doc.updatedAt,
+      $revision: doc.$revision || doc.revision,
       version: content.version || 1,
       data: typeof avatarData === 'string' ? avatarData : '',
       style: content.style,

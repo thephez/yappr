@@ -135,19 +135,23 @@ class ProfileService extends BaseDocumentService<User> {
     const profileDoc = doc as unknown as ProfileDocument;
     const cachedUsername = options?.cachedUsername as string | undefined;
 
-    const ownerId = profileDoc.$ownerId;
-    const createdAt = profileDoc.$createdAt;
+    // Handle both $ prefixed (query responses) and non-prefixed (creation responses) fields
+    const ownerId = profileDoc.$ownerId || (doc as any).ownerId;
+    const createdAt = profileDoc.$createdAt || (doc as any).createdAt;
+    const docId = profileDoc.$id || (doc as any).id;
+    const revision = profileDoc.$revision || (doc as any).revision;
     const data = (doc as Record<string, unknown>).data || doc;
 
     // Return a basic User object - additional data will be loaded separately
     const rawDisplayName = ((data as Record<string, unknown>).displayName as string || '').trim();
+    const ownerIdStr = ownerId || 'unknown';
     const user: User = {
-      id: ownerId,
-      documentId: profileDoc.$id,  // Store document $id for updates
-      $revision: profileDoc.$revision,  // Store revision for updates
-      username: cachedUsername || (ownerId.substring(0, 8) + '...'),
-      displayName: rawDisplayName || cachedUsername || (ownerId.substring(0, 8) + '...'),
-      avatar: getDefaultAvatarUrl(ownerId),
+      id: ownerIdStr,
+      documentId: docId,  // Store document id for updates
+      $revision: revision,  // Store revision for updates
+      username: cachedUsername || (ownerIdStr.substring(0, 8) + '...'),
+      displayName: rawDisplayName || cachedUsername || (ownerIdStr.substring(0, 8) + '...'),
+      avatar: getDefaultAvatarUrl(ownerIdStr),
       bio: (data as Record<string, unknown>).bio as string | undefined,
       followers: 0,
       following: 0,
@@ -157,7 +161,7 @@ class ProfileService extends BaseDocumentService<User> {
 
     // Queue async operations to enrich the user
     // Skip username resolution if we already have a cached username
-    this.enrichUser(user, profileDoc, !!cachedUsername);
+    this.enrichUser(user, !!cachedUsername);
 
     return user;
   }
@@ -165,18 +169,18 @@ class ProfileService extends BaseDocumentService<User> {
   /**
    * Enrich user with async data
    */
-  private async enrichUser(user: User, doc: ProfileDocument, skipUsernameResolution?: boolean): Promise<void> {
+  private async enrichUser(user: User, skipUsernameResolution?: boolean): Promise<void> {
     try {
       // Get username from DPNS if not already set and not skipped
       if (!skipUsernameResolution && user.username === user.id.substring(0, 8) + '...') {
-        const username = await this.getUsername(doc.$ownerId);
+        const username = await this.getUsername(user.id);
         if (username) {
           user.username = username;
         }
       }
 
       // Get follower/following counts
-      const stats = await this.getUserStats(doc.$ownerId);
+      const stats = await this.getUserStats(user.id);
       user.followers = stats.followers;
       user.following = stats.following;
     } catch (error) {

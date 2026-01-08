@@ -28,10 +28,11 @@ class LikeService extends BaseDocumentService<LikeDocument> {
       console.error('LikeService: Invalid postId format:', rawPostId);
     }
 
+    // Handle both $ prefixed (query responses) and non-prefixed (creation responses) fields
     return {
-      $id: doc.$id,
-      $ownerId: doc.$ownerId,
-      $createdAt: doc.$createdAt,
+      $id: doc.$id || doc.id,
+      $ownerId: doc.$ownerId || doc.ownerId,
+      $createdAt: doc.$createdAt || doc.createdAt,
       postId: postId || ''
     };
   }

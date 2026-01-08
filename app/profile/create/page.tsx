@@ -36,7 +36,7 @@ function CreateProfilePage() {
         
         if (existingProfile) {
           toast.success('You already have a profile!')
-          router.push('/profile')
+          router.push(`/user?id=${user.identityId}`)
         }
       } catch (error) {
         console.error('Error checking for existing profile:', error)
@@ -96,11 +96,11 @@ function CreateProfilePage() {
       console.error('Failed to create profile:', error)
       
       // Check if it's a duplicate profile error
-      if (error.message?.includes('duplicate unique properties') || 
+      if (error.message?.includes('duplicate unique properties') ||
           error.message?.includes('already exists')) {
         toast.error('You already have a profile! Redirecting...')
         setTimeout(() => {
-          router.push('/profile')
+          router.push(`/user?id=${user?.identityId}`)
         }, 2000)
       } else {
         toast.error(error instanceof Error ? error.message : 'Failed to create profile')

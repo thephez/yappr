@@ -28,10 +28,11 @@ class BlockService extends BaseDocumentService<BlockDocument> {
       console.error('BlockService: Invalid blockedId format:', rawBlockedId);
     }
 
+    // Handle both $ prefixed (query responses) and non-prefixed (creation responses) fields
     return {
-      $id: doc.$id as string,
-      $ownerId: doc.$ownerId as string,
-      $createdAt: doc.$createdAt as number,
+      $id: (doc.$id || doc.id) as string,
+      $ownerId: (doc.$ownerId || doc.ownerId) as string,
+      $createdAt: (doc.$createdAt || doc.createdAt) as number,
       blockedId: blockedId || ''
     };
   }

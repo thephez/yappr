@@ -51,9 +51,10 @@ class PostService extends BaseDocumentService<Post> {
     // SDK v3 toJSON() returns:
     // - System fields ($id, $ownerId, $createdAt): base58 strings
     // - Byte array fields (replyToPostId, etc): base64 strings (need conversion)
-    const id = doc.$id;
-    const ownerId = doc.$ownerId;
-    const createdAt = doc.$createdAt;
+    // Handle both $ prefixed (query responses) and non-prefixed (creation responses) fields
+    const id = doc.$id || doc.id;
+    const ownerId = doc.$ownerId || doc.ownerId;
+    const createdAt = doc.$createdAt || doc.createdAt;
 
     // Content and other fields may be in data or at root level
     const content = data.content || doc.content || '';
