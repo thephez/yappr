@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useAuth } from '@/contexts/auth-context'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
@@ -17,8 +18,22 @@ export function MobileHeader() {
 
   return (
     <div className="md:hidden flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-800 bg-white dark:bg-neutral-900">
-      <Link href="/" className="text-xl font-bold text-gradient">
-        Yappr
+      <Link href="/" className="flex items-center gap-2">
+        <span className="text-xl font-bold text-gradient">Yappr</span>
+        <Image
+          src="/pbde-light.png"
+          alt="Powered by Dash Evolution"
+          width={80}
+          height={27}
+          className="dark:hidden"
+        />
+        <Image
+          src="/pbde-dark.png"
+          alt="Powered by Dash Evolution"
+          width={80}
+          height={27}
+          className="hidden dark:block"
+        />
       </Link>
 
       {user && isHydrated ? (

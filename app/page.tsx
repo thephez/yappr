@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Image from 'next/image'
 import { motion } from 'framer-motion'
 import { ArrowRightIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
@@ -75,6 +76,22 @@ export default function PublicHomePage() {
             <h1 className="text-3xl md:text-5xl font-bold mb-4">
               Welcome to <span className="text-gradient">Yappr</span>
             </h1>
+            <div className="flex justify-center mb-4">
+              <Image
+                src="/pbde-light.png"
+                alt="Powered by Dash Evolution"
+                width={180}
+                height={60}
+                className="dark:hidden"
+              />
+              <Image
+                src="/pbde-dark.png"
+                alt="Powered by Dash Evolution"
+                width={180}
+                height={60}
+                className="hidden dark:block"
+              />
+            </div>
             <p className="text-base md:text-xl text-gray-600 dark:text-gray-400 mb-6 md:mb-8 max-w-2xl mx-auto px-2">
               The decentralized social platform where you own your data, your identity, and your voice.
               Built on Dash Platform.

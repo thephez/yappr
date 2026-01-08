@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { MagnifyingGlassIcon, ChartBarIcon, GlobeAltIcon } from '@heroicons/react/24/outline'
 import { formatNumber } from '@/lib/utils'
 import { useAuth } from '@/contexts/auth-context'
@@ -201,6 +202,23 @@ export function RightSidebar() {
           </div>
         </div>
       )}
+
+      <div className="px-4 py-3 flex justify-center">
+        <Image
+          src="/pbde-light.png"
+          alt="Powered by Dash Evolution"
+          width={140}
+          height={47}
+          className="dark:hidden"
+        />
+        <Image
+          src="/pbde-dark.png"
+          alt="Powered by Dash Evolution"
+          width={140}
+          height={47}
+          className="hidden dark:block"
+        />
+      </div>
 
       <div className="px-4 py-2 text-xs text-gray-500 space-x-2">
         <Link href="/terms" className="hover:underline">Terms</Link>
