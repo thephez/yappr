@@ -81,6 +81,18 @@ function FeedPage() {
           }
           // Enrich cached posts (needed after back navigation when enrichment state is reset)
           enrichProgressively(cached)
+
+          // Filter blocked users from cached posts too
+          if (user?.identityId) {
+            getBlockedUserIds(user.identityId).then(blockedIds => {
+              if (blockedIds.length > 0) {
+                const blockedSet = new Set(blockedIds)
+                setData((currentPosts: any[] | null) =>
+                  (currentPosts || []).filter((post: any) => !blockedSet.has(post.author.id))
+                )
+              }
+            }).catch(err => console.error('Feed: Failed to filter blocked users from cache:', err))
+          }
           return
         }
       }
