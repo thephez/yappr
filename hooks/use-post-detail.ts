@@ -155,7 +155,9 @@ export function usePostDetail({
         ? { ...current.post, replies: current.post.replies + 1 }
         : null
     }))
-  }, [])
+    // Enrich the new reply to get DPNS username/display name
+    enrich([reply])
+  }, [enrich])
 
   const updatePost = useCallback((updates: Partial<Post>) => {
     setState(current => ({
