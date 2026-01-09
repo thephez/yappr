@@ -10,6 +10,9 @@ export interface LikeDocument {
 }
 
 class LikeService extends BaseDocumentService<LikeDocument> {
+  // In-flight request deduplication
+  private inFlightCountUserLikes = new Map<string, Promise<number>>();
+
   constructor() {
     super('like');
   }
@@ -223,9 +226,26 @@ class LikeService extends BaseDocumentService<LikeDocument> {
   }
 
   /**
-   * Count likes given by a user - uses direct SDK query for reliability
+   * Count likes given by a user - uses direct SDK query for reliability.
+   * Deduplicates in-flight requests.
    */
   async countUserLikes(userId: string): Promise<number> {
+    // Check for in-flight request
+    const inFlight = this.inFlightCountUserLikes.get(userId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchCountUserLikes(userId);
+    this.inFlightCountUserLikes.set(userId, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightCountUserLikes.delete(userId), 100);
+    });
+
+    return promise;
+  }
+
+  private async fetchCountUserLikes(userId: string): Promise<number> {
     try {
       const sdk = await import('../services/evo-sdk-service').then(m => m.getEvoSdk());
 

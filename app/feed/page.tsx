@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
@@ -18,7 +18,6 @@ import { getDashPlatformClient } from '@/lib/dash-platform-client'
 import { cacheManager } from '@/lib/cache-manager'
 import { useProgressiveEnrichment } from '@/hooks/use-progressive-enrichment'
 import { identifierToBase58 } from '@/lib/services/sdk-helpers'
-import { getBlockedUserIds } from '@/hooks/use-block'
 
 function FeedPage() {
   const [isHydrated, setIsHydrated] = useState(false)
@@ -29,20 +28,27 @@ function FeedPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [lastPostId, setLastPostId] = useState<string | null>(null)
   const [followingNextWindow, setFollowingNextWindow] = useState<{ start: Date; end: Date; windowHours: number } | null>(null)
-  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>('forYou')
+  // Initialize tab from localStorage synchronously to avoid double-loading
+  const [activeTab, setActiveTab] = useState<'forYou' | 'following'>(() => {
+    // Only access localStorage on client side
+    if (typeof window !== 'undefined') {
+      const savedTab = localStorage.getItem('feed-tab')
+      if (savedTab === 'forYou' || savedTab === 'following') {
+        return savedTab
+      }
+    }
+    return 'forYou'
+  })
 
   // Progressive enrichment - renders posts immediately, fills in data as it loads
   const { enrichProgressively, enrichmentState, reset: resetEnrichment, getPostEnrichment } = useProgressiveEnrichment({
-    currentUserId: user?.identityId
+    currentUserId: user?.identityId,
+    skipFollowStatus: activeTab === 'following' // On Following tab, all authors are followed by definition
   })
 
-  // Prevent hydration mismatches and restore tab from localStorage
+  // Prevent hydration mismatches
   useEffect(() => {
     setIsHydrated(true)
-    const savedTab = localStorage.getItem('feed-tab')
-    if (savedTab === 'forYou' || savedTab === 'following') {
-      setActiveTab(savedTab)
-    }
   }, [])
 
   // Load posts function - using real WASM SDK with updated version
@@ -80,19 +86,8 @@ function FeedPage() {
             setHasMore(cached.length >= 20)
           }
           // Enrich cached posts (needed after back navigation when enrichment state is reset)
+          // Blocked users will be filtered via enrichmentState.blockStatus in render
           enrichProgressively(cached)
-
-          // Filter blocked users from cached posts too
-          if (user?.identityId) {
-            getBlockedUserIds(user.identityId).then(blockedIds => {
-              if (blockedIds.length > 0) {
-                const blockedSet = new Set(blockedIds)
-                setData((currentPosts: any[] | null) =>
-                  (currentPosts || []).filter((post: any) => !blockedSet.has(post.author.id))
-                )
-              }
-            }).catch(err => console.error('Feed: Failed to filter blocked users from cache:', err))
-          }
           return
         }
       }
@@ -272,20 +267,8 @@ function FeedPage() {
 
       // Start progressive enrichment (non-blocking)
       // This will update enrichmentState as data loads, triggering re-renders
+      // Blocked users will be filtered via enrichmentState.blockStatus in render
       enrichProgressively(sortedPosts)
-
-      // Filter blocked users ASYNC - posts may briefly appear then disappear
-      // This prioritizes fastest time-to-first-content
-      if (user?.identityId) {
-        getBlockedUserIds(user.identityId).then(blockedIds => {
-          if (blockedIds.length > 0) {
-            const blockedSet = new Set(blockedIds)
-            setData((currentPosts: any[] | null) =>
-              (currentPosts || []).filter((post: any) => !blockedSet.has(post.author.id))
-            )
-          }
-        }).catch(err => console.error('Feed: Failed to filter blocked users:', err))
-      }
 
       // Cache the raw posts (enrichment is progressive, not cached)
       if (!isPaginating && sortedPosts.length > 0) {
@@ -361,6 +344,16 @@ function FeedPage() {
     loadPosts()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
+
+  // Filter posts to exclude blocked users using enrichment state
+  // This replaces the previous async getBlockedUserIds() calls and avoids duplicate queries
+  const filteredPosts = useMemo(() => {
+    if (!postsState.data) return null
+    // If no block status loaded yet (or no current user), show all posts
+    if (enrichmentState.blockStatus.size === 0) return postsState.data
+    // Filter out posts from blocked users
+    return postsState.data.filter(post => !enrichmentState.blockStatus.get(post.author.id))
+  }, [postsState.data, enrichmentState.blockStatus])
 
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
@@ -462,7 +455,7 @@ function FeedPage() {
             emptyDescription={activeTab === 'following' ? "Follow some people to see their posts here!" : "Be the first to share something!"}
           >
             <div>
-              {postsState.data?.map((post) => (
+              {filteredPosts?.map((post) => (
                 <ErrorBoundary key={post.id} level="component">
                   <PostCard
                     post={post}
@@ -471,7 +464,7 @@ function FeedPage() {
                   />
                 </ErrorBoundary>
               ))}
-              {hasMore && postsState.data && postsState.data.length > 0 && (
+              {hasMore && filteredPosts && filteredPosts.length > 0 && (
                 <div className="p-4 flex justify-center border-t border-gray-200 dark:border-gray-800">
                   <button
                     onClick={loadMore}

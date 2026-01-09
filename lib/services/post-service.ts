@@ -35,8 +35,22 @@ export interface PostStats {
 class PostService extends BaseDocumentService<Post> {
   private statsCache: Map<string, { data: PostStats; timestamp: number }> = new Map();
 
+  // In-flight request deduplication for batch operations
+  private inFlightStats = new Map<string, Promise<Map<string, PostStats>>>();
+  private inFlightReplies = new Map<string, Promise<Map<string, number>>>();
+  private inFlightParentOwners = new Map<string, Promise<Map<string, string>>>();
+  private inFlightInteractions = new Map<string, Promise<Map<string, { liked: boolean; reposted: boolean; bookmarked: boolean }>>>();
+  // In-flight request deduplication for count operations
+  private inFlightCountUserPosts = new Map<string, Promise<number>>();
+  private inFlightCountAllPosts: Promise<number> | null = null;
+
   constructor() {
     super('post');
+  }
+
+  /** Create a cache key from an array of IDs */
+  private createBatchKey(ids: string[]): string {
+    return [...ids].sort().join(',');
   }
 
   /**
@@ -174,11 +188,34 @@ class PostService extends BaseDocumentService<Post> {
 
   /**
    * Batch fetch parent posts to get their owner IDs.
+   * Deduplicates in-flight requests.
    * Returns a Map of postId -> ownerId
    */
   async getParentPostOwners(parentPostIds: string[]): Promise<Map<string, string>> {
+    if (parentPostIds.length === 0) {
+      return new Map<string, string>();
+    }
+
+    const cacheKey = this.createBatchKey(parentPostIds);
+
+    // Check for in-flight request
+    const inFlight = this.inFlightParentOwners.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchParentPostOwners(parentPostIds);
+    this.inFlightParentOwners.set(cacheKey, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightParentOwners.delete(cacheKey), 100);
+    });
+
+    return promise;
+  }
+
+  /** Internal: Actually fetch parent post owners */
+  private async fetchParentPostOwners(parentPostIds: string[]): Promise<Map<string, string>> {
     const result = new Map<string, string>();
-    if (parentPostIds.length === 0) return result;
 
     try {
       const { getEvoSdk } = await import('./evo-sdk-service');
@@ -651,9 +688,27 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
-   * Count posts by user - uses direct SDK query for reliability
+   * Count posts by user - uses direct SDK query for reliability.
+   * Deduplicates in-flight requests.
    */
   async countUserPosts(userId: string): Promise<number> {
+    // Check for in-flight request
+    const inFlight = this.inFlightCountUserPosts.get(userId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    // Create and store the promise
+    const promise = this.fetchCountUserPosts(userId);
+    this.inFlightCountUserPosts.set(userId, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightCountUserPosts.delete(userId), 100);
+    });
+
+    return promise;
+  }
+
+  private async fetchCountUserPosts(userId: string): Promise<number> {
     try {
       const { getEvoSdk } = await import('./evo-sdk-service');
 
@@ -692,9 +747,26 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
-   * Count all posts on the platform - paginates through all results
+   * Count all posts on the platform - paginates through all results.
+   * Deduplicates in-flight requests.
    */
   async countAllPosts(): Promise<number> {
+    // Check for in-flight request
+    if (this.inFlightCountAllPosts) {
+      return this.inFlightCountAllPosts;
+    }
+
+    // Create and store the promise
+    const promise = this.fetchCountAllPosts();
+    this.inFlightCountAllPosts = promise;
+    promise.finally(() => {
+      setTimeout(() => { this.inFlightCountAllPosts = null; }, 100);
+    });
+
+    return promise;
+  }
+
+  private async fetchCountAllPosts(): Promise<number> {
     try {
       const { getEvoSdk } = await import('./evo-sdk-service');
 
@@ -965,26 +1037,47 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
-   * Batch get user interactions for multiple posts
-   * Much more efficient than calling getUserInteractions per post
-   * Makes 3 queries total instead of 3 per post
+   * Batch get user interactions for multiple posts.
+   * Deduplicates in-flight requests.
    */
   async getBatchUserInteractions(postIds: string[]): Promise<Map<string, {
     liked: boolean;
     reposted: boolean;
     bookmarked: boolean;
   }>> {
+    const currentUserId = this.getCurrentUserId();
+    if (!currentUserId || postIds.length === 0) {
+      const result = new Map<string, { liked: boolean; reposted: boolean; bookmarked: boolean }>();
+      postIds.forEach(id => result.set(id, { liked: false, reposted: false, bookmarked: false }));
+      return result;
+    }
+
+    // Include userId in cache key since interactions are user-specific
+    const cacheKey = `${currentUserId}:${this.createBatchKey(postIds)}`;
+
+    // Check for in-flight request
+    const inFlight = this.inFlightInteractions.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchBatchUserInteractions(postIds, currentUserId);
+    this.inFlightInteractions.set(cacheKey, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightInteractions.delete(cacheKey), 100);
+    });
+
+    return promise;
+  }
+
+  /** Internal: Actually fetch user interactions */
+  private async fetchBatchUserInteractions(postIds: string[], currentUserId: string): Promise<Map<string, { liked: boolean; reposted: boolean; bookmarked: boolean }>> {
     const result = new Map<string, { liked: boolean; reposted: boolean; bookmarked: boolean }>();
 
     // Initialize all posts with false
     postIds.forEach(id => {
       result.set(id, { liked: false, reposted: false, bookmarked: false });
     });
-
-    const currentUserId = this.getCurrentUserId();
-    if (!currentUserId) {
-      return result;
-    }
 
     try {
       // Fetch all user's likes, reposts, and bookmarks in 3 queries total
@@ -1013,23 +1106,43 @@ class PostService extends BaseDocumentService<Post> {
           bookmarked: bookmarkedPostIds.has(postId)
         });
       });
-
-      return result;
     } catch (error) {
       console.error('Error getting batch user interactions:', error);
-      return result;
     }
+
+    return result;
   }
 
   /**
-   * Get reply counts for multiple posts in a single batch query
-   * Uses 'in' operator for efficient querying
+   * Get reply counts for multiple posts in a single batch query.
+   * Deduplicates in-flight requests.
    */
   async getRepliesByPostIds(postIds: string[]): Promise<Map<string, number>> {
+    if (postIds.length === 0) {
+      return new Map<string, number>();
+    }
+
+    const cacheKey = this.createBatchKey(postIds);
+
+    // Check for in-flight request
+    const inFlight = this.inFlightReplies.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchRepliesByPostIds(postIds);
+    this.inFlightReplies.set(cacheKey, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightReplies.delete(cacheKey), 100);
+    });
+
+    return promise;
+  }
+
+  /** Internal: Actually fetch reply counts */
+  private async fetchRepliesByPostIds(postIds: string[]): Promise<Map<string, number>> {
     const result = new Map<string, number>();
     postIds.forEach(id => result.set(id, 0));
-
-    if (postIds.length === 0) return result;
 
     try {
       const { getEvoSdk } = await import('./evo-sdk-service');
@@ -1079,18 +1192,42 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
-   * Batch get stats for multiple posts using efficient batch queries
-   * Makes 3 batch queries total instead of 3 per post
+   * Batch get stats for multiple posts using efficient batch queries.
+   * Deduplicates in-flight requests: multiple callers with same postIds share one request.
    */
   async getBatchPostStats(postIds: string[]): Promise<Map<string, PostStats>> {
+    if (postIds.length === 0) {
+      return new Map<string, PostStats>();
+    }
+
+    const cacheKey = this.createBatchKey(postIds);
+
+    // Check for in-flight request with same posts
+    const inFlight = this.inFlightStats.get(cacheKey);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    // Create the actual request
+    const promise = this.fetchBatchPostStats(postIds);
+
+    // Store and clean up after completion
+    this.inFlightStats.set(cacheKey, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightStats.delete(cacheKey), 100);
+    });
+
+    return promise;
+  }
+
+  /** Internal: Actually fetch batch post stats */
+  private async fetchBatchPostStats(postIds: string[]): Promise<Map<string, PostStats>> {
     const result = new Map<string, PostStats>();
 
     // Initialize all posts with zero stats
     postIds.forEach(id => {
       result.set(id, { postId: id, likes: 0, reposts: 0, replies: 0, views: 0 });
     });
-
-    if (postIds.length === 0) return result;
 
     try {
       const [{ likeService }, { repostService }] = await Promise.all([

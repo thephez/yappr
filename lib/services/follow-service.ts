@@ -11,6 +11,11 @@ export interface FollowDocument {
 }
 
 class FollowService extends BaseDocumentService<FollowDocument> {
+  // In-flight request deduplication: multiple callers share the same promise
+  private inFlightFollowing = new Map<string, Promise<string[]>>();
+  private inFlightCountFollowers = new Map<string, Promise<number>>();
+  private inFlightCountFollowing = new Map<string, Promise<number>>();
+
   constructor() {
     super('follow');
   }
@@ -99,11 +104,14 @@ class FollowService extends BaseDocumentService<FollowDocument> {
   }
 
   /**
-   * Check if user A follows user B
+   * Check if user A follows user B.
+   * Uses getFollowingIds() which deduplicates in-flight requests,
+   * so multiple calls share 1 network request.
    */
   async isFollowing(targetUserId: string, followerUserId: string): Promise<boolean> {
-    const follow = await this.getFollow(targetUserId, followerUserId);
-    return follow !== null;
+    if (!followerUserId || !targetUserId) return false;
+    const followingIds = await this.getFollowingIds(followerUserId);
+    return followingIds.includes(targetUserId);
   }
 
   /**
@@ -165,8 +173,34 @@ class FollowService extends BaseDocumentService<FollowDocument> {
   }
 
   /**
+   * Get array of following user IDs.
+   * Deduplicates in-flight requests: if called multiple times before the first
+   * request completes, all callers share the same promise/network request.
+   */
+  async getFollowingIds(userId: string): Promise<string[]> {
+    if (!userId) return [];
+
+    // Check for in-flight request
+    const inFlight = this.inFlightFollowing.get(userId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    // Create new request and store the promise
+    const promise = this.getFollowing(userId, { limit: 100 })
+      .then(following => following.map(f => f.followingId))
+      .finally(() => {
+        // Clear in-flight after a short delay to allow rapid successive calls to share
+        setTimeout(() => this.inFlightFollowing.delete(userId), 100);
+      });
+
+    this.inFlightFollowing.set(userId, promise);
+    return promise;
+  }
+
+  /**
    * Batch check if the current user follows any of the target users.
-   * Efficient: reuses getFollowing (1 query) then does Set intersection.
+   * Efficient: reuses getFollowingIds (1 query, deduplicated) then does Set intersection.
    * @returns Map of targetUserId -> isFollowing
    */
   async getFollowStatusBatch(targetUserIds: string[], followerId: string): Promise<Map<string, boolean>> {
@@ -182,9 +216,9 @@ class FollowService extends BaseDocumentService<FollowDocument> {
     }
 
     try {
-      // Get all users this user follows (1 query)
-      const following = await this.getFollowing(followerId, { limit: 100 });
-      const followingSet = new Set(following.map(f => f.followingId));
+      // Get all users this user follows (1 query, deduplicated)
+      const followingIds = await this.getFollowingIds(followerId);
+      const followingSet = new Set(followingIds);
 
       // Check each target against the following set
       for (const targetId of targetUserIds) {
@@ -198,9 +232,26 @@ class FollowService extends BaseDocumentService<FollowDocument> {
   }
 
   /**
-   * Count followers - uses queryDocuments helper
+   * Count followers - uses queryDocuments helper.
+   * Deduplicates in-flight requests.
    */
   async countFollowers(userId: string): Promise<number> {
+    // Check for in-flight request
+    const inFlight = this.inFlightCountFollowers.get(userId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchCountFollowers(userId);
+    this.inFlightCountFollowers.set(userId, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightCountFollowers.delete(userId), 100);
+    });
+
+    return promise;
+  }
+
+  private async fetchCountFollowers(userId: string): Promise<number> {
     try {
       const sdk = await getEvoSdk();
 
@@ -224,9 +275,26 @@ class FollowService extends BaseDocumentService<FollowDocument> {
   }
 
   /**
-   * Count following - uses queryDocuments helper
+   * Count following - uses queryDocuments helper.
+   * Deduplicates in-flight requests.
    */
   async countFollowing(userId: string): Promise<number> {
+    // Check for in-flight request
+    const inFlight = this.inFlightCountFollowing.get(userId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    const promise = this.fetchCountFollowing(userId);
+    this.inFlightCountFollowing.set(userId, promise);
+    promise.finally(() => {
+      setTimeout(() => this.inFlightCountFollowing.delete(userId), 100);
+    });
+
+    return promise;
+  }
+
+  private async fetchCountFollowing(userId: string): Promise<number> {
     try {
       const sdk = await getEvoSdk();
 

@@ -35,8 +35,62 @@ export interface AvatarSettings {
 class AvatarService extends BaseDocumentService<AvatarDocument> {
   private readonly AVATAR_CACHE = 'avatars';
 
+  // DataLoader-style batching: all avatar requests are queued and processed together
+  private pendingRequests = new Map<string, {
+    resolvers: Array<(url: string) => void>;
+  }>();
+
   constructor() {
     super('avatar');
+  }
+
+  private batchTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  /**
+   * Schedule batch processing with debounce.
+   * Waits 5ms for more requests to accumulate, ensuring all requests
+   * from React render cycles get batched together.
+   */
+  private scheduleBatch() {
+    // Clear existing timeout to debounce
+    if (this.batchTimeout !== null) {
+      clearTimeout(this.batchTimeout);
+    }
+
+    // Wait 5ms for more requests to accumulate
+    this.batchTimeout = setTimeout(() => {
+      this.batchTimeout = null;
+      this.processBatch();
+    }, 5);
+  }
+
+  /**
+   * Process all pending avatar requests in a single batch query.
+   */
+  private async processBatch() {
+    // Snapshot and clear pending requests
+    const batch = new Map(this.pendingRequests);
+    this.pendingRequests.clear();
+
+    if (batch.size === 0) return;
+
+    const userIds = Array.from(batch.keys());
+
+    try {
+      const results = await this.fetchAvatarUrlsBatch(userIds);
+
+      // Resolve all pending promises
+      for (const [userId, { resolvers }] of batch) {
+        const url = results.get(userId) || getDefaultAvatarUrl(userId);
+        resolvers.forEach(resolve => resolve(url));
+      }
+    } catch (error) {
+      // On error, resolve with defaults
+      for (const [userId, { resolvers }] of batch) {
+        const url = getDefaultAvatarUrl(userId);
+        resolvers.forEach(resolve => resolve(url));
+      }
+    }
   }
 
   /**
@@ -66,7 +120,8 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
   }
 
   /**
-   * Get avatar settings for a user
+   * Get avatar settings for a user.
+   * Note: For deduplication, use getAvatarUrl() instead which coordinates with batch requests.
    */
   async getAvatarSettings(ownerId: string): Promise<AvatarSettings | null> {
     // Guard against empty ownerId
@@ -75,23 +130,23 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
       return null;
     }
 
+    // Check cache first
+    const cached = cacheManager.get<AvatarSettings>(this.AVATAR_CACHE, ownerId);
+    if (cached) {
+      return cached;
+    }
+
+    return this.fetchAvatarSettings(ownerId);
+  }
+
+  private async fetchAvatarSettings(ownerId: string): Promise<AvatarSettings | null> {
     try {
-      // Check cache
-      const cached = cacheManager.get<AvatarSettings>(this.AVATAR_CACHE, ownerId);
-      if (cached) {
-        console.log('AvatarService: Returning cached avatar for:', ownerId);
-        return cached;
-      }
-
-      console.log('AvatarService: Getting avatar settings for:', ownerId);
-
       const result = await this.query({
         where: [['$ownerId', '==', ownerId]],
         limit: 1,
       });
 
       if (result.documents.length === 0) {
-        console.log('AvatarService: No avatar found for:', ownerId);
         return null;
       }
 
@@ -113,7 +168,6 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
         tags: ['avatar', `user:${ownerId}`],
       });
 
-      console.log('AvatarService: Returning avatar settings:', settings);
       return settings;
     } catch (error) {
       console.error('AvatarService: Error getting avatar settings:', error);
@@ -122,7 +176,9 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
   }
 
   /**
-   * Get avatar URL for a user, falling back to default
+   * Get avatar URL for a user, falling back to default.
+   * Uses DataLoader-style batching - all requests from the same event loop tick
+   * are automatically batched into a single query.
    */
   async getAvatarUrl(ownerId: string): Promise<string> {
     // Guard against empty ownerId to prevent seed= URLs
@@ -131,20 +187,30 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
       return '';
     }
 
-    try {
-      const settings = await this.getAvatarSettings(ownerId);
-      if (settings) {
-        return settings.avatarUrl;
-      }
-    } catch (error) {
-      console.error('AvatarService: Error getting avatar URL:', error);
+    // Check cache first
+    const cached = cacheManager.get<AvatarSettings>(this.AVATAR_CACHE, ownerId);
+    if (cached) {
+      return cached.avatarUrl;
     }
-    return getDefaultAvatarUrl(ownerId);
+
+    // Add to pending batch and return promise
+    return new Promise((resolve) => {
+      const existing = this.pendingRequests.get(ownerId);
+      if (existing) {
+        // Already have a pending request for this user, add our resolver
+        existing.resolvers.push(resolve);
+      } else {
+        // New request for this user
+        this.pendingRequests.set(ownerId, { resolvers: [resolve] });
+      }
+      this.scheduleBatch();
+    });
   }
 
   /**
    * Batch get avatar URLs for multiple users.
-   * Uses 'in' operator for efficient batch query (1 query instead of N).
+   * Uses DataLoader-style batching - calls getAvatarUrl for each which
+   * automatically batches all requests from the same event loop tick.
    * @returns Map of userId -> avatarUrl
    */
   async getAvatarUrlsBatch(userIds: string[]): Promise<Map<string, string>> {
@@ -152,22 +218,18 @@ class AvatarService extends BaseDocumentService<AvatarDocument> {
 
     if (userIds.length === 0) return result;
 
-    // Check cache first for each user
-    const uncachedIds: string[] = [];
-    for (const userId of userIds) {
-      if (!userId) continue;
+    // Call getAvatarUrl for each - they'll all be batched together automatically
+    const promises = userIds.filter(id => !!id).map(async (userId) => {
+      const url = await this.getAvatarUrl(userId);
+      result.set(userId, url);
+    });
 
-      const cached = cacheManager.get<AvatarSettings>(this.AVATAR_CACHE, userId);
-      if (cached) {
-        result.set(userId, cached.avatarUrl);
-      } else {
-        uncachedIds.push(userId);
-      }
-    }
+    await Promise.all(promises);
+    return result;
+  }
 
-    if (uncachedIds.length === 0) {
-      return result;
-    }
+  private async fetchAvatarUrlsBatch(uncachedIds: string[]): Promise<Map<string, string>> {
+    const result = new Map<string, string>();
 
     try {
       const { getEvoSdk } = await import('./evo-sdk-service');

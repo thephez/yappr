@@ -10,6 +10,9 @@ export interface BlockDocument {
 }
 
 class BlockService extends BaseDocumentService<BlockDocument> {
+  // In-flight request deduplication: multiple callers share the same promise
+  private inFlightBlockedIds = new Map<string, Promise<string[]>>();
+
   constructor() {
     super('block');
   }
@@ -103,11 +106,14 @@ class BlockService extends BaseDocumentService<BlockDocument> {
   }
 
   /**
-   * Check if blocker has blocked target
+   * Check if blocker has blocked target.
+   * Uses getBlockedUserIds() which deduplicates in-flight requests,
+   * so 30 calls share 1 network request.
    */
   async isBlocked(targetUserId: string, blockerId: string): Promise<boolean> {
-    const block = await this.getBlock(targetUserId, blockerId);
-    return block !== null;
+    if (!blockerId || !targetUserId) return false;
+    const blockedIds = await this.getBlockedUserIds(blockerId);
+    return blockedIds.includes(targetUserId);
   }
 
   /**
@@ -150,11 +156,30 @@ class BlockService extends BaseDocumentService<BlockDocument> {
   }
 
   /**
-   * Get array of blocked user IDs for filtering
+   * Get array of blocked user IDs for filtering.
+   * Deduplicates in-flight requests: if called multiple times before the first
+   * request completes, all callers share the same promise/network request.
    */
   async getBlockedUserIds(userId: string): Promise<string[]> {
-    const blocks = await this.getUserBlocks(userId);
-    return blocks.map(block => block.blockedId);
+    if (!userId) return [];
+
+    // Check for in-flight request
+    const inFlight = this.inFlightBlockedIds.get(userId);
+    if (inFlight) {
+      return inFlight;
+    }
+
+    // Create new request and store the promise
+    const promise = this.getUserBlocks(userId)
+      .then(blocks => blocks.map(block => block.blockedId))
+      .finally(() => {
+        // Clear in-flight after a short delay to allow rapid successive calls to share
+        // but not cache stale data indefinitely
+        setTimeout(() => this.inFlightBlockedIds.delete(userId), 100);
+      });
+
+    this.inFlightBlockedIds.set(userId, promise);
+    return promise;
   }
 
   /**

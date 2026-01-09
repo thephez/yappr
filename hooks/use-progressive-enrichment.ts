@@ -63,6 +63,8 @@ function createEmptyEnrichmentState(): EnrichmentState {
 
 interface UseProgressiveEnrichmentOptions {
   currentUserId?: string
+  /** Skip follow status query (e.g., on Following tab where all authors are followed) */
+  skipFollowStatus?: boolean
 }
 
 interface UseProgressiveEnrichmentResult {
@@ -98,7 +100,7 @@ interface UseProgressiveEnrichmentResult {
 export function useProgressiveEnrichment(
   options: UseProgressiveEnrichmentOptions = {}
 ): UseProgressiveEnrichmentResult {
-  const { currentUserId } = options
+  const { currentUserId, skipFollowStatus = false } = options
 
   const [enrichmentState, setEnrichmentState] = useState<EnrichmentState>(createEmptyEnrichmentState)
 
@@ -141,9 +143,12 @@ export function useProgressiveEnrichment(
       return merged
     }
 
-    // Fire all requests in parallel, handle results as they complete
+    // Store promises so we can reuse them for completion tracking
+    // This prevents duplicate queries that were happening before
+
     // Priority 1: DPNS usernames (most visible - author identity)
-    dpnsService.resolveUsernamesBatch(authorIds).then(usernames => {
+    const usernamePromise = dpnsService.resolveUsernamesBatch(authorIds)
+    usernamePromise.then(usernames => {
       if (!isValid()) return
       setEnrichmentState(prev => ({
         ...prev,
@@ -152,7 +157,8 @@ export function useProgressiveEnrichment(
     }).catch(err => console.error('Progressive enrichment: usernames failed', err))
 
     // Priority 1: Profiles (display names)
-    profileService.getProfilesByIdentityIds(authorIds).then(profiles => {
+    const profilePromise = profileService.getProfilesByIdentityIds(authorIds)
+    profilePromise.then(profiles => {
       if (!isValid()) return
       const profileMap = new Map<string, ProfileData>()
       for (const profile of profiles) {
@@ -174,7 +180,8 @@ export function useProgressiveEnrichment(
     }).catch(err => console.error('Progressive enrichment: profiles failed', err))
 
     // Priority 2: Avatars
-    avatarService.getAvatarUrlsBatch(authorIds).then(avatars => {
+    const avatarPromise = avatarService.getAvatarUrlsBatch(authorIds)
+    avatarPromise.then(avatars => {
       if (!isValid()) return
       setEnrichmentState(prev => ({
         ...prev,
@@ -183,7 +190,8 @@ export function useProgressiveEnrichment(
     }).catch(err => console.error('Progressive enrichment: avatars failed', err))
 
     // Priority 3: Stats
-    postService.getBatchPostStats(postIds).then(stats => {
+    const statsPromise = postService.getBatchPostStats(postIds)
+    statsPromise.then(stats => {
       if (!isValid()) return
       setEnrichmentState(prev => ({
         ...prev,
@@ -192,8 +200,12 @@ export function useProgressiveEnrichment(
     }).catch(err => console.error('Progressive enrichment: stats failed', err))
 
     // Priority 4: User interactions (only if logged in)
+    const interactionsPromise = currentUserId
+      ? postService.getBatchUserInteractions(postIds)
+      : Promise.resolve(new Map<string, UserInteractions>())
+
     if (currentUserId) {
-      postService.getBatchUserInteractions(postIds).then(interactions => {
+      interactionsPromise.then(interactions => {
         if (!isValid()) return
         setEnrichmentState(prev => ({
           ...prev,
@@ -201,21 +213,38 @@ export function useProgressiveEnrichment(
         }))
       }).catch(err => console.error('Progressive enrichment: interactions failed', err))
 
-      // Priority 5: Block/Follow status
-      Promise.all([
-        blockService.getBlockStatusBatch(authorIds, currentUserId),
-        followService.getFollowStatusBatch(authorIds, currentUserId)
-      ]).then(([blockStatus, followStatus]) => {
+      // Priority 5: Block status (always query for filtering)
+      const blockPromise = blockService.getBlockStatusBatch(authorIds, currentUserId)
+      blockPromise.then(blockStatus => {
         if (!isValid()) return
-        // Seed shared caches for PostCard hooks
         seedBlockStatusCache(currentUserId, blockStatus)
+        setEnrichmentState(prev => ({
+          ...prev,
+          blockStatus: mergeMaps(prev.blockStatus, blockStatus)
+        }))
+      }).catch(err => console.error('Progressive enrichment: block status failed', err))
+
+      // Priority 5: Follow status (skip if on Following tab - all authors are followed by definition)
+      if (!skipFollowStatus) {
+        const followPromise = followService.getFollowStatusBatch(authorIds, currentUserId)
+        followPromise.then(followStatus => {
+          if (!isValid()) return
+          seedFollowStatusCache(currentUserId, followStatus)
+          setEnrichmentState(prev => ({
+            ...prev,
+            followStatus: mergeMaps(prev.followStatus, followStatus)
+          }))
+        }).catch(err => console.error('Progressive enrichment: follow status failed', err))
+      } else {
+        // On Following tab, mark all authors as followed
+        const followStatus = new Map<string, boolean>()
+        authorIds.forEach(id => followStatus.set(id, true))
         seedFollowStatusCache(currentUserId, followStatus)
         setEnrichmentState(prev => ({
           ...prev,
-          blockStatus: mergeMaps(prev.blockStatus, blockStatus),
           followStatus: mergeMaps(prev.followStatus, followStatus)
         }))
-      }).catch(err => console.error('Progressive enrichment: block/follow failed', err))
+      }
     }
 
     // Priority 6: ReplyTo data (for replies and tips)
@@ -252,20 +281,19 @@ export function useProgressiveEnrichment(
       }).catch(err => console.error('Progressive enrichment: replyTo failed', err))
     }
 
-    // Set complete phase after a reasonable time
-    // This is a heuristic - in practice, all requests should complete within 2-3 seconds
+    // Track completion using the SAME promises (no duplicate queries!)
     Promise.all([
-      dpnsService.resolveUsernamesBatch(authorIds),
-      profileService.getProfilesByIdentityIds(authorIds),
-      avatarService.getAvatarUrlsBatch(authorIds),
-      postService.getBatchPostStats(postIds),
-      ...(currentUserId ? [postService.getBatchUserInteractions(postIds)] : [])
+      usernamePromise,
+      profilePromise,
+      avatarPromise,
+      statsPromise,
+      interactionsPromise
     ]).finally(() => {
       if (!isValid()) return
       setEnrichmentState(prev => ({ ...prev, phase: 'complete' }))
     })
 
-  }, [currentUserId])
+  }, [currentUserId, skipFollowStatus])
 
   /**
    * Helper to get enrichment data for a specific post.
