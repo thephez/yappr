@@ -26,6 +26,7 @@ export function MobileHeader() {
           width={80}
           height={27}
           className="dark:hidden"
+          style={{ width: 'auto', height: 'auto' }}
         />
         <Image
           src="/pbde-dark.png"
@@ -33,6 +34,7 @@ export function MobileHeader() {
           width={80}
           height={27}
           className="hidden dark:block"
+          style={{ width: 'auto', height: 'auto' }}
         />
       </Link>
 

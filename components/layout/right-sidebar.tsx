@@ -210,6 +210,7 @@ export function RightSidebar() {
           width={140}
           height={47}
           className="dark:hidden"
+          style={{ width: 'auto', height: 'auto' }}
         />
         <Image
           src="/pbde-dark.png"
@@ -217,6 +218,7 @@ export function RightSidebar() {
           width={140}
           height={47}
           className="hidden dark:block"
+          style={{ width: 'auto', height: 'auto' }}
         />
       </div>
 

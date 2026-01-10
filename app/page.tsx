@@ -83,6 +83,7 @@ export default function PublicHomePage() {
                 width={180}
                 height={60}
                 className="dark:hidden"
+                style={{ width: 'auto', height: 'auto' }}
               />
               <Image
                 src="/pbde-dark.png"
@@ -90,6 +91,7 @@ export default function PublicHomePage() {
                 width={180}
                 height={60}
                 className="hidden dark:block"
+                style={{ width: 'auto', height: 'auto' }}
               />
             </div>
             <p className="text-base md:text-xl text-gray-600 dark:text-gray-400 mb-6 md:mb-8 max-w-2xl mx-auto px-2">
