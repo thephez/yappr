@@ -6,6 +6,7 @@ import { SdkProvider } from '@/contexts/sdk-context'
 import { UsernameModalProvider } from '@/components/dpns/username-modal-provider'
 import { KeyBackupModal } from '@/components/auth/key-backup-modal'
 import { TipModal } from '@/components/post/tip-modal'
+import { HashtagRecoveryModal } from '@/components/post/hashtag-recovery-modal'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -21,6 +22,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <UsernameModalProvider />
           <KeyBackupModal />
           <TipModal />
+          <HashtagRecoveryModal />
         </AuthProvider>
       </SdkProvider>
     </ThemeProvider>

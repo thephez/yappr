@@ -31,6 +31,8 @@ import { PostContent } from './post-content'
 import { useTipModal } from '@/hooks/use-tip-modal'
 import { useBlock } from '@/hooks/use-block'
 import { useFollow } from '@/hooks/use-follow'
+import { useHashtagValidation } from '@/hooks/use-hashtag-validation'
+import { useHashtagRecoveryModal } from '@/hooks/use-hashtag-recovery-modal'
 import { tipService } from '@/lib/services/tip-service'
 
 // Enrichment data from progressive loading
@@ -119,6 +121,10 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   const [bookmarkLoading, setBookmarkLoading] = useState(false)
   const { setReplyingTo, setComposeOpen } = useAppStore()
   const { open: openTipModal } = useTipModal()
+  const { open: openHashtagRecoveryModal } = useHashtagRecoveryModal()
+
+  // Validate hashtags for all posts (checks if hashtag documents exist on platform)
+  const { validations: hashtagValidations, revalidate: revalidateHashtags } = useHashtagValidation(post)
 
   // Use pre-fetched enrichment data to avoid N+1 queries
   const { isBlocked, isLoading: blockLoading, toggleBlock } = useBlock(post.author.id, {
@@ -147,6 +153,20 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     post.reposts,
     post.bookmarked
   ])
+
+  // Listen for hashtag registration events to revalidate
+  useEffect(() => {
+    const handleHashtagRegistered = (event: CustomEvent<{ postId: string; hashtag: string }>) => {
+      if (event.detail.postId === post.id) {
+        revalidateHashtags()
+      }
+    }
+
+    window.addEventListener('hashtag-registered', handleHashtagRegistered as EventListener)
+    return () => {
+      window.removeEventListener('hashtag-registered', handleHashtagRegistered as EventListener)
+    }
+  }, [post.id, revalidateHashtags])
 
   // Check if this post is a tip and parse tip info
   const tipInfo = useMemo(() => tipService.parseTipContent(post.content), [post.content])
@@ -285,6 +305,10 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
       return
     }
     openTipModal(post)
+  }
+
+  const handleFailedHashtagClick = (hashtag: string) => {
+    openHashtagRecoveryModal(post, hashtag)
   }
 
   const handleCardClick = () => {
@@ -459,7 +483,12 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
               )}
             </div>
           ) : (
-            <PostContent content={post.content} className="mt-1" />
+            <PostContent
+              content={post.content}
+              className="mt-1"
+              hashtagValidations={hashtagValidations}
+              onFailedHashtagClick={handleFailedHashtagClick}
+            />
           )}
 
           {post.quotedPost && (

@@ -2,16 +2,27 @@
 
 import Link from 'next/link'
 import { Fragment, useMemo } from 'react'
+import { ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { HashtagValidationStatus } from '@/hooks/use-hashtag-validation'
 
 interface PostContentProps {
   content: string
   className?: string
+  /** Optional: validation status per hashtag (normalized, no #) */
+  hashtagValidations?: Map<string, HashtagValidationStatus>
+  /** Optional: callback when failed hashtag warning is clicked */
+  onFailedHashtagClick?: (hashtag: string) => void
 }
 
 /**
  * Renders post content with clickable hashtags, mentions, and URLs
  */
-export function PostContent({ content, className = '' }: PostContentProps) {
+export function PostContent({
+  content,
+  className = '',
+  hashtagValidations,
+  onFailedHashtagClick
+}: PostContentProps) {
   const parsedContent = useMemo(() => {
     // Combined pattern to match URLs, hashtags, and mentions
     // Order matters - URLs first to avoid partial matches
@@ -91,15 +102,32 @@ export function PostContent({ content, className = '' }: PostContentProps) {
 
         if (part.type === 'hashtag') {
           const tag = part.value.slice(1).toLowerCase() // Remove # and lowercase
+          const validationStatus = hashtagValidations?.get(tag)
+          const isFailed = validationStatus === 'invalid'
+
           return (
-            <Link
-              key={index}
-              href={`/hashtag?tag=${encodeURIComponent(tag)}`}
-              onClick={(e) => e.stopPropagation()}
-              className="text-yappr-500 hover:underline"
-            >
-              {part.value}
-            </Link>
+            <span key={index} className="inline-flex items-center">
+              <Link
+                href={`/hashtag?tag=${encodeURIComponent(tag)}`}
+                onClick={(e) => e.stopPropagation()}
+                className={`text-yappr-500 hover:underline ${isFailed ? 'opacity-70' : ''}`}
+              >
+                {part.value}
+              </Link>
+              {isFailed && onFailedHashtagClick && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    onFailedHashtagClick(tag)
+                  }}
+                  className="ml-0.5 text-amber-500 hover:text-amber-600 transition-colors"
+                  title="Hashtag not registered - click to fix"
+                >
+                  <ExclamationTriangleIcon className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </span>
           )
         }
 
