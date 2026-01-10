@@ -58,7 +58,8 @@ export function ComposeModal() {
         // Create hashtag documents for the post
         const hashtags = extractHashtags(postContent)
         // Post ID can be in different fields depending on SDK response format
-        const postId = result.data?.documentId || result.data?.document?.id || result.data?.$id || result.data?.id
+        // Dash Platform uses $id (with $ prefix) for document IDs
+        const postId = result.data?.documentId || result.data?.document?.$id || result.data?.document?.id || result.data?.$id || result.data?.id
         console.log('Post creation result:', { hashtags, postId, resultData: result.data })
 
         if (hashtags.length > 0 && postId) {
