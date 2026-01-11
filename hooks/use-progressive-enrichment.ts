@@ -214,7 +214,7 @@ export function useProgressiveEnrichment(
       }).catch(err => console.error('Progressive enrichment: interactions failed', err))
 
       // Priority 5: Block status (always query for filtering)
-      const blockPromise = blockService.getBlockStatusBatch(authorIds, currentUserId)
+      const blockPromise = blockService.checkBlockedBatch(currentUserId, authorIds)
       blockPromise.then(blockStatus => {
         if (!isValid()) return
         seedBlockStatusCache(currentUserId, blockStatus)

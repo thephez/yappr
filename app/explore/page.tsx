@@ -11,7 +11,7 @@ import { useRouter } from 'next/navigation'
 import { hashtagService, TrendingHashtag } from '@/lib/services/hashtag-service'
 import { HASHTAG_CONTRACT_ID } from '@/lib/constants'
 import { useAuth } from '@/contexts/auth-context'
-import { getBlockedUserIds } from '@/hooks/use-block'
+import { checkBlockedForAuthors } from '@/hooks/use-block'
 
 export default function ExplorePage() {
   const router = useRouter()
@@ -66,17 +66,17 @@ export default function ExplorePage() {
 
         const allPosts = await dashClient.queryPosts({ limit: 100 })
 
-        // Get blocked user IDs for filtering
-        const blockedIds = user?.identityId
-          ? await getBlockedUserIds(user.identityId)
-          : []
-        const blockedSet = new Set(blockedIds)
+        // Get unique author IDs and check block status
+        const authorIds = Array.from(new Set(allPosts.map((p: any) => p.$ownerId).filter(Boolean))) as string[]
+        const blockedMap = user?.identityId
+          ? await checkBlockedForAuthors(user.identityId, authorIds)
+          : new Map<string, boolean>()
 
         const filtered = allPosts
           .filter((post: any) =>
             post.$ownerId &&
             post.content?.toLowerCase().includes(searchQuery.toLowerCase()) &&
-            !blockedSet.has(post.$ownerId)
+            !blockedMap.get(post.$ownerId)
           )
           .map((post: any) => ({
             id: post.$id,

@@ -109,9 +109,6 @@ export function useBlock(targetUserId: string, options: UseBlockOptions = {}): U
       }
 
       toast.success(wasBlocked ? 'User unblocked' : 'User blocked')
-
-      // Invalidate blocked user IDs cache
-      invalidateBlockedUsersCache(user.identityId)
     } catch (error) {
       // Rollback
       setIsBlocked(wasBlocked)
@@ -135,40 +132,26 @@ export function useBlock(targetUserId: string, options: UseBlockOptions = {}): U
   return { isBlocked, isLoading, toggleBlock, refresh }
 }
 
-// Cache for blocked user IDs list
-const blockedUsersCache = new Map<string, { ids: string[]; timestamp: number }>()
-const BLOCKED_USERS_CACHE_TTL = 2 * 60 * 1000 // 2 minutes
-
 /**
- * Get cached blocked user IDs for filtering
+ * Check which authors are blocked from a list.
+ * Uses efficient 'in' query with caching - only queries uncached IDs.
+ * @returns Map of authorId -> isBlocked
  */
-export async function getBlockedUserIds(userId: string): Promise<string[]> {
-  if (!userId) return []
-
-  // Check cache
-  const cached = blockedUsersCache.get(userId)
-  if (cached && Date.now() - cached.timestamp < BLOCKED_USERS_CACHE_TTL) {
-    return cached.ids
+export async function checkBlockedForAuthors(
+  userId: string,
+  authorIds: string[]
+): Promise<Map<string, boolean>> {
+  if (!userId || authorIds.length === 0) {
+    return new Map()
   }
 
   try {
     const { blockService } = await import('@/lib/services/block-service')
-    const ids = await blockService.getBlockedUserIds(userId)
-
-    // Cache the result
-    blockedUsersCache.set(userId, { ids, timestamp: Date.now() })
-    return ids
+    return await blockService.checkBlockedBatch(userId, authorIds)
   } catch (error) {
-    console.error('getBlockedUserIds: Error:', error)
-    return []
+    console.error('checkBlockedForAuthors: Error:', error)
+    return new Map()
   }
-}
-
-/**
- * Invalidate blocked users cache
- */
-export function invalidateBlockedUsersCache(userId: string): void {
-  blockedUsersCache.delete(userId)
 }
 
 /**
@@ -176,7 +159,6 @@ export function invalidateBlockedUsersCache(userId: string): void {
  */
 export function clearBlockCache(): void {
   clearSharedBlockCache()
-  blockedUsersCache.clear()
 }
 
 // Re-export for convenience

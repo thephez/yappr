@@ -309,7 +309,7 @@ class PostService extends BaseDocumentService<Post> {
         this.getParentPostOwners(parentPostIds),
         // Batch block/follow status (only if user is logged in)
         currentUserId
-          ? blockService.getBlockStatusBatch(authorIds, currentUserId)
+          ? blockService.checkBlockedBatch(currentUserId, authorIds)
           : Promise.resolve(new Map<string, boolean>()),
         currentUserId
           ? followService.getFollowStatusBatch(authorIds, currentUserId)

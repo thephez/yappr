@@ -12,7 +12,7 @@ import { hashtagService } from '@/lib/services/hashtag-service'
 import { HASHTAG_CONTRACT_ID } from '@/lib/constants'
 import { Post } from '@/lib/types'
 import { useAuth } from '@/contexts/auth-context'
-import { getBlockedUserIds } from '@/hooks/use-block'
+import { checkBlockedForAuthors } from '@/hooks/use-block'
 
 function HashtagPageContent() {
   const router = useRouter()
@@ -81,12 +81,10 @@ function HashtagPageContent() {
         let enrichedPosts = await postService.enrichPostsBatch(fetchedPosts)
 
         // Filter out posts from blocked users
-        if (user?.identityId) {
-          const blockedIds = await getBlockedUserIds(user.identityId)
-          if (blockedIds.length > 0) {
-            const blockedSet = new Set(blockedIds)
-            enrichedPosts = enrichedPosts.filter(post => !blockedSet.has(post.author.id))
-          }
+        if (user?.identityId && enrichedPosts.length > 0) {
+          const authorIds = Array.from(new Set(enrichedPosts.map(p => p.author.id)))
+          const blockedMap = await checkBlockedForAuthors(user.identityId, authorIds)
+          enrichedPosts = enrichedPosts.filter(post => !blockedMap.get(post.author.id))
         }
 
         setPosts(enrichedPosts)

@@ -1,6 +1,7 @@
 import { BaseDocumentService, QueryOptions } from './document-service';
 import { stateTransitionService } from './state-transition-service';
 import { identifierToBase58 } from './sdk-helpers';
+import { getEvoSdk } from './evo-sdk-service';
 
 export interface BlockDocument {
   $id: string;
@@ -10,8 +11,9 @@ export interface BlockDocument {
 }
 
 class BlockService extends BaseDocumentService<BlockDocument> {
-  // In-flight request deduplication: multiple callers share the same promise
-  private inFlightBlockedIds = new Map<string, Promise<string[]>>();
+  // Granular cache: blockerId -> (targetId -> isBlocked)
+  // Caches both positive (blocked) and negative (not blocked) results
+  private blockCache = new Map<string, Map<string, boolean>>();
 
   constructor() {
     super('block');
@@ -41,6 +43,104 @@ class BlockService extends BaseDocumentService<BlockDocument> {
   }
 
   /**
+   * Batch check if any of the target users are blocked by the blocker.
+   * Uses 'in' query with granular caching - only queries uncached IDs.
+   * Caches both positive (blocked) and negative (not blocked) results.
+   * @returns Map of targetUserId -> isBlocked
+   */
+  async checkBlockedBatch(blockerId: string, targetIds: string[]): Promise<Map<string, boolean>> {
+    const result = new Map<string, boolean>();
+
+    if (!blockerId || targetIds.length === 0) {
+      return result;
+    }
+
+    // Deduplicate target IDs
+    const uniqueTargetIds = Array.from(new Set(targetIds));
+    const uncachedIds: string[] = [];
+
+    // Get or create cache for this blocker
+    let blockerCache = this.blockCache.get(blockerId);
+    if (!blockerCache) {
+      blockerCache = new Map();
+      this.blockCache.set(blockerId, blockerCache);
+    }
+
+    // Check cache first
+    for (const targetId of uniqueTargetIds) {
+      const cached = blockerCache.get(targetId);
+      if (cached !== undefined) {
+        result.set(targetId, cached);
+      } else {
+        uncachedIds.push(targetId);
+      }
+    }
+
+    // All cached - no query needed
+    if (uncachedIds.length === 0) {
+      return result;
+    }
+
+    // Query platform with 'in' for uncached IDs only
+    try {
+      const blocks = await this.queryBlockedIn(blockerId, uncachedIds);
+      const blockedSet = new Set(blocks.map(b => b.blockedId));
+
+      // Cache results (both positive and negative)
+      for (const targetId of uncachedIds) {
+        const isBlocked = blockedSet.has(targetId);
+        blockerCache.set(targetId, isBlocked);
+        result.set(targetId, isBlocked);
+      }
+    } catch (error) {
+      console.error('Error checking blocked batch:', error);
+      // On error, return what we have cached, uncached IDs default to false
+      for (const targetId of uncachedIds) {
+        result.set(targetId, false);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Query blocked users using 'in' operator for efficient batch lookup.
+   * Uses ownerAndBlocked index: ($ownerId asc, blockedId asc)
+   */
+  private async queryBlockedIn(blockerId: string, targetIds: string[]): Promise<BlockDocument[]> {
+    if (targetIds.length === 0) return [];
+
+    const sdk = await getEvoSdk();
+
+    // Use 'in' operator - pass string IDs directly (SDK handles conversion)
+    // Max 100 items per platform limit
+    const response = await sdk.documents.query({
+      dataContractId: this.contractId,
+      documentTypeName: this.documentType,
+      where: [
+        ['$ownerId', '==', blockerId],
+        ['blockedId', 'in', targetIds]
+      ],
+      orderBy: [['blockedId', 'asc']],
+      limit: Math.min(targetIds.length, 100)
+    } as any);
+
+    // Handle Map response (v3 SDK)
+    let documents: any[] = [];
+    if (response instanceof Map) {
+      documents = Array.from(response.values())
+        .filter(Boolean)
+        .map((doc: any) => typeof doc.toJSON === 'function' ? doc.toJSON() : doc);
+    } else if (Array.isArray(response)) {
+      documents = response;
+    } else if (response && (response as any).documents) {
+      documents = (response as any).documents;
+    }
+
+    return documents.map((doc: any) => this.transformDocument(doc));
+  }
+
+  /**
    * Block a user
    */
   async blockUser(blockerId: string, targetUserId: string): Promise<{ success: boolean; error?: string }> {
@@ -67,6 +167,14 @@ class BlockService extends BaseDocumentService<BlockDocument> {
         { blockedId: blockedIdBytes }
       );
 
+      // Update cache on success
+      if (result.success) {
+        const blockerCache = this.blockCache.get(blockerId);
+        if (blockerCache) {
+          blockerCache.set(targetUserId, true);
+        }
+      }
+
       return result;
     } catch (error) {
       console.error('Error blocking user:', error);
@@ -85,6 +193,11 @@ class BlockService extends BaseDocumentService<BlockDocument> {
       const block = await this.getBlock(targetUserId, blockerId);
       if (!block) {
         console.log('Not blocking user');
+        // Update cache - not blocked
+        const blockerCache = this.blockCache.get(blockerId);
+        if (blockerCache) {
+          blockerCache.set(targetUserId, false);
+        }
         return { success: true };
       }
 
@@ -94,6 +207,14 @@ class BlockService extends BaseDocumentService<BlockDocument> {
         block.$id,
         blockerId
       );
+
+      // Update cache on success
+      if (result.success) {
+        const blockerCache = this.blockCache.get(blockerId);
+        if (blockerCache) {
+          blockerCache.set(targetUserId, false);
+        }
+      }
 
       return result;
     } catch (error) {
@@ -107,13 +228,12 @@ class BlockService extends BaseDocumentService<BlockDocument> {
 
   /**
    * Check if blocker has blocked target.
-   * Uses getBlockedUserIds() which deduplicates in-flight requests,
-   * so 30 calls share 1 network request.
+   * Uses checkBlockedBatch with granular caching.
    */
   async isBlocked(targetUserId: string, blockerId: string): Promise<boolean> {
     if (!blockerId || !targetUserId) return false;
-    const blockedIds = await this.getBlockedUserIds(blockerId);
-    return blockedIds.includes(targetUserId);
+    const result = await this.checkBlockedBatch(blockerId, [targetUserId]);
+    return result.get(targetUserId) ?? false;
   }
 
   /**
@@ -153,66 +273,6 @@ class BlockService extends BaseDocumentService<BlockDocument> {
       console.error('Error getting user blocks:', error);
       return [];
     }
-  }
-
-  /**
-   * Get array of blocked user IDs for filtering.
-   * Deduplicates in-flight requests: if called multiple times before the first
-   * request completes, all callers share the same promise/network request.
-   */
-  async getBlockedUserIds(userId: string): Promise<string[]> {
-    if (!userId) return [];
-
-    // Check for in-flight request
-    const inFlight = this.inFlightBlockedIds.get(userId);
-    if (inFlight) {
-      return inFlight;
-    }
-
-    // Create new request and store the promise
-    const promise = this.getUserBlocks(userId)
-      .then(blocks => blocks.map(block => block.blockedId))
-      .finally(() => {
-        // Clear in-flight after a short delay to allow rapid successive calls to share
-        // but not cache stale data indefinitely
-        setTimeout(() => this.inFlightBlockedIds.delete(userId), 100);
-      });
-
-    this.inFlightBlockedIds.set(userId, promise);
-    return promise;
-  }
-
-  /**
-   * Batch check if any of the target users are blocked by the current user.
-   * Efficient: reuses getBlockedUserIds (1 query) then does Set intersection.
-   * @returns Map of targetUserId -> isBlocked
-   */
-  async getBlockStatusBatch(targetUserIds: string[], blockerId: string): Promise<Map<string, boolean>> {
-    const result = new Map<string, boolean>();
-
-    // Initialize all as not blocked
-    for (const id of targetUserIds) {
-      result.set(id, false);
-    }
-
-    if (!blockerId || targetUserIds.length === 0) {
-      return result;
-    }
-
-    try {
-      // Get all blocked IDs for this user (1 query)
-      const blockedIds = await this.getBlockedUserIds(blockerId);
-      const blockedSet = new Set(blockedIds);
-
-      // Check each target against the blocked set
-      for (const targetId of targetUserIds) {
-        result.set(targetId, blockedSet.has(targetId));
-      }
-    } catch (error) {
-      console.error('Error getting batch block status:', error);
-    }
-
-    return result;
   }
 
   /**
