@@ -330,7 +330,7 @@ export default function LoginPage() {
             {/* Password or Private Key Input */}
             <div>
               <label htmlFor="credential" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
-                {hasOnchainBackup ? 'Password or Private Key' : 'Private Key'}
+                {hasOnchainBackup ? 'Password or Private Key' : 'Private Key (High or Critical)'}
               </label>
               <div className="relative">
                 <input
@@ -343,7 +343,7 @@ export default function LoginPage() {
                       ? "First enter your username above"
                       : hasOnchainBackup
                       ? "Enter your password or private key..."
-                      : "Enter your private key..."
+                      : "Enter your high or critical authentication key..."
                   }
                   disabled={!resolvedIdentity}
                   className="w-full px-3 py-2 pr-20 bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg text-gray-900 dark:text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:border-transparent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
@@ -495,7 +495,7 @@ export default function LoginPage() {
             <h3 className="font-medium text-gray-900 dark:text-gray-100">Sign in with:</h3>
             <ul className="list-disc list-inside space-y-1">
               <li>Backup password (if you set one up)</li>
-              <li>Private key in WIF format</li>
+              <li>High or Critical authentication key (WIF format)</li>
             </ul>
           </div>
 

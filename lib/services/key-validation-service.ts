@@ -165,14 +165,20 @@ class KeyValidationService {
 
     // Check security level (must be CRITICAL or HIGH)
     if (!isSecurityLevelAllowedForLogin(match.securityLevel)) {
+      const levelName = getSecurityLevelName(match.securityLevel)
+      // MASTER (0) is more powerful than CRITICAL/HIGH but shouldn't be used for login
+      // MEDIUM (3) and lower are insufficient
+      const errorMessage = match.securityLevel === 0
+        ? `This is your MASTER key - keep it safe! Use a HIGH or CRITICAL authentication key instead.`
+        : `This key's security level is too low (${levelName}) - need HIGH or CRITICAL`
       return {
         isValid: false,
         keyId: match.keyId,
         securityLevel: match.securityLevel,
-        securityLevelName: getSecurityLevelName(match.securityLevel),
+        securityLevelName: levelName,
         purpose: match.purpose,
         purposeName: getPurposeName(match.purpose),
-        error: `This key's security level is insufficient (${getSecurityLevelName(match.securityLevel)} - need HIGH or CRITICAL)`,
+        error: errorMessage,
         errorType: 'WRONG_SECURITY_LEVEL'
       }
     }
