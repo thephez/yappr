@@ -118,6 +118,34 @@ export function usePostDetail({
         replyToId: postId
       }))
 
+      // Fetch quoted posts for main post and replies
+      const allPostsToCheck = [loadedPost, parentPost, ...replies].filter(Boolean) as Post[]
+      const quotedPostIds = allPostsToCheck
+        .filter((p: any) => p.quotedPostId)
+        .map((p: any) => p.quotedPostId)
+
+      if (quotedPostIds.length > 0) {
+        try {
+          const quotedPosts = await postService.getPostsByIds(quotedPostIds)
+          const quotedPostMap = new Map(quotedPosts.map(p => [p.id, p]))
+
+          // Attach quoted posts
+          if ((loadedPost as any).quotedPostId && quotedPostMap.has((loadedPost as any).quotedPostId)) {
+            (loadedPost as any).quotedPost = quotedPostMap.get((loadedPost as any).quotedPostId)
+          }
+          if (parentPost && (parentPost as any).quotedPostId && quotedPostMap.has((parentPost as any).quotedPostId)) {
+            (parentPost as any).quotedPost = quotedPostMap.get((parentPost as any).quotedPostId)
+          }
+          for (const reply of replies) {
+            if ((reply as any).quotedPostId && quotedPostMap.has((reply as any).quotedPostId)) {
+              (reply as any).quotedPost = quotedPostMap.get((reply as any).quotedPostId)
+            }
+          }
+        } catch (quoteError) {
+          console.error('Failed to fetch quoted posts:', quoteError)
+        }
+      }
+
       // Set initial state immediately (with placeholder data)
       setState({ post: loadedPost, parentPost, replies })
 
