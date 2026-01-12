@@ -2,12 +2,10 @@
 
 import { useState, useRef, useEffect } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { XMarkIcon, PhotoIcon, GifIcon, FaceSmileIcon, MapPinIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon } from '@heroicons/react/24/outline'
 import { useAppStore } from '@/lib/store'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
-import { getInitials } from '@/lib/utils'
 import { motion, AnimatePresence } from 'framer-motion'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
@@ -200,22 +198,7 @@ export function ComposeModal() {
                         className="w-full min-h-[120px] text-lg resize-none outline-none bg-transparent placeholder:text-gray-500"
                       />
                       
-                      <div className="mt-4 flex items-center justify-between">
-                        <div className="flex items-center gap-1">
-                          <IconButton variant="primary">
-                            <PhotoIcon className="h-5 w-5" />
-                          </IconButton>
-                          <IconButton variant="primary">
-                            <GifIcon className="h-5 w-5" />
-                          </IconButton>
-                          <IconButton variant="primary">
-                            <FaceSmileIcon className="h-5 w-5" />
-                          </IconButton>
-                          <IconButton variant="primary">
-                            <MapPinIcon className="h-5 w-5" />
-                          </IconButton>
-                        </div>
-                        
+                      <div className="mt-4 flex items-center justify-end">
                         <div className="flex items-center gap-3">
                           {content.length > 0 && (
                             <div className="relative">
