@@ -860,6 +860,81 @@ class PostService extends BaseDocumentService<Post> {
   }
 
   /**
+   * Get nested replies for multiple parent posts.
+   * Returns a Map of parentPostId -> replies array.
+   * Used for building 2-level threaded reply trees.
+   */
+  async getNestedReplies(
+    parentPostIds: string[],
+    options: PostQueryOptions = {}
+  ): Promise<Map<string, Post[]>> {
+    if (parentPostIds.length === 0) {
+      return new Map();
+    }
+
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+      const sdk = await getEvoSdk();
+
+      // Query using 'in' operator on replyToPostId index
+      const response = await sdk.documents.query({
+        dataContractId: this.contractId,
+        documentTypeName: 'post',
+        where: [['replyToPostId', 'in', parentPostIds]],
+        orderBy: [['replyToPostId', 'asc']],
+        limit: 100
+      } as any);
+
+      // Handle Map response (v3 SDK)
+      let documents: any[] = [];
+      if (response instanceof Map) {
+        documents = Array.from(response.values())
+          .filter(Boolean)
+          .map((doc: any) => typeof doc.toJSON === 'function' ? doc.toJSON() : doc);
+      } else if (Array.isArray(response)) {
+        documents = response;
+      } else if (response && (response as any).documents) {
+        documents = (response as any).documents;
+      } else if (response && typeof (response as any).toJSON === 'function') {
+        const json = (response as any).toJSON();
+        documents = Array.isArray(json) ? json : json.documents || [];
+      }
+
+      // Initialize result map
+      const result = new Map<string, Post[]>();
+      parentPostIds.forEach(id => result.set(id, []));
+
+      // Transform documents and group by parent
+      for (const doc of documents) {
+        const post = this.transformDocument(doc);
+        const parentId = post.replyToId;
+        if (parentId && result.has(parentId)) {
+          result.get(parentId)!.push(post);
+        }
+      }
+
+      // Sort replies by createdAt ascending within each parent
+      result.forEach((replies) => {
+        replies.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime());
+      });
+
+      // Resolve authors if not skipping enrichment
+      if (!options.skipEnrichment) {
+        const allPosts = Array.from(result.values()).flat();
+        await Promise.all(allPosts.map(p => this.resolvePostAuthor(p)));
+      }
+
+      return result;
+    } catch (error) {
+      console.error('Error getting nested replies:', error);
+      // Return empty arrays for all requested IDs
+      const result = new Map<string, Post[]>();
+      parentPostIds.forEach(id => result.set(id, []));
+      return result;
+    }
+  }
+
+  /**
    * Get posts by hashtag
    */
   async getPostsByHashtag(hashtag: string, options: QueryOptions = {}): Promise<DocumentResult<Post>> {

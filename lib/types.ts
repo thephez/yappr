@@ -64,6 +64,14 @@ export interface PostEnrichment {
   authorAvatarUrl: string
 }
 
+/** Reply thread structure for threaded post display */
+export interface ReplyThread {
+  post: Post
+  isAuthorThread: boolean       // true if same author as main post
+  isThreadContinuation: boolean // true if continues previous author reply
+  nestedReplies: ReplyThread[]  // 2nd level replies (depth limited)
+}
+
 // Tip metadata parsed from post content (format: tip:CREDITS\nmessage)
 // NOTE: Amount is currently self-reported and unverified.
 // TODO: Once SDK exposes transition IDs, format will become tip:CREDITS@TRANSITION_ID

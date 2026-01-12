@@ -6,6 +6,7 @@ import { ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { PostCard } from '@/components/post/post-card'
+import { ReplyThreadItem } from '@/components/post/reply-thread'
 import { ComposeModal } from '@/components/compose/compose-modal'
 import { withAuth, useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
@@ -28,7 +29,7 @@ function PostDetailContent() {
   const {
     post,
     parentPost,
-    replies,
+    replyThreads,
     isLoading,
     addOptimisticReply,
     updatePost
@@ -171,13 +172,17 @@ function PostDetailContent() {
             )}
 
             <div className="divide-y divide-gray-200 dark:divide-gray-800">
-              {replies.length === 0 ? (
+              {replyThreads.length === 0 ? (
                 <div className="p-8 text-center">
                   <p className="text-gray-500">No replies yet. Be the first to reply!</p>
                 </div>
               ) : (
-                replies.map((reply) => (
-                  <PostCard key={reply.id} post={reply} />
+                replyThreads.map((thread) => (
+                  <ReplyThreadItem
+                    key={thread.post.id}
+                    thread={thread}
+                    mainPostAuthorId={post.author.id}
+                  />
                 ))
               )}
             </div>
