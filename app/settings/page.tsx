@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { motion } from 'framer-motion'
 import {
   UserIcon,
@@ -66,6 +66,28 @@ function SettingsPage() {
     allowMessages: 'everyone', // 'everyone', 'followers', 'none'
   })
 
+  // Account creation date from profile
+  const [accountCreatedAt, setAccountCreatedAt] = useState<Date | null>(null)
+
+  // Fetch account creation date from profile
+  useEffect(() => {
+    if (!user?.identityId) return
+
+    const fetchProfileCreatedAt = async () => {
+      try {
+        const { unifiedProfileService } = await import('@/lib/services')
+        const profile = await unifiedProfileService.getProfile(user.identityId)
+        if (profile?.createdAt) {
+          setAccountCreatedAt(new Date(profile.createdAt))
+        }
+      } catch (error) {
+        console.error('Failed to fetch profile creation date:', error)
+      }
+    }
+
+    fetchProfileCreatedAt()
+  }, [user?.identityId])
+
   const handleBack = () => {
     if (activeSection === 'main') {
       router.back()
@@ -124,7 +146,11 @@ function SettingsPage() {
           </div>
           <div>
             <p className="text-sm text-gray-500">Account Created</p>
-            <p className="text-sm">January 2024</p>
+            <p className="text-sm">
+              {accountCreatedAt
+                ? accountCreatedAt.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+                : 'Unknown'}
+            </p>
           </div>
         </div>
       </div>
