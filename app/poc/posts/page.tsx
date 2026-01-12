@@ -88,7 +88,25 @@ export default function PocPostsPage() {
 
                 {/* Metadata line */}
                 <div className="mt-1 text-xs text-gray-500">
-                  <span>by {post.author.username}</span>
+                  <span>by </span>
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      router.push(`/poc/user?id=${post.author.id}`)
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.stopPropagation()
+                        e.preventDefault()
+                        router.push(`/poc/user?id=${post.author.id}`)
+                      }
+                    }}
+                    className="hover:underline cursor-pointer"
+                  >
+                    {post.author.username}
+                  </span>
                   <span className="mx-2">•</span>
                   <span title="Replies">💬 {post.replies}</span>
                   <span className="mx-2">•</span>

@@ -18,7 +18,7 @@ function formatRelativeTime(date: Date): string {
   return `${days}d ago`
 }
 
-function ReplyThreadItem({ thread, depth = 0 }: { thread: ReplyThread; depth?: number }) {
+function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyThread; depth?: number; onAuthorClick: (authorId: string) => void }) {
   const { post, isAuthorThread, nestedReplies } = thread
 
   return (
@@ -28,7 +28,18 @@ function ReplyThreadItem({ thread, depth = 0 }: { thread: ReplyThread; depth?: n
           {post.content}
         </div>
         <div className="mt-2 text-xs text-gray-500">
-          <span className={isAuthorThread ? 'text-blue-600 dark:text-blue-400' : ''}>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => onAuthorClick(post.author.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onAuthorClick(post.author.id)
+              }
+            }}
+            className={`hover:underline cursor-pointer ${isAuthorThread ? 'text-blue-600 dark:text-blue-400' : ''}`}
+          >
             {post.author.username}
           </span>
           <span className="mx-2">•</span>
@@ -44,7 +55,7 @@ function ReplyThreadItem({ thread, depth = 0 }: { thread: ReplyThread; depth?: n
       {nestedReplies.length > 0 && (
         <div className="mt-2">
           {nestedReplies.map((nested) => (
-            <ReplyThreadItem key={nested.post.id} thread={nested} depth={depth + 1} />
+            <ReplyThreadItem key={nested.post.id} thread={nested} depth={depth + 1} onAuthorClick={onAuthorClick} />
           ))}
         </div>
       )}
@@ -113,7 +124,21 @@ function PostDetailContent() {
           {post.content}
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500">
-          <span>by {post.author.username}</span>
+          <span>by </span>
+          <span
+            role="button"
+            tabIndex={0}
+            onClick={() => router.push(`/poc/user?id=${post.author.id}`)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                router.push(`/poc/user?id=${post.author.id}`)
+              }
+            }}
+            className="hover:underline cursor-pointer"
+          >
+            {post.author.username}
+          </span>
           <span className="mx-2">•</span>
           <span>{formatRelativeTime(post.createdAt)}</span>
           <span className="mx-2">•</span>
@@ -135,7 +160,11 @@ function PostDetailContent() {
         ) : (
           <div className="space-y-1 divide-y divide-gray-100 dark:divide-gray-900">
             {replyThreads.map((thread) => (
-              <ReplyThreadItem key={thread.post.id} thread={thread} />
+              <ReplyThreadItem
+                key={thread.post.id}
+                thread={thread}
+                onAuthorClick={(authorId) => router.push(`/poc/user?id=${authorId}`)}
+              />
             ))}
           </div>
         )}
