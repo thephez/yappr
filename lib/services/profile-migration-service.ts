@@ -113,6 +113,11 @@ class ProfileMigrationService {
 
   /**
    * Get old avatar data for migration (from old avatar document).
+   *
+   * Old avatar contract schema:
+   * - data: string (the seed/feature data, 16-128 chars)
+   * - style: enum (realistic, cartoon, anime, pixel)
+   * - version: integer (1-10)
    */
   async getOldAvatarData(ownerId: string): Promise<LegacyAvatarData | null> {
     try {
@@ -143,23 +148,42 @@ class ProfileMigrationService {
       }
 
       const doc = documents[0];
-      const data = doc.data || doc;
 
-      // The old avatar 'data' field contains JSON string like {"seed":"...","style":"..."}
-      if (data.data && typeof data.data === 'string') {
+      // Avatar documents have a field named 'data', so we can't use the usual
+      // doc.data || doc pattern. Check for system fields to determine structure.
+      const avatarDoc = (doc.$ownerId || doc.$id) ? doc :
+        (doc.data && typeof doc.data === 'object' && doc.data.$ownerId) ? doc.data : doc;
+
+      const dataField = avatarDoc.data;
+      const docStyle = avatarDoc.style;
+
+      // Map old style enum to DiceBear styles (fallback for non-JSON data)
+      const oldStyleToDiceBear: Record<string, string> = {
+        'realistic': 'avataaars',
+        'cartoon': 'fun-emoji',
+        'anime': 'lorelei',
+        'pixel': 'pixel-art',
+      };
+
+      if (dataField && typeof dataField === 'string') {
+        // Try to parse as JSON (format: {"seed":"...","style":"avataaars"})
         try {
-          const parsed = JSON.parse(data.data);
-          return {
-            style: parsed.style || 'thumbs',
-            seed: parsed.seed || ownerId,
-          };
+          const parsed = JSON.parse(dataField);
+          if (parsed.seed) {
+            return {
+              seed: parsed.seed,
+              style: parsed.style || 'thumbs',
+            };
+          }
         } catch {
-          // Fallback if parsing fails
-          return {
-            style: 'thumbs',
-            seed: data.data, // Treat as seed
-          };
+          // Not JSON, treat as raw seed string
         }
+
+        // Fallback: treat data as raw seed, map document's style field
+        return {
+          seed: dataField,
+          style: oldStyleToDiceBear[docStyle] || 'thumbs',
+        };
       }
 
       return null;
