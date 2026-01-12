@@ -1,0 +1,527 @@
+'use client'
+
+import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
+import { motion } from 'framer-motion'
+import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { Sidebar } from '@/components/layout/sidebar'
+import { RightSidebar } from '@/components/layout/right-sidebar'
+import { withAuth, useAuth } from '@/contexts/auth-context'
+import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
+import ErrorBoundary from '@/components/error-boundary'
+import { followService, dpnsService, unifiedProfileService, likeService, repostService, postService } from '@/lib/services'
+import { UserAvatar } from '@/components/ui/avatar-image'
+import { Button } from '@/components/ui/button'
+import { cn } from '@/lib/utils'
+import * as Tooltip from '@radix-ui/react-tooltip'
+import toast from 'react-hot-toast'
+
+type TabType = 'quotes' | 'reposts' | 'likes'
+
+interface EngagementUser {
+  id: string
+  username: string
+  displayName: string
+  bio?: string
+  hasDpnsName: boolean
+  isFollowing: boolean
+  // For quotes tab
+  quoteContent?: string
+  quotePostId?: string
+}
+
+function EngagementsPageContent() {
+  const router = useRouter()
+  const searchParams = useSearchParams()
+  const { user } = useAuth()
+  const postId = searchParams.get('id')
+
+  const [activeTab, setActiveTab] = useState<TabType>('likes')
+
+  // Separate state for each tab - null means not yet loaded
+  const quotesState = useAsyncState<EngagementUser[]>(null)
+  const repostsState = useAsyncState<EngagementUser[]>(null)
+  const likesState = useAsyncState<EngagementUser[]>(null)
+
+  const [actionInProgress, setActionInProgress] = useState<Set<string>>(new Set())
+
+  // Load likes
+  const loadLikes = useCallback(async () => {
+    if (!postId) return
+
+    const { setLoading, setError, setData } = likesState
+    setLoading(true)
+    setError(null)
+
+    try {
+      const likes = await likeService.getPostLikes(postId)
+      const ownerIds = likes.map(l => l.$ownerId).filter(Boolean)
+
+      if (ownerIds.length === 0) {
+        setData([])
+        return
+      }
+
+      // Batch fetch user data
+      const [dpnsNames, profiles, followStatus] = await Promise.all([
+        Promise.all(ownerIds.map(id => dpnsService.resolveUsername(id).catch(() => null))),
+        unifiedProfileService.getProfilesByIdentityIds(ownerIds),
+        user?.identityId
+          ? followService.getFollowStatusBatch(ownerIds, user.identityId)
+          : Promise.resolve(new Map<string, boolean>())
+      ])
+
+      const profileMap = new Map(profiles.map((p: any) => [p.$ownerId || p.ownerId, p]))
+
+      const users: EngagementUser[] = ownerIds.map((id, index) => {
+        const username = dpnsNames[index]
+        const profile = profileMap.get(id)
+        const profileData = (profile as any)?.data || profile
+
+        return {
+          id,
+          username: username || id.slice(-8),
+          displayName: profileData?.displayName || username || `User ${id.slice(-8)}`,
+          bio: profileData?.bio,
+          hasDpnsName: !!username,
+          isFollowing: followStatus.get(id) || false
+        }
+      })
+
+      setData(users)
+    } catch (error) {
+      console.error('Failed to load likes:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load likes')
+    } finally {
+      setLoading(false)
+    }
+  }, [postId, user?.identityId])
+
+  // Load reposts
+  const loadReposts = useCallback(async () => {
+    if (!postId) return
+
+    const { setLoading, setError, setData } = repostsState
+    setLoading(true)
+    setError(null)
+
+    try {
+      const reposts = await repostService.getPostReposts(postId)
+      const ownerIds = reposts.map(r => r.$ownerId).filter(Boolean)
+
+      if (ownerIds.length === 0) {
+        setData([])
+        return
+      }
+
+      // Batch fetch user data
+      const [dpnsNames, profiles, followStatus] = await Promise.all([
+        Promise.all(ownerIds.map(id => dpnsService.resolveUsername(id).catch(() => null))),
+        unifiedProfileService.getProfilesByIdentityIds(ownerIds),
+        user?.identityId
+          ? followService.getFollowStatusBatch(ownerIds, user.identityId)
+          : Promise.resolve(new Map<string, boolean>())
+      ])
+
+      const profileMap = new Map(profiles.map((p: any) => [p.$ownerId || p.ownerId, p]))
+
+      const users: EngagementUser[] = ownerIds.map((id, index) => {
+        const username = dpnsNames[index]
+        const profile = profileMap.get(id)
+        const profileData = (profile as any)?.data || profile
+
+        return {
+          id,
+          username: username || id.slice(-8),
+          displayName: profileData?.displayName || username || `User ${id.slice(-8)}`,
+          bio: profileData?.bio,
+          hasDpnsName: !!username,
+          isFollowing: followStatus.get(id) || false
+        }
+      })
+
+      setData(users)
+    } catch (error) {
+      console.error('Failed to load reposts:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load reposts')
+    } finally {
+      setLoading(false)
+    }
+  }, [postId, user?.identityId])
+
+  // Load quotes
+  const loadQuotes = useCallback(async () => {
+    if (!postId) return
+
+    const { setLoading, setError, setData } = quotesState
+    setLoading(true)
+    setError(null)
+
+    try {
+      const quotePosts = await postService.getQuotePosts(postId)
+
+      if (quotePosts.length === 0) {
+        setData([])
+        return
+      }
+
+      const ownerIds = quotePosts.map(p => p.author.id).filter(Boolean)
+
+      // Batch fetch user data
+      const [dpnsNames, profiles, followStatus] = await Promise.all([
+        Promise.all(ownerIds.map(id => dpnsService.resolveUsername(id).catch(() => null))),
+        unifiedProfileService.getProfilesByIdentityIds(ownerIds),
+        user?.identityId
+          ? followService.getFollowStatusBatch(ownerIds, user.identityId)
+          : Promise.resolve(new Map<string, boolean>())
+      ])
+
+      const profileMap = new Map(profiles.map((p: any) => [p.$ownerId || p.ownerId, p]))
+
+      const users: EngagementUser[] = quotePosts.map((post, index) => {
+        const id = post.author.id
+        const username = dpnsNames[index]
+        const profile = profileMap.get(id)
+        const profileData = (profile as any)?.data || profile
+
+        return {
+          id,
+          username: username || id.slice(-8),
+          displayName: profileData?.displayName || username || `User ${id.slice(-8)}`,
+          bio: profileData?.bio,
+          hasDpnsName: !!username,
+          isFollowing: followStatus.get(id) || false,
+          quoteContent: post.content,
+          quotePostId: post.id
+        }
+      })
+
+      setData(users)
+    } catch (error) {
+      console.error('Failed to load quotes:', error)
+      setError(error instanceof Error ? error.message : 'Failed to load quotes')
+    } finally {
+      setLoading(false)
+    }
+  }, [postId, user?.identityId])
+
+  // Load data for active tab (only if not yet loaded)
+  useEffect(() => {
+    if (!postId) return
+
+    switch (activeTab) {
+      case 'likes':
+        if (likesState.data === null) {
+          loadLikes()
+        }
+        break
+      case 'reposts':
+        if (repostsState.data === null) {
+          loadReposts()
+        }
+        break
+      case 'quotes':
+        if (quotesState.data === null) {
+          loadQuotes()
+        }
+        break
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab, postId])
+
+  const handleFollow = async (userId: string) => {
+    if (!user?.identityId) {
+      toast.error('Please log in to follow users')
+      return
+    }
+
+    setActionInProgress(prev => new Set(prev).add(userId))
+
+    try {
+      const result = await followService.followUser(user.identityId, userId)
+      if (result.success) {
+        // Update local state in all tabs
+        const updateUsers = (users: EngagementUser[] | null) =>
+          (users || []).map(u => u.id === userId ? { ...u, isFollowing: true } : u)
+
+        likesState.setData(updateUsers)
+        repostsState.setData(updateUsers)
+        quotesState.setData(updateUsers)
+        toast.success('Following!')
+      } else {
+        toast.error('Failed to follow user')
+      }
+    } catch (error) {
+      console.error('Error following user:', error)
+      toast.error('Failed to follow user')
+    } finally {
+      setActionInProgress(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(userId)
+        return newSet
+      })
+    }
+  }
+
+  const handleUnfollow = async (userId: string) => {
+    if (!user?.identityId) return
+
+    setActionInProgress(prev => new Set(prev).add(userId))
+
+    try {
+      const result = await followService.unfollowUser(user.identityId, userId)
+      if (result.success) {
+        // Update local state in all tabs
+        const updateUsers = (users: EngagementUser[] | null) =>
+          (users || []).map(u => u.id === userId ? { ...u, isFollowing: false } : u)
+
+        likesState.setData(updateUsers)
+        repostsState.setData(updateUsers)
+        quotesState.setData(updateUsers)
+        toast.success('Unfollowed')
+      } else {
+        toast.error('Failed to unfollow user')
+      }
+    } catch (error) {
+      console.error('Error unfollowing user:', error)
+      toast.error('Failed to unfollow user')
+    } finally {
+      setActionInProgress(prev => {
+        const newSet = new Set(prev)
+        newSet.delete(userId)
+        return newSet
+      })
+    }
+  }
+
+  const getCurrentState = () => {
+    switch (activeTab) {
+      case 'quotes': return quotesState
+      case 'reposts': return repostsState
+      case 'likes': return likesState
+    }
+  }
+
+  const getCurrentLoader = () => {
+    switch (activeTab) {
+      case 'quotes': return loadQuotes
+      case 'reposts': return loadReposts
+      case 'likes': return loadLikes
+    }
+  }
+
+  const getEmptyText = () => {
+    switch (activeTab) {
+      case 'quotes': return 'No quotes yet'
+      case 'reposts': return 'No reposts yet'
+      case 'likes': return 'No likes yet'
+    }
+  }
+
+  const getEmptyDescription = () => {
+    switch (activeTab) {
+      case 'quotes': return 'When people quote this post, they\'ll appear here.'
+      case 'reposts': return 'When people repost this post, they\'ll appear here.'
+      case 'likes': return 'When people like this post, they\'ll appear here.'
+    }
+  }
+
+  const currentState = getCurrentState()
+  const currentLoader = getCurrentLoader()
+
+  if (!postId) {
+    return (
+      <div className="min-h-[calc(100vh-40px)] flex items-center justify-center">
+        <p className="text-gray-500">Post not found</p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-[calc(100vh-40px)] flex">
+      <Sidebar />
+
+      <div className="flex-1 flex justify-center min-w-0">
+        <main className="w-full max-w-[700px] md:border-x border-gray-200 dark:border-gray-800">
+          <header className="sticky top-[40px] z-40 bg-white/80 dark:bg-neutral-900/80 backdrop-blur-xl">
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => router.back()}
+                  className="p-1 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
+                >
+                  <ArrowLeftIcon className="h-5 w-5" />
+                </button>
+                <h1 className="text-xl font-bold">Post engagements</h1>
+              </div>
+            </div>
+
+            {/* Tabs */}
+            <div className="flex border-b border-gray-200 dark:border-gray-800">
+              {(['quotes', 'reposts', 'likes'] as const).map((tab) => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={cn(
+                    'flex-1 py-4 text-center font-medium transition-colors relative',
+                    activeTab === tab
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  )}
+                >
+                  {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                  {activeTab === tab && (
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-14 h-1 bg-yappr-500 rounded-full" />
+                  )}
+                </button>
+              ))}
+            </div>
+          </header>
+
+          <ErrorBoundary level="component">
+            <LoadingState
+              loading={currentState.loading || currentState.data === null}
+              error={currentState.error}
+              isEmpty={!currentState.loading && currentState.data !== null && currentState.data.length === 0}
+              onRetry={currentLoader}
+              loadingText={`Loading ${activeTab}...`}
+              emptyText={getEmptyText()}
+              emptyDescription={getEmptyDescription()}
+            >
+              <div>
+                {currentState.data?.map((engagement) => (
+                  <motion.div
+                    key={`${activeTab}-${engagement.id}-${engagement.quotePostId || ''}`}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="border-b border-gray-200 dark:border-gray-800 px-4 py-3 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <button
+                        onClick={() => router.push(`/user?id=${engagement.id}`)}
+                        className="h-12 w-12 rounded-full overflow-hidden bg-white dark:bg-neutral-900 cursor-pointer hover:opacity-80 transition-opacity flex-shrink-0"
+                      >
+                        <UserAvatar userId={engagement.id} size="lg" alt={engagement.displayName} />
+                      </button>
+
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between">
+                          <div className="min-w-0 flex-1">
+                            <h3
+                              onClick={() => router.push(`/user?id=${engagement.id}`)}
+                              className="font-semibold hover:underline cursor-pointer truncate"
+                            >
+                              {engagement.displayName}
+                            </h3>
+                            {engagement.hasDpnsName ? (
+                              <p
+                                onClick={() => router.push(`/user?id=${engagement.id}`)}
+                                className="text-sm text-gray-500 hover:underline cursor-pointer"
+                              >
+                                @{engagement.username}
+                              </p>
+                            ) : (
+                              <Tooltip.Provider>
+                                <Tooltip.Root>
+                                  <Tooltip.Trigger asChild>
+                                    <button
+                                      onClick={(e) => {
+                                        e.stopPropagation()
+                                        navigator.clipboard.writeText(engagement.id)
+                                        toast.success('Identity ID copied')
+                                      }}
+                                      className="text-sm text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 font-mono"
+                                    >
+                                      {engagement.id.slice(0, 8)}...{engagement.id.slice(-6)}
+                                    </button>
+                                  </Tooltip.Trigger>
+                                  <Tooltip.Portal>
+                                    <Tooltip.Content
+                                      className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded"
+                                      sideOffset={5}
+                                    >
+                                      Click to copy full identity ID
+                                    </Tooltip.Content>
+                                  </Tooltip.Portal>
+                                </Tooltip.Root>
+                              </Tooltip.Provider>
+                            )}
+                            {engagement.bio && (
+                              <p className="text-sm mt-1 text-gray-600 dark:text-gray-400 line-clamp-2">
+                                {engagement.bio}
+                              </p>
+                            )}
+
+                            {/* Show quote content for quotes tab */}
+                            {activeTab === 'quotes' && engagement.quoteContent && (
+                              <button
+                                onClick={() => router.push(`/post?id=${engagement.quotePostId}`)}
+                                className="mt-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg text-sm text-left w-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                              >
+                                <p className="text-gray-600 dark:text-gray-400 line-clamp-2">
+                                  &ldquo;{engagement.quoteContent}&rdquo;
+                                </p>
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Follow/Unfollow button */}
+                          {user?.identityId !== engagement.id && (
+                            engagement.isFollowing ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => handleUnfollow(engagement.id)}
+                                className="ml-4 flex-shrink-0"
+                                disabled={actionInProgress.has(engagement.id)}
+                              >
+                                {actionInProgress.has(engagement.id) ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-gray-600"></div>
+                                ) : (
+                                  'Following'
+                                )}
+                              </Button>
+                            ) : (
+                              <Button
+                                size="sm"
+                                onClick={() => handleFollow(engagement.id)}
+                                className="ml-4 flex-shrink-0"
+                                disabled={actionInProgress.has(engagement.id)}
+                              >
+                                {actionInProgress.has(engagement.id) ? (
+                                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                                ) : (
+                                  'Follow'
+                                )}
+                              </Button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </LoadingState>
+          </ErrorBoundary>
+        </main>
+      </div>
+
+      <RightSidebar />
+    </div>
+  )
+}
+
+function EngagementsPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-[calc(100vh-40px)] flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yappr-500"></div>
+      </div>
+    }>
+      <EngagementsPageContent />
+    </Suspense>
+  )
+}
+
+export default withAuth(EngagementsPage)
