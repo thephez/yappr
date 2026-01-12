@@ -413,7 +413,7 @@ function FeedPage() {
       }
 
       // Sort posts by timestamp (use repostTimestamp if available, otherwise createdAt)
-      let sortedPosts = posts.sort((a: any, b: any) => {
+      const sortedPosts = posts.sort((a: any, b: any) => {
         const aTime = a.repostTimestamp instanceof Date ? a.repostTimestamp.getTime()
           : a.createdAt instanceof Date ? a.createdAt.getTime()
           : new Date(a.createdAt).getTime()
