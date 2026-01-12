@@ -2,6 +2,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { postService } from '@/lib/services/post-service'
 import { Post } from '@/lib/types'
 
@@ -25,6 +26,7 @@ function formatRelativeTime(date: Date): string {
 }
 
 export default function PocPostsPage() {
+  const router = useRouter()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -62,6 +64,15 @@ export default function PocPostsPage() {
           posts.map((post) => (
             <div
               key={post.id}
+              role="button"
+              tabIndex={0}
+              onClick={() => router.push(`/poc/posts/detail?id=${post.id}`)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault()
+                  router.push(`/poc/posts/detail?id=${post.id}`)
+                }
+              }}
               className="flex gap-3 px-4 py-3 border-b border-gray-200 dark:border-gray-800 last:border-b-0 hover:bg-gray-50 dark:hover:bg-gray-900 cursor-pointer"
             >
               {/* Score gutter */}
