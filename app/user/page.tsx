@@ -175,6 +175,7 @@ function UserProfileContent() {
             reposts: 0,
             replies: 0,
             views: 0,
+            quotedPostId: doc.quotedPostId || undefined,
           }
         })
 
@@ -225,6 +226,27 @@ function UserProfileContent() {
         } catch (repostError) {
           console.error('Failed to fetch user reposts:', repostError)
           // Continue without reposts - non-critical
+        }
+
+        // Fetch quoted posts for quote posts
+        try {
+          const quotedPostIds = transformedPosts
+            .filter((p: any) => p.quotedPostId)
+            .map((p: any) => p.quotedPostId)
+
+          if (quotedPostIds.length > 0) {
+            const quotedPosts = await postService.getPostsByIds(quotedPostIds)
+            const quotedPostMap = new Map(quotedPosts.map(p => [p.id, p]))
+
+            for (const post of transformedPosts) {
+              if ((post as any).quotedPostId && quotedPostMap.has((post as any).quotedPostId)) {
+                (post as any).quotedPost = quotedPostMap.get((post as any).quotedPostId)
+              }
+            }
+          }
+        } catch (quoteError) {
+          console.error('Failed to fetch quoted posts:', quoteError)
+          // Continue without quoted posts - non-critical
         }
 
         if (transformedPosts.length > 0) {
