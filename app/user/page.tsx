@@ -154,7 +154,7 @@ function UserProfileContent() {
 
         // Process posts
         const postDocs = postsResult.documents || []
-        let transformedPosts: Post[] = postDocs.map((doc: any) => {
+        const transformedPosts: Post[] = postDocs.map((doc: any) => {
           const authorIdStr = doc.$ownerId || doc.ownerId || userId
           return {
             id: doc.$id || doc.id,

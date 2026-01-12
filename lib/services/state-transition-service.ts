@@ -194,9 +194,6 @@ class StateTransitionService {
       onProgress
     } = options;
 
-    const startTime = Date.now();
-    let attempt = 0;
-    
     try {
       const sdk = await getEvoSdk();
       
