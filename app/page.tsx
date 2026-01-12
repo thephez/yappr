@@ -80,18 +80,16 @@ export default function PublicHomePage() {
               <Image
                 src="/pbde-light.png"
                 alt="Powered by Dash Evolution"
-                width={180}
-                height={60}
+                width={240}
+                height={80}
                 className="dark:hidden"
-                style={{ width: 'auto', height: 'auto' }}
               />
               <Image
                 src="/pbde-dark.png"
                 alt="Powered by Dash Evolution"
-                width={180}
-                height={60}
+                width={240}
+                height={80}
                 className="hidden dark:block"
-                style={{ width: 'auto', height: 'auto' }}
               />
             </div>
             <p className="text-base md:text-xl text-gray-600 dark:text-gray-400 mb-6 md:mb-8 max-w-2xl mx-auto px-2">
