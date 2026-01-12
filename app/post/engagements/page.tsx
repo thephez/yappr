@@ -7,6 +7,7 @@ import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, unifiedProfileService, likeService, repostService, postService } from '@/lib/services'
@@ -34,6 +35,7 @@ function EngagementsPageContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const postId = searchParams.get('id')
 
   const [activeTab, setActiveTab] = useState<TabType>('likes')
@@ -230,10 +232,7 @@ function EngagementsPageContent() {
   }, [activeTab, postId])
 
   const handleFollow = async (userId: string) => {
-    if (!user?.identityId) {
-      toast.error('Please log in to follow users')
-      return
-    }
+    if (!requireAuth('follow')) return
 
     setActionInProgress(prev => new Set(prev).add(userId))
 
@@ -264,7 +263,7 @@ function EngagementsPageContent() {
   }
 
   const handleUnfollow = async (userId: string) => {
-    if (!user?.identityId) return
+    if (!requireAuth('follow')) return
 
     setActionInProgress(prev => new Set(prev).add(userId))
 

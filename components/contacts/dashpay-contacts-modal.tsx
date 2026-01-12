@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { dashPayContactsService, DashPayContact } from '@/lib/services/dashpay-contacts-service'
 import { followService } from '@/lib/services/follow-service'
 import toast from 'react-hot-toast'
 
 export function DashPayContactsModal() {
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const {
     isOpen,
     state,
@@ -51,7 +53,7 @@ export function DashPayContactsModal() {
   }, [isOpen, user, loadContacts])
 
   const handleFollowOne = async (contact: DashPayContact) => {
-    if (!user) return
+    if (!requireAuth('follow')) return
     setFollowing(contact.identityId)
 
     try {
@@ -72,7 +74,7 @@ export function DashPayContactsModal() {
   }
 
   const handleFollowAll = async () => {
-    if (!user || contacts.length === 0) return
+    if (!requireAuth('follow') || contacts.length === 0) return
     setFollowAll()
 
     let successCount = 0

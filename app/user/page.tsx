@@ -24,6 +24,7 @@ import { formatNumber } from '@/lib/utils'
 import { UserAvatar, invalidateAvatarImageCache } from '@/components/ui/avatar-image'
 import { AvatarCustomization } from '@/components/settings/avatar-customization'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import toast from 'react-hot-toast'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import type { Post, ParsedPaymentUri, SocialLink } from '@/lib/types'
@@ -51,6 +52,7 @@ function UserProfileContent() {
   const searchParams = useSearchParams()
   const userId = searchParams.get('id')
   const { user: currentUser } = useAuth()
+  const { requireAuth } = useRequireAuth()
 
   const isOwnProfile = currentUser?.identityId === userId
 
@@ -287,11 +289,7 @@ function UserProfileContent() {
   }, [userId, enrichProgressively])
 
   const handleFollow = async () => {
-    if (!currentUser) {
-      toast.error('Please log in to follow users')
-      return
-    }
-
+    if (!requireAuth('follow')) return
     if (!userId) return
 
     setFollowLoading(true)

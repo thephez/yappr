@@ -7,6 +7,7 @@ import { MagnifyingGlassIcon, XMarkIcon, InformationCircleIcon, ArrowPathIcon, A
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, unifiedProfileService } from '@/lib/services'
@@ -54,6 +55,7 @@ function FollowingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const followingState = useAsyncState<FollowingUser[]>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<FollowingUser[]>([])
@@ -226,7 +228,7 @@ function FollowingPage() {
   }, [loadFollowing, user, targetUserId])
 
   const handleUnfollow = async (userId: string) => {
-    if (!user?.identityId) return
+    if (!requireAuth('follow')) return
 
     // Add to in-progress set for UI feedback
     setFollowingInProgress(prev => new Set(prev).add(userId))
@@ -265,7 +267,7 @@ function FollowingPage() {
   }
 
   const handleFollow = async (userId: string) => {
-    if (!user?.identityId) return
+    if (!requireAuth('follow')) return
 
     // Add to in-progress set
     setFollowingInProgress(prev => new Set(prev).add(userId))

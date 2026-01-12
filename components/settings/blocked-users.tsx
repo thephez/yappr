@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { NoSymbolIcon } from '@heroicons/react/24/outline'
@@ -17,6 +18,7 @@ interface BlockedUser {
 
 export function BlockedUsersSettings() {
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [unblockingId, setUnblockingId] = useState<string | null>(null)
@@ -93,7 +95,7 @@ export function BlockedUsersSettings() {
   }, [loadBlockedUsers])
 
   const handleUnblock = async (blockedUserId: string) => {
-    if (!user?.identityId || unblockingId) return
+    if (!requireAuth('block') || unblockingId) return
 
     setUnblockingId(blockedUserId)
 

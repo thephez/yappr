@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
+import { useLoginPromptModal } from '@/hooks/use-login-prompt-modal'
 import {
   getBlockStatus,
   setBlockStatus,
@@ -29,6 +30,7 @@ export interface UseBlockOptions {
 export function useBlock(targetUserId: string, options: UseBlockOptions = {}): UseBlockResult {
   const { initialValue } = options
   const { user } = useAuth()
+  const { open: openLoginPrompt } = useLoginPromptModal()
   const [isBlocked, setIsBlocked] = useState(initialValue ?? false)
   // Only show loading if no initial value was provided
   const [isLoading, setIsLoading] = useState(initialValue === undefined)
@@ -79,7 +81,11 @@ export function useBlock(targetUserId: string, options: UseBlockOptions = {}): U
   }, [checkBlockStatus])
 
   const toggleBlock = useCallback(async (message?: string) => {
-    if (!user?.identityId || !targetUserId || isLoading) return
+    if (!user?.identityId) {
+      openLoginPrompt('block')
+      return
+    }
+    if (!targetUserId || isLoading) return
 
     if (user.identityId === targetUserId) {
       toast.error('You cannot block yourself')
@@ -120,7 +126,7 @@ export function useBlock(targetUserId: string, options: UseBlockOptions = {}): U
     } finally {
       setIsLoading(false)
     }
-  }, [user?.identityId, targetUserId, isBlocked, isLoading, cacheKey])
+  }, [user?.identityId, targetUserId, isBlocked, isLoading, cacheKey, openLoginPrompt])
 
   const refresh = useCallback(() => {
     if (cacheKey) {

@@ -7,6 +7,7 @@ import { ArrowPathIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, unifiedProfileService } from '@/lib/services'
@@ -35,6 +36,7 @@ function FollowersPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const followersState = useAsyncState<Follower[]>(null)
   const [actionInProgress, setActionInProgress] = useState<Set<string>>(new Set())
   const [targetUserName, setTargetUserName] = useState<string | null>(null)
@@ -215,7 +217,7 @@ function FollowersPage() {
   }, [loadFollowers, user, targetUserId])
 
   const handleFollow = async (userId: string) => {
-    if (!user?.identityId) return
+    if (!requireAuth('follow')) return
 
     setActionInProgress(prev => new Set(prev).add(userId))
 
@@ -248,7 +250,7 @@ function FollowersPage() {
   }
 
   const handleUnfollow = async (userId: string) => {
-    if (!user?.identityId) return
+    if (!requireAuth('follow')) return
 
     setActionInProgress(prev => new Set(prev).add(userId))
 

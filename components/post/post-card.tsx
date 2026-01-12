@@ -26,6 +26,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { LikesModal } from './likes-modal'
 import { PostContent } from './post-content'
@@ -59,6 +60,7 @@ interface PostCardProps {
 export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, enrichment: progressiveEnrichment }: PostCardProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
 
   // Compute isOwnPost from auth context if not explicitly provided
   const isOwnPost = isOwnPostProp ?? (user?.identityId === post.author.id)
@@ -180,10 +182,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
       return
     }
 
-    if (!user) {
-      toast.error('Please log in to like posts')
-      return
-    }
+    if (!requireAuth('like')) return
 
     if (likeLoading) return
 
@@ -214,10 +213,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleRepost = async () => {
-    if (!user) {
-      toast.error('Please log in to repost')
-      return
-    }
+    if (!requireAuth('repost')) return
 
     if (repostLoading) return
 
@@ -249,10 +245,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleQuote = () => {
-    if (!user) {
-      toast.error('Please log in to quote posts')
-      return
-    }
+    if (!requireAuth('quote')) return
     // Merge enriched author data into the post so compose modal shows correct username
     const enrichedPost = {
       ...post,
@@ -267,10 +260,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleBookmark = async () => {
-    if (!user) {
-      toast.error('Please log in to bookmark posts')
-      return
-    }
+    if (!requireAuth('bookmark')) return
 
     if (bookmarkLoading) return
 
@@ -299,6 +289,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleReply = () => {
+    if (!requireAuth('reply')) return
     // Merge enriched author data into the post so compose modal shows correct username
     const enrichedPost = {
       ...post,
@@ -319,10 +310,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleTip = () => {
-    if (!user) {
-      toast.error('Please log in to send tips')
-      return
-    }
+    if (!requireAuth('tip')) return
     // Merge enriched author data into the post so tip modal shows correct username
     const enrichedPost = {
       ...post,
