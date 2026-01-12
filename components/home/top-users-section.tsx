@@ -6,6 +6,7 @@ import {
   ArrowPathIcon
 } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/button'
+import { UserAvatar } from '@/components/ui/avatar-image'
 import Link from 'next/link'
 import { TopUser } from '@/hooks/use-homepage-data'
 import { formatNumber } from '@/lib/utils'
@@ -28,30 +29,6 @@ function UserSkeleton() {
         </div>
         <div className="h-6 w-14 bg-gray-200 dark:bg-gray-800 rounded animate-pulse" />
       </div>
-    </div>
-  )
-}
-
-function UserAvatar({ user }: { user: TopUser }) {
-  // Generate a consistent color based on user ID
-  const colors = [
-    'bg-yappr-500',
-    'bg-blue-500',
-    'bg-green-500',
-    'bg-purple-500',
-    'bg-orange-500',
-    'bg-pink-500'
-  ]
-  const colorIndex = user.id.charCodeAt(0) % colors.length
-  const bgColor = colors[colorIndex]
-
-  const initials = user.displayName
-    ? user.displayName.substring(0, 2).toUpperCase()
-    : user.username.substring(0, 2).toUpperCase()
-
-  return (
-    <div className={`w-12 h-12 ${bgColor} rounded-full flex items-center justify-center text-white font-medium`}>
-      {initials}
     </div>
   )
 }
@@ -105,7 +82,7 @@ export function TopUsersSection({
                 className="block p-4 bg-gray-50 dark:bg-gray-950 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 transition-colors"
               >
                 <div className="flex items-center gap-3">
-                  <UserAvatar user={user} />
+                  <UserAvatar userId={user.id} size="lg" />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                       {user.displayName}

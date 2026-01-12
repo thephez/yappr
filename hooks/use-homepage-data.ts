@@ -171,10 +171,10 @@ export function useHomepageData(): HomepageData {
         return
       }
 
-      // Sort by post count and take top 5
+      // Sort by post count and take top 6
       const sortedAuthors = Array.from(authorCounts.entries())
         .sort((a, b) => b[1] - a[1])
-        .slice(0, 5)
+        .slice(0, 6)
 
       const authorIds = sortedAuthors.map(([id]) => id)
 
