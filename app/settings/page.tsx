@@ -484,7 +484,7 @@ function SettingsPage() {
           </Link>
         </Button>
         <Button variant="outline" className="w-full" asChild>
-          <a href="https://github.com/dashpay/platform" target="_blank" rel="noopener noreferrer">
+          <a href="https://github.com/pastapastapasta/yappr" target="_blank" rel="noopener noreferrer">
             GitHub Repository
           </a>
         </Button>
