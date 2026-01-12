@@ -404,7 +404,7 @@ function SettingsPage() {
       
       <div className="pt-6 border-t border-gray-200 dark:border-gray-800">
         <p className="text-xs text-gray-500 text-center">
-          © 2024 Yappr. All rights reserved.
+          © {new Date().getFullYear()} Yappr. All rights reserved.
         </p>
       </div>
     </div>
