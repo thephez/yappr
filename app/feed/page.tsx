@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { cn } from '@/lib/utils'
 import { ArrowPathIcon } from '@heroicons/react/24/outline'
 import { PostCard } from '@/components/post/post-card'
+import { FeedReplyContext } from '@/components/post/feed-reply-context'
+import { FeedItem, isFeedReplyContext } from '@/lib/types'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { ComposeModal } from '@/components/compose/compose-modal'
@@ -416,15 +418,69 @@ function FeedPage() {
         }
       }
 
-      // Sort posts by timestamp (use repostTimestamp if available, otherwise createdAt)
-      const sortedPosts = posts.sort((a: any, b: any) => {
-        const aTime = a.repostTimestamp instanceof Date ? a.repostTimestamp.getTime()
-          : a.createdAt instanceof Date ? a.createdAt.getTime()
-          : new Date(a.createdAt).getTime()
-        const bTime = b.repostTimestamp instanceof Date ? b.repostTimestamp.getTime()
-          : b.createdAt instanceof Date ? b.createdAt.getTime()
-          : new Date(b.createdAt).getTime()
-        return bTime - aTime
+      // For Following tab: Build reply context items for replies from followed users
+      // Instead of showing replies directly, show the original post with context
+      let feedItems: FeedItem[] = posts
+
+      if (activeTab === 'following') {
+        try {
+          const { postService } = await import('@/lib/services')
+
+          // Separate replies from non-reply posts
+          const replies = posts.filter((p: any) => p.replyToId)
+          const nonReplies = posts.filter((p: any) => !p.replyToId)
+
+          if (replies.length > 0) {
+            // Get unique parent post IDs
+            const parentPostIds = Array.from(new Set(replies.map((r: any) => r.replyToId))) as string[]
+
+            // Fetch parent posts
+            const parentPosts = await postService.getPostsByIds(parentPostIds)
+            const parentPostMap = new Map(parentPosts.map(p => [p.id, p]))
+
+            // Build reply context items
+            const replyContextItems: FeedItem[] = replies
+              .filter((reply: any) => parentPostMap.has(reply.replyToId))
+              .map((reply: any) => ({
+                type: 'reply_context' as const,
+                originalPost: parentPostMap.get(reply.replyToId)!,
+                reply,
+                replier: {
+                  id: reply.author.id,
+                  username: reply.author.username,
+                  displayName: reply.author.displayName
+                }
+              }))
+
+            // Merge non-replies with reply contexts
+            feedItems = [...nonReplies, ...replyContextItems]
+            console.log(`Feed: Built ${replyContextItems.length} reply contexts from ${replies.length} replies`)
+          }
+        } catch (replyContextError) {
+          console.error('Feed: Error building reply contexts:', replyContextError)
+          // Fall back to filtering out replies
+          feedItems = posts.filter((p: any) => !p.replyToId)
+        }
+      }
+
+      // Sort feed items by timestamp
+      // For reply contexts, use the reply's timestamp for sorting
+      // For regular posts, use repostTimestamp if available, otherwise createdAt
+      const sortedFeedItems = feedItems.sort((a: FeedItem, b: FeedItem) => {
+        const getTime = (item: FeedItem): number => {
+          if (isFeedReplyContext(item)) {
+            // Use reply timestamp for sorting reply contexts
+            return item.reply.createdAt instanceof Date
+              ? item.reply.createdAt.getTime()
+              : new Date(item.reply.createdAt).getTime()
+          }
+          // Regular post
+          const post = item as any
+          if (post.repostTimestamp instanceof Date) return post.repostTimestamp.getTime()
+          if (post.createdAt instanceof Date) return post.createdAt.getTime()
+          return new Date(post.createdAt).getTime()
+        }
+        return getTime(b) - getTime(a)
       })
 
       // Update pagination state based on feed type
@@ -434,7 +490,7 @@ function FeedPage() {
         setHasMore(followingCursor !== null)
 
         // For following feed: empty window doesn't mean done, just skip to next window
-        if (sortedPosts.length === 0) {
+        if (sortedFeedItems.length === 0) {
           console.log('Feed: No posts in this time window, cursor points to next window')
           if (!isPaginating) {
             setData([])
@@ -443,7 +499,7 @@ function FeedPage() {
         }
       } else {
         // For You feed: empty means done
-        if (sortedPosts.length === 0) {
+        if (sortedFeedItems.length === 0) {
           console.log('Feed: No posts found on platform')
           if (!isPaginating) {
             setData([])
@@ -451,33 +507,46 @@ function FeedPage() {
           setHasMore(false)
           return
         }
-        setLastPostId(sortedPosts[sortedPosts.length - 1].id)
-        setHasMore(sortedPosts.length >= 20)
+        // For pagination, get last item's ID (only for regular posts)
+        const lastItem = sortedFeedItems[sortedFeedItems.length - 1]
+        if (!isFeedReplyContext(lastItem)) {
+          setLastPostId(lastItem.id)
+        }
+        setHasMore(sortedFeedItems.length >= 20)
       }
 
       // PROGRESSIVE LOADING: Show posts IMMEDIATELY with skeleton placeholders
       // Enrichment data (usernames, avatars, stats) will fill in progressively
       if (isPaginating) {
-        setData((currentPosts: any[] | null) => {
-          // Deduplicate - filter out posts that already exist
-          const existingIds = new Set((currentPosts || []).map(p => p.id))
-          const newPosts = sortedPosts.filter(p => !existingIds.has(p.id))
-          const allPosts = [...(currentPosts || []), ...newPosts]
-          console.log(`Feed: Appended ${newPosts.length} new posts (${sortedPosts.length - newPosts.length} duplicates filtered)`)
-          return allPosts
+        setData((currentItems: FeedItem[] | null) => {
+          // Deduplicate - filter out items that already exist
+          const existingIds = new Set((currentItems || []).map(item =>
+            isFeedReplyContext(item) ? item.reply.id : item.id
+          ))
+          const newItems = sortedFeedItems.filter(item => {
+            const id = isFeedReplyContext(item) ? item.reply.id : item.id
+            return !existingIds.has(id)
+          })
+          const allItems = [...(currentItems || []), ...newItems]
+          console.log(`Feed: Appended ${newItems.length} new items (${sortedFeedItems.length - newItems.length} duplicates filtered)`)
+          return allItems
         })
       } else {
-        setData(sortedPosts)
+        setData(sortedFeedItems)
       }
 
       // Start progressive enrichment (non-blocking)
       // This will update enrichmentState as data loads, triggering re-renders
       // Blocked users will be filtered via enrichmentState.blockStatus in render
-      enrichProgressively(sortedPosts)
+      // Extract all posts from feed items for enrichment
+      const postsToEnrich = sortedFeedItems.flatMap(item =>
+        isFeedReplyContext(item) ? [item.originalPost, item.reply] : [item]
+      )
+      enrichProgressively(postsToEnrich)
 
-      // Cache the raw posts (enrichment is progressive, not cached)
-      if (!isPaginating && sortedPosts.length > 0) {
-        cacheManager.set('feed', cacheKey, sortedPosts)
+      // Cache the raw feed items (enrichment is progressive, not cached)
+      if (!isPaginating && sortedFeedItems.length > 0) {
+        cacheManager.set('feed', cacheKey, sortedFeedItems)
       }
 
     } catch (error) {
@@ -550,15 +619,35 @@ function FeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
-  // Filter posts to exclude blocked users using enrichment state
+  // Filter posts to exclude blocked users and replies (on For You tab) using enrichment state
   // This replaces the previous async getBlockedUserIds() calls and avoids duplicate queries
   const filteredPosts = useMemo(() => {
     if (!postsState.data) return null
-    // If no block status loaded yet (or no current user), show all posts
-    if (enrichmentState.blockStatus.size === 0) return postsState.data
-    // Filter out posts from blocked users
-    return postsState.data.filter(post => !enrichmentState.blockStatus.get(post.author.id))
-  }, [postsState.data, enrichmentState.blockStatus])
+
+    return postsState.data.filter(item => {
+      // Handle FeedReplyContext items
+      if (isFeedReplyContext(item)) {
+        // Filter if either the original post author or replier is blocked
+        if (enrichmentState.blockStatus.size > 0) {
+          if (enrichmentState.blockStatus.get(item.originalPost.author.id)) return false
+          if (enrichmentState.blockStatus.get(item.reply.author.id)) return false
+        }
+        return true
+      }
+
+      // Handle regular Post items
+      const post = item
+      // Filter blocked users
+      if (enrichmentState.blockStatus.size > 0 && enrichmentState.blockStatus.get(post.author.id)) {
+        return false
+      }
+      // Filter replies from For You tab (they have replyToId)
+      if (activeTab === 'forYou' && post.replyToId) {
+        return false
+      }
+      return true
+    })
+  }, [postsState.data, enrichmentState.blockStatus, activeTab])
 
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
@@ -684,15 +773,35 @@ function FeedPage() {
             emptyDescription={activeTab === 'following' ? "Follow some people to see their posts here!" : "Be the first to share something!"}
           >
             <div>
-              {filteredPosts?.map((post) => (
-                <ErrorBoundary key={post.id} level="component">
-                  <PostCard
-                    post={post}
-                    isOwnPost={user?.identityId === post.author.id}
-                    enrichment={getPostEnrichment(post)}
-                  />
-                </ErrorBoundary>
-              ))}
+              {filteredPosts?.map((item) => {
+                // Get unique key for the item
+                const key = isFeedReplyContext(item) ? `reply-ctx-${item.reply.id}` : item.id
+
+                if (isFeedReplyContext(item)) {
+                  return (
+                    <ErrorBoundary key={key} level="component">
+                      <FeedReplyContext
+                        originalPost={item.originalPost}
+                        reply={item.reply}
+                        replier={item.replier}
+                        replyEnrichment={getPostEnrichment(item.reply)}
+                        originalPostEnrichment={getPostEnrichment(item.originalPost)}
+                        isOwnPost={user?.identityId === item.reply.author.id}
+                      />
+                    </ErrorBoundary>
+                  )
+                }
+
+                return (
+                  <ErrorBoundary key={key} level="component">
+                    <PostCard
+                      post={item}
+                      isOwnPost={user?.identityId === item.author.id}
+                      enrichment={getPostEnrichment(item)}
+                    />
+                  </ErrorBoundary>
+                )
+              })}
               {hasMore && filteredPosts && filteredPosts.length > 0 && (
                 <div className="p-4 flex justify-center border-t border-gray-200 dark:border-gray-800">
                   <button
