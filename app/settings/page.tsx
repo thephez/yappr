@@ -77,8 +77,12 @@ function SettingsPage() {
       try {
         const { unifiedProfileService } = await import('@/lib/services')
         const profile = await unifiedProfileService.getProfile(user.identityId)
-        if (profile?.createdAt) {
-          setAccountCreatedAt(new Date(profile.createdAt))
+        if (profile?.joinedAt) {
+          const date = new Date(profile.joinedAt)
+          // Validate it's a real date (not Invalid Date)
+          if (!isNaN(date.getTime())) {
+            setAccountCreatedAt(date)
+          }
         }
       } catch (error) {
         console.error('Failed to fetch profile creation date:', error)
@@ -398,15 +402,61 @@ function SettingsPage() {
     </div>
   )
 
-  const renderAboutSettings = () => (
+  const renderAboutSettings = () => {
+    const commitHash = process.env.NEXT_PUBLIC_GIT_COMMIT_HASH || 'dev'
+    const commitDate = process.env.NEXT_PUBLIC_GIT_COMMIT_DATE
+    const branch = process.env.NEXT_PUBLIC_GIT_BRANCH || 'unknown'
+    const buildTime = process.env.NEXT_PUBLIC_BUILD_TIME
+
+    const formatDate = (dateStr: string | undefined) => {
+      if (!dateStr) return ''
+      try {
+        return new Date(dateStr).toLocaleDateString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit'
+        })
+      } catch {
+        return dateStr
+      }
+    }
+
+    return (
     <div className="p-6 space-y-6">
       <div className="text-center py-8">
         <h1 className="text-4xl font-bold text-gradient mb-4">Yappr</h1>
         <p className="text-gray-500 mb-8">Decentralized social media on Dash Platform</p>
-        
-        <div className="space-y-2 text-sm text-gray-500">
-          <p>Version 1.0.0</p>
+
+        <div className="space-y-1 text-sm text-gray-500">
           <p>Built with Next.js, React, and Dash Platform</p>
+        </div>
+      </div>
+
+      {/* Build Information */}
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4 space-y-2">
+        <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3">Build Information</h3>
+        <div className="grid grid-cols-2 gap-2 text-sm">
+          <span className="text-gray-500">Commit:</span>
+          <span className="font-mono text-gray-700 dark:text-gray-300">{commitHash}</span>
+
+          <span className="text-gray-500">Branch:</span>
+          <span className="font-mono text-gray-700 dark:text-gray-300">{branch}</span>
+
+          {commitDate && (
+            <>
+              <span className="text-gray-500">Commit Date:</span>
+              <span className="text-gray-700 dark:text-gray-300">{formatDate(commitDate)}</span>
+            </>
+          )}
+
+          {buildTime && (
+            <>
+              <span className="text-gray-500">Build Time:</span>
+              <span className="text-gray-700 dark:text-gray-300">{formatDate(buildTime)}</span>
+            </>
+          )}
         </div>
       </div>
       
@@ -434,7 +484,7 @@ function SettingsPage() {
         </p>
       </div>
     </div>
-  )
+  )}
 
   const renderSection = () => {
     switch (activeSection) {

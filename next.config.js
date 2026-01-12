@@ -1,5 +1,27 @@
+const { execSync } = require('child_process')
+
+// Get git info at build time
+const getGitInfo = () => {
+  try {
+    const commitHash = execSync('git rev-parse --short HEAD').toString().trim()
+    const commitDate = execSync('git log -1 --format=%ci').toString().trim()
+    const branch = execSync('git rev-parse --abbrev-ref HEAD').toString().trim()
+    return { commitHash, commitDate, branch }
+  } catch (e) {
+    return { commitHash: 'unknown', commitDate: '', branch: 'unknown' }
+  }
+}
+
+const gitInfo = getGitInfo()
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  env: {
+    NEXT_PUBLIC_GIT_COMMIT_HASH: gitInfo.commitHash,
+    NEXT_PUBLIC_GIT_COMMIT_DATE: gitInfo.commitDate,
+    NEXT_PUBLIC_GIT_BRANCH: gitInfo.branch,
+    NEXT_PUBLIC_BUILD_TIME: new Date().toISOString(),
+  },
   reactStrictMode: true,
   output: 'export',
   images: {
