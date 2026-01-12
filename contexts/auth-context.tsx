@@ -25,6 +25,7 @@ interface AuthContextType {
   loginWithPassword: (username: string, password: string, rememberMe?: boolean) => Promise<void>
   logout: () => void
   updateDPNSUsername: (username: string) => void
+  refreshBalance: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -302,7 +303,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) {
       const updatedUser = { ...user, dpnsUsername: username }
       setUser(updatedUser)
-      
+
       // Update session storage
       const savedSession = localStorage.getItem('yappr_session')
       if (savedSession) {
@@ -317,6 +318,67 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, [user])
 
+  // Refresh balance from the network (clears cache first)
+  const refreshBalance = useCallback(async () => {
+    const identityId = user?.identityId
+    if (!identityId) return
+
+    try {
+      const { identityService } = await import('@/lib/services/identity-service')
+      // Clear cache to ensure fresh fetch
+      identityService.clearCache(identityId)
+      const balance = await identityService.getBalance(identityId)
+
+      setUser(prev => prev ? { ...prev, balance: balance.confirmed } : prev)
+
+      // Persist to localStorage
+      const savedSession = localStorage.getItem('yappr_session')
+      if (savedSession) {
+        try {
+          const sessionData = JSON.parse(savedSession)
+          sessionData.user.balance = balance.confirmed
+          localStorage.setItem('yappr_session', JSON.stringify(sessionData))
+        } catch (e) {
+          console.error('Failed to persist balance:', e)
+        }
+      }
+    } catch (error) {
+      console.error('Failed to refresh balance:', error)
+    }
+  }, [user?.identityId])
+
+  // Periodic balance refresh (every 5 minutes when user is logged in)
+  useEffect(() => {
+    const identityId = user?.identityId
+    if (!identityId) return
+
+    // Periodic refresh every 5 minutes
+    const interval = setInterval(async () => {
+      try {
+        const { identityService } = await import('@/lib/services/identity-service')
+        identityService.clearCache(identityId)
+        const balance = await identityService.getBalance(identityId)
+        setUser(prev => prev ? { ...prev, balance: balance.confirmed } : prev)
+
+        // Persist to localStorage
+        const savedSession = localStorage.getItem('yappr_session')
+        if (savedSession) {
+          try {
+            const sessionData = JSON.parse(savedSession)
+            sessionData.user.balance = balance.confirmed
+            localStorage.setItem('yappr_session', JSON.stringify(sessionData))
+          } catch (e) {
+            // Silent fail for periodic updates
+          }
+        }
+      } catch (error) {
+        console.error('Failed to refresh balance:', error)
+      }
+    }, 300000) // 5 minutes
+
+    return () => clearInterval(interval)
+  }, [user?.identityId])
+
   return (
     <AuthContext.Provider value={{
       user,
@@ -326,7 +388,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       loginWithPassword,
       logout,
-      updateDPNSUsername
+      updateDPNSUsername,
+      refreshBalance
     }}>
       {children}
     </AuthContext.Provider>

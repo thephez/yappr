@@ -3,12 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { 
-  HomeIcon, 
-  MagnifyingGlassIcon, 
-  BellIcon, 
-  EnvelopeIcon, 
-  BookmarkIcon, 
+import {
+  HomeIcon,
+  MagnifyingGlassIcon,
+  BellIcon,
+  EnvelopeIcon,
+  BookmarkIcon,
   UserIcon,
   EllipsisHorizontalIcon,
   PencilSquareIcon,
@@ -17,6 +17,7 @@ import {
   UserGroupIcon,
   UsersIcon,
   HashtagIcon,
+  ArrowPathIcon,
 } from '@heroicons/react/24/outline'
 import {
   HomeIcon as HomeIconSolid,
@@ -60,8 +61,9 @@ const getNavigation = (isLoggedIn: boolean, userId?: string) => {
 export function Sidebar() {
   const pathname = usePathname()
   const { setComposeOpen } = useAppStore()
-  const { user, logout } = useAuth()
+  const { user, logout, refreshBalance } = useAuth()
   const [isHydrated, setIsHydrated] = useState(false)
+  const [isRefreshingBalance, setIsRefreshingBalance] = useState(false)
   
   // Prevent hydration mismatches
   useEffect(() => {
@@ -181,18 +183,36 @@ export function Sidebar() {
                 className="min-w-[200px] bg-white dark:bg-neutral-900 rounded-xl shadow-lg border border-gray-200 dark:border-gray-800 py-2 z-50"
                 sideOffset={5}
               >
-                <DropdownMenu.Item 
+                <DropdownMenu.Item
                   className="px-4 py-3 text-sm outline-none"
                   disabled
+                  onSelect={(e) => e.preventDefault()}
                 >
-                  <div className="text-xs text-gray-500">Balance</div>
-                  <div className="font-mono">
-                    {(() => {
-                      const balance = user.balance || 0;
-                      // Balance is in credits, convert to DASH (1 DASH = 100,000,000,000 credits)
-                      const dashBalance = balance / 100000000000;
-                      return `${dashBalance.toFixed(8)} DASH`;
-                    })()}
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <div className="text-xs text-gray-500">Balance</div>
+                      <div className="font-mono">
+                        {(() => {
+                          const balance = user.balance || 0;
+                          // Balance is in credits, convert to DASH (1 DASH = 100,000,000,000 credits)
+                          const dashBalance = balance / 100000000000;
+                          return `${dashBalance.toFixed(4)} DASH`;
+                        })()}
+                      </div>
+                    </div>
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation()
+                        setIsRefreshingBalance(true)
+                        await refreshBalance()
+                        setIsRefreshingBalance(false)
+                      }}
+                      disabled={isRefreshingBalance}
+                      className="p-1.5 rounded-full hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors"
+                      title="Refresh balance"
+                    >
+                      <ArrowPathIcon className={`h-4 w-4 text-gray-500 ${isRefreshingBalance ? 'animate-spin' : ''}`} />
+                    </button>
                   </div>
                 </DropdownMenu.Item>
                 <DropdownMenu.Separator className="h-px bg-gray-200 dark:bg-gray-800 my-1" />
