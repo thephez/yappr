@@ -172,10 +172,10 @@ function SearchPageContent() {
       if (/^[a-z0-9_]{1,63}$/.test(normalizedQuery)) {
         const alreadyExists = results.some(h => h.hashtag === normalizedQuery)
         if (!alreadyExists) {
-          // Check if hashtag has any posts
-          const posts = await hashtagService.getPostIdsByHashtag(normalizedQuery, { limit: 1 })
-          if (posts.length > 0) {
-            results.unshift({ hashtag: normalizedQuery, postCount: posts.length })
+          // Check if hashtag has any posts and get real count
+          const postCount = await hashtagService.getPostCountByHashtag(normalizedQuery)
+          if (postCount > 0) {
+            results.unshift({ hashtag: normalizedQuery, postCount })
           }
         }
       }
