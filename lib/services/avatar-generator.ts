@@ -1,6 +1,11 @@
 import { createAvatar, Style } from '@dicebear/core';
 import * as collection from '@dicebear/collection';
 
+// Cache for generated avatar data URIs
+// Key: `${style}:${seed}`, Value: data URI string
+const avatarCache = new Map<string, string>();
+const MAX_CACHE_SIZE = 500; // Limit cache to prevent memory bloat
+
 // Map of style names to their DiceBear collection modules
 // Using Style<object> as the generic type since each style has different options
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -48,18 +53,39 @@ export function generateAvatarSvg(style: string, seed: string): string {
 }
 
 /**
- * Generate an avatar as a data URI for use in img src
+ * Generate an avatar as a data URI for use in img src.
+ * Results are cached to avoid regenerating the same avatars.
  * @param style - The DiceBear style name
  * @param seed - The seed string for deterministic generation
  * @returns Data URI string (data:image/svg+xml;base64,...)
  */
 export function generateAvatarDataUri(style: string, seed: string): string {
+  const cacheKey = `${style}:${seed}`;
+
+  // Check cache first
+  const cached = avatarCache.get(cacheKey);
+  if (cached) {
+    return cached;
+  }
+
+  // Generate new avatar
   const svg = generateAvatarSvg(style, seed);
   // Encode to base64 for data URI
   const base64 = typeof btoa !== 'undefined'
     ? btoa(unescape(encodeURIComponent(svg)))
     : Buffer.from(svg).toString('base64');
-  return `data:image/svg+xml;base64,${base64}`;
+  const dataUri = `data:image/svg+xml;base64,${base64}`;
+
+  // Evict oldest entry if cache is full (simple FIFO eviction)
+  if (avatarCache.size >= MAX_CACHE_SIZE) {
+    const firstKey = avatarCache.keys().next().value;
+    if (firstKey) avatarCache.delete(firstKey);
+  }
+
+  // Store in cache
+  avatarCache.set(cacheKey, dataUri);
+
+  return dataUri;
 }
 
 /**
@@ -74,4 +100,18 @@ export function isValidStyle(style: string): boolean {
  */
 export function getAvailableStyles(): string[] {
   return Object.keys(styleMap);
+}
+
+/**
+ * Clear cached avatar for a specific style/seed combination
+ */
+export function invalidateAvatarGeneratorCache(style: string, seed: string): void {
+  avatarCache.delete(`${style}:${seed}`);
+}
+
+/**
+ * Clear all cached avatars
+ */
+export function clearAvatarGeneratorCache(): void {
+  avatarCache.clear();
 }
