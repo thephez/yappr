@@ -247,6 +247,8 @@ function ThreadPostEditor({
     })
   }
 
+  const isPosted = !!post.postedPostId
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -257,25 +259,46 @@ function ThreadPostEditor({
     >
       {/* Thread connector line */}
       {index > 0 && (
-        <div className="absolute left-5 -top-3 w-0.5 h-3 bg-gradient-to-b from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600" />
+        <div className={`absolute left-5 -top-3 w-0.5 h-3 bg-gradient-to-b ${
+          isPosted
+            ? 'from-green-300 to-green-400 dark:from-green-700 dark:to-green-600'
+            : 'from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600'
+        }`} />
       )}
 
       <div
-        onClick={onActivate}
-        className={`relative rounded-xl border-2 transition-all cursor-pointer ${
-          isActive
-            ? 'border-yappr-500 bg-white dark:bg-neutral-900 shadow-sm'
-            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950 hover:border-gray-300 dark:hover:border-gray-700'
+        onClick={isPosted ? undefined : onActivate}
+        className={`relative rounded-xl border-2 transition-all ${
+          isPosted
+            ? 'border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950/30 cursor-default'
+            : isActive
+            ? 'border-yappr-500 bg-white dark:bg-neutral-900 shadow-sm cursor-pointer'
+            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950 hover:border-gray-300 dark:hover:border-gray-700 cursor-pointer'
         }`}
       >
-        {/* Post number indicator */}
-        <div className="absolute -left-2 top-3 flex items-center justify-center w-6 h-6 rounded-full bg-yappr-500 text-white text-xs font-semibold shadow-sm">
-          {index + 1}
+        {/* Post number/status indicator */}
+        <div className={`absolute -left-2 top-3 flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-semibold shadow-sm ${
+          isPosted ? 'bg-green-500' : 'bg-yappr-500'
+        }`}>
+          {isPosted ? (
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+            </svg>
+          ) : (
+            index + 1
+          )}
         </div>
 
         <div className="p-4 pl-8">
-          {/* Formatting toolbar - only show when active */}
-          {isActive && !showPreview && (
+          {/* Posted status badge */}
+          {isPosted && (
+            <div className="flex items-center gap-2 mb-2 text-xs text-green-600 dark:text-green-400 font-medium">
+              <span>Posted</span>
+            </div>
+          )}
+
+          {/* Formatting toolbar - only show when active and not posted */}
+          {isActive && !showPreview && !isPosted && (
             <div className="flex items-center gap-1 mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
               <FormatButton
                 onClick={() => handleInsertFormat('**')}
@@ -322,8 +345,12 @@ function ThreadPostEditor({
           )}
 
           {/* Content area */}
-          {showPreview ? (
-            <div className="min-h-[80px] text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
+          {showPreview || isPosted ? (
+            <div className={`min-h-[60px] whitespace-pre-wrap break-words ${
+              isPosted
+                ? 'text-gray-600 dark:text-gray-400'
+                : 'text-gray-900 dark:text-gray-100'
+            }`}>
               {post.content ? (
                 <MarkdownContent content={post.content} />
               ) : (
@@ -358,15 +385,17 @@ function ThreadPostEditor({
             />
           )}
 
-          {/* Footer with formatting hints and character count */}
-          <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">
-            <div className="flex items-center gap-2 text-xs text-gray-400">
-              <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">**bold**</code>
-              <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">*italic*</code>
-              <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">`code`</code>
+          {/* Footer with formatting hints and character count - hide for posted */}
+          {!isPosted && (
+            <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+              <div className="flex items-center gap-2 text-xs text-gray-400">
+                <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">**bold**</code>
+                <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">*italic*</code>
+                <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded">`code`</code>
+              </div>
+              <CharacterCounter current={post.content.length} limit={CHARACTER_LIMIT} />
             </div>
-            <CharacterCounter current={post.content.length} limit={CHARACTER_LIMIT} />
-          </div>
+          )}
         </div>
       </div>
     </motion.div>
@@ -386,6 +415,7 @@ export function ComposeModal() {
     addThreadPost,
     removeThreadPost,
     updateThreadPost,
+    markThreadPostAsPosted,
     setActiveThreadPost,
     resetThreadPosts,
   } = useAppStore()
@@ -417,12 +447,19 @@ export function ComposeModal() {
     }
   }, [isComposeOpen])
 
-  // Calculate totals
+  // Calculate totals (only for unposted posts)
+  const unpostedPosts = threadPosts.filter((p) => !p.postedPostId)
+  const postedPosts = threadPosts.filter((p) => p.postedPostId)
   const totalCharacters = threadPosts.reduce((sum, p) => sum + p.content.length, 0)
-  const hasValidContent = threadPosts.some((p) => p.content.trim().length > 0)
-  const hasOverLimit = threadPosts.some((p) => p.content.length > CHARACTER_LIMIT)
+  const hasValidContent = unpostedPosts.some((p) => p.content.trim().length > 0)
+  const hasOverLimit = unpostedPosts.some((p) => p.content.length > CHARACTER_LIMIT)
   const canPost = hasValidContent && !hasOverLimit && !isPosting
   const canAddThread = threadPosts.length < 10 && !replyingTo && !quotingPost
+
+  // Get the last posted post ID for chaining retries
+  const lastPostedId = postedPosts.length > 0
+    ? postedPosts[postedPosts.length - 1].postedPostId
+    : null
 
   // Helper to extract error message from various error formats
   const extractErrorMessage = (error: unknown): string => {
@@ -481,14 +518,15 @@ export function ComposeModal() {
       const { getDashPlatformClient } = await import('@/lib/dash-platform-client')
       const { retryPostCreation } = await import('@/lib/retry-utils')
 
-      // Filter to only posts with content, preserving their IDs
+      // Filter to only unposted posts with content, preserving their IDs
       const postsToCreate = threadPosts
-        .filter((p) => p.content.trim().length > 0)
+        .filter((p) => p.content.trim().length > 0 && !p.postedPostId)
         .map((p) => ({ threadPostId: p.id, content: p.content.trim() }))
 
       setPostingProgress({ current: 0, total: postsToCreate.length, status: 'Starting...' })
 
-      let previousPostId: string | null = replyingTo?.id || null
+      // Use lastPostedId for retry chaining, or replyingTo for initial post
+      let previousPostId: string | null = lastPostedId || replyingTo?.id || null
 
       for (let i = 0; i < postsToCreate.length; i++) {
         const { threadPostId, content: postContent } = postsToCreate[i]
@@ -573,12 +611,8 @@ export function ComposeModal() {
           if (isTimeoutError(result.error)) {
             console.warn(`Post ${i + 1} timed out - may have succeeded. Continuing...`)
             timeoutPosts.push({ index: i, threadPostId })
-            // Path A: Preserve chaining by continuing with the last known good previousPostId
-            // Since we don't have the timed-out post's ID, subsequent posts will chain to:
-            // - The last successfully confirmed post's ID, or
-            // - The original replyingTo?.id if no posts have succeeded yet
-            // This maintains thread structure as best as possible despite the timeout
-            // previousPostId stays as-is (last known good ID)
+            // Continue with last known good previousPostId for subsequent posts
+            // Timed-out posts are kept for retry - user can press Post again
             continue
           }
 
@@ -618,36 +652,38 @@ export function ComposeModal() {
 
         handleClose()
       } else if (hasTimeouts && failedAtIndex === null) {
-        // Some posts timed out but no hard failures - show warning and close
-        // Timeouts often mean the post was created but confirmation failed
+        // Some posts timed out but no hard failures
+        // Mark confirmed posts as posted, keep timed-out for retry
         const timeoutCount = timeoutPosts.length
         const confirmedCount = successfulPosts.length
 
-        if (confirmedCount > 0) {
-          toast.success(
-            `${confirmedCount} post${confirmedCount > 1 ? 's' : ''} confirmed. ` +
-            `${timeoutCount} post${timeoutCount > 1 ? 's' : ''} timed out (may have been created).`,
-            { duration: 5000 }
-          )
-        } else {
+        // Mark confirmed successful posts as posted
+        successfulPosts.forEach(({ threadPostId, postId }) => {
+          markThreadPostAsPosted(threadPostId, postId)
+        })
+
+        if (confirmedCount > 0 && timeoutCount > 0) {
           toast(
-            `${timeoutCount} post${timeoutCount > 1 ? 's' : ''} timed out. ` +
-            `They may have been created - check your profile.`,
+            `${confirmedCount} post${confirmedCount > 1 ? 's' : ''} confirmed. ` +
+            `${timeoutCount} post${timeoutCount > 1 ? 's' : ''} timed out - press Post to retry.`,
             { duration: 5000, icon: '⚠️' }
           )
+          // Keep modal open for retry - set active to first timed-out post
+          const firstTimeout = timeoutPosts[0]
+          if (firstTimeout) {
+            setActiveThreadPost(firstTimeout.threadPostId)
+          }
+        } else if (timeoutCount > 0) {
+          toast(
+            `${timeoutCount} post${timeoutCount > 1 ? 's' : ''} timed out. ` +
+            `Press Post to retry, or check your profile.`,
+            { duration: 5000, icon: '⚠️' }
+          )
+          // Keep modal open for retry
+        } else {
+          // All confirmed, close
+          handleClose()
         }
-
-        // Remove confirmed successful posts
-        successfulThreadPostIds.forEach(threadPostId => {
-          removeThreadPost(threadPostId)
-        })
-
-        // Also remove timed-out posts (they likely succeeded)
-        timeoutPosts.forEach(({ threadPostId }) => {
-          removeThreadPost(threadPostId)
-        })
-
-        handleClose()
       } else if (successfulPosts.length > 0 || timeoutPosts.length > 0) {
         // Partial failure - some posts succeeded or timed out, but at least one failed
         window.dispatchEvent(
@@ -662,10 +698,15 @@ export function ComposeModal() {
           })
         )
 
+        // Mark confirmed successful posts as posted (keep visible but finalized)
+        successfulPosts.forEach(({ threadPostId, postId }) => {
+          markThreadPostAsPosted(threadPostId, postId)
+        })
+
         // Build informative message
         const parts: string[] = []
         if (successfulPosts.length > 0) {
-          parts.push(`${successfulPosts.length} confirmed`)
+          parts.push(`${successfulPosts.length} posted`)
         }
         if (timeoutPosts.length > 0) {
           parts.push(`${timeoutPosts.length} timed out`)
@@ -674,30 +715,15 @@ export function ComposeModal() {
 
         const errorMsg = failureError?.message || 'Unknown error'
         toast.error(
-          `Thread partially created: ${successPart} of ${postsToCreate.length} posts. ` +
-          `Post ${(failedAtIndex ?? 0) + 1} failed: ${errorMsg}`,
+          `Thread partially created: ${successPart}. ` +
+          `Post ${(failedAtIndex ?? 0) + 1} failed: ${errorMsg}. Press Post to retry.`,
           { duration: 6000 }
         )
 
-        // Remove successful posts from the store
-        successfulThreadPostIds.forEach(threadPostId => {
-          removeThreadPost(threadPostId)
-        })
-
-        // Also remove timed-out posts (they likely succeeded)
-        timeoutPosts.forEach(({ threadPostId }) => {
-          removeThreadPost(threadPostId)
-        })
-
-        // Get remaining posts that definitely need retry
-        const removedIds = new Set([
-          ...successfulPosts.map(p => p.threadPostId),
-          ...timeoutPosts.map(p => p.threadPostId)
-        ])
-        const remainingPosts = threadPosts.filter(p => !removedIds.has(p.id))
-
-        if (remainingPosts.length > 0) {
-          setActiveThreadPost(remainingPosts[0].id)
+        // Set active to first unposted post for retry
+        const firstUnposted = threadPosts.find(p => !successfulThreadPostIds.has(p.id))
+        if (firstUnposted) {
+          setActiveThreadPost(firstUnposted.id)
         }
       } else {
         // Complete failure on first post
@@ -847,6 +873,13 @@ export function ComposeModal() {
                             <span className="flex items-center gap-2">
                               <div className="animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent" />
                               <span>Posting</span>
+                            </span>
+                          ) : postedPosts.length > 0 ? (
+                            <span className="flex items-center gap-1.5">
+                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              Retry ({unpostedPosts.length})
                             </span>
                           ) : replyingTo ? (
                             <span className="flex items-center gap-1.5">

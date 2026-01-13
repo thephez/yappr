@@ -6,6 +6,7 @@ import { mockCurrentUser } from './mock-data'
 export interface ThreadPost {
   id: string
   content: string
+  postedPostId?: string // Platform post ID if successfully posted
 }
 
 interface AppState {
@@ -25,6 +26,7 @@ interface AppState {
   addThreadPost: () => void
   removeThreadPost: (id: string) => void
   updateThreadPost: (id: string, content: string) => void
+  markThreadPostAsPosted: (id: string, postedPostId: string) => void
   setActiveThreadPost: (id: string | null) => void
   resetThreadPosts: () => void
 }
@@ -96,6 +98,12 @@ export const useAppStore = create<AppState>((set) => ({
   updateThreadPost: (id, content) => set((state) => ({
     threadPosts: state.threadPosts.map(p =>
       p.id === id ? { ...p, content } : p
+    ),
+  })),
+
+  markThreadPostAsPosted: (id, postedPostId) => set((state) => ({
+    threadPosts: state.threadPosts.map(p =>
+      p.id === id ? { ...p, postedPostId } : p
     ),
   })),
 
