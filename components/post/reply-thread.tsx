@@ -4,6 +4,32 @@ import Link from 'next/link'
 import { ReplyThread, Post } from '@/lib/types'
 import { PostCard } from './post-card'
 
+/**
+ * Get the display identifier for a post author.
+ * Priority: DPNS username > Profile display name > Truncated identity ID
+ */
+function getDisplayUsername(author: Post['author']): { display: string; type: 'dpns' | 'profile' | 'id' } {
+  const hasDpns = (author as any).hasDpns
+  const username = author.username
+  const displayName = author.displayName
+
+  // If we have a confirmed DPNS name, use it
+  if (hasDpns && username && !username.startsWith('user_')) {
+    return { display: `@${username}`, type: 'dpns' }
+  }
+
+  // If we have a profile display name (not a placeholder), use it
+  if (displayName && displayName !== 'Unknown User' && !displayName.startsWith('User ')) {
+    return { display: displayName, type: 'profile' }
+  }
+
+  // Otherwise show truncated identity ID
+  return {
+    display: `${author.id.slice(0, 8)}...${author.id.slice(-6)}`,
+    type: 'id'
+  }
+}
+
 interface ReplyThreadItemProps {
   thread: ReplyThread
   mainPostAuthorId: string
@@ -65,6 +91,14 @@ interface NestedReplyProps {
  */
 function NestedReply({ reply, parentPost }: NestedReplyProps) {
   const { post } = reply
+  const parentAuthorDisplay = getDisplayUsername(parentPost.author)
+
+  // Style based on display type: DPNS gets blue, profile gets normal, ID gets monospace
+  const linkClassName = parentAuthorDisplay.type === 'dpns'
+    ? 'text-yappr-500 hover:underline'
+    : parentAuthorDisplay.type === 'id'
+      ? 'text-gray-500 font-mono text-xs hover:underline'
+      : 'text-yappr-500 hover:underline'  // Profile gets same style as DPNS
 
   return (
     <div className="relative">
@@ -74,10 +108,10 @@ function NestedReply({ reply, parentPost }: NestedReplyProps) {
           Replying to{' '}
           <Link
             href={`/user?id=${parentPost.author.id}`}
-            className="text-yappr-500 hover:underline"
+            className={linkClassName}
             onClick={(e) => e.stopPropagation()}
           >
-            @{parentPost.author.username || parentPost.author.id.slice(0, 8) + '...'}
+            {parentAuthorDisplay.display}
           </Link>
         </span>
       </div>

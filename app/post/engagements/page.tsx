@@ -25,6 +25,7 @@ interface EngagementUser {
   displayName: string
   bio?: string
   hasDpnsName: boolean
+  hasProfile: boolean
   isFollowing: boolean
   // For quotes tab
   quoteContent?: string
@@ -64,9 +65,9 @@ function EngagementsPageContent() {
         return
       }
 
-      // Batch fetch user data
-      const [dpnsNames, profiles, followStatus] = await Promise.all([
-        Promise.all(ownerIds.map(id => dpnsService.resolveUsername(id).catch(() => null))),
+      // Batch fetch user data using efficient batch resolution
+      const [dpnsNamesMap, profiles, followStatus] = await Promise.all([
+        dpnsService.resolveUsernamesBatch(ownerIds),
         unifiedProfileService.getProfilesByIdentityIds(ownerIds),
         user?.identityId
           ? followService.getFollowStatusBatch(ownerIds, user.identityId)
@@ -75,17 +76,19 @@ function EngagementsPageContent() {
 
       const profileMap = new Map(profiles.map((p: any) => [p.$ownerId || p.ownerId, p]))
 
-      const users: EngagementUser[] = ownerIds.map((id, index) => {
-        const username = dpnsNames[index]
+      const users: EngagementUser[] = ownerIds.map((id) => {
+        const username = dpnsNamesMap.get(id) || null
         const profile = profileMap.get(id)
         const profileData = (profile as any)?.data || profile
+        const profileDisplayName = profileData?.displayName
 
         return {
           id,
           username: username || id.slice(-8),
-          displayName: profileData?.displayName || username || `User ${id.slice(-8)}`,
+          displayName: profileDisplayName || username || `User ${id.slice(-8)}`,
           bio: profileData?.bio,
           hasDpnsName: !!username,
+          hasProfile: !!profileDisplayName,
           isFollowing: followStatus.get(id) || false
         }
       })
@@ -116,9 +119,9 @@ function EngagementsPageContent() {
         return
       }
 
-      // Batch fetch user data
-      const [dpnsNames, profiles, followStatus] = await Promise.all([
-        Promise.all(ownerIds.map(id => dpnsService.resolveUsername(id).catch(() => null))),
+      // Batch fetch user data using efficient batch resolution
+      const [dpnsNamesMap, profiles, followStatus] = await Promise.all([
+        dpnsService.resolveUsernamesBatch(ownerIds),
         unifiedProfileService.getProfilesByIdentityIds(ownerIds),
         user?.identityId
           ? followService.getFollowStatusBatch(ownerIds, user.identityId)
@@ -127,17 +130,19 @@ function EngagementsPageContent() {
 
       const profileMap = new Map(profiles.map((p: any) => [p.$ownerId || p.ownerId, p]))
 
-      const users: EngagementUser[] = ownerIds.map((id, index) => {
-        const username = dpnsNames[index]
+      const users: EngagementUser[] = ownerIds.map((id) => {
+        const username = dpnsNamesMap.get(id) || null
         const profile = profileMap.get(id)
         const profileData = (profile as any)?.data || profile
+        const profileDisplayName = profileData?.displayName
 
         return {
           id,
           username: username || id.slice(-8),
-          displayName: profileData?.displayName || username || `User ${id.slice(-8)}`,
+          displayName: profileDisplayName || username || `User ${id.slice(-8)}`,
           bio: profileData?.bio,
           hasDpnsName: !!username,
+          hasProfile: !!profileDisplayName,
           isFollowing: followStatus.get(id) || false
         }
       })
@@ -169,9 +174,9 @@ function EngagementsPageContent() {
 
       const ownerIds = quotePosts.map(p => p.author.id).filter(Boolean)
 
-      // Batch fetch user data
-      const [dpnsNames, profiles, followStatus] = await Promise.all([
-        Promise.all(ownerIds.map(id => dpnsService.resolveUsername(id).catch(() => null))),
+      // Batch fetch user data using efficient batch resolution
+      const [dpnsNamesMap, profiles, followStatus] = await Promise.all([
+        dpnsService.resolveUsernamesBatch(ownerIds),
         unifiedProfileService.getProfilesByIdentityIds(ownerIds),
         user?.identityId
           ? followService.getFollowStatusBatch(ownerIds, user.identityId)
@@ -180,18 +185,20 @@ function EngagementsPageContent() {
 
       const profileMap = new Map(profiles.map((p: any) => [p.$ownerId || p.ownerId, p]))
 
-      const users: EngagementUser[] = quotePosts.map((post, index) => {
+      const users: EngagementUser[] = quotePosts.map((post) => {
         const id = post.author.id
-        const username = dpnsNames[index]
+        const username = dpnsNamesMap.get(id) || null
         const profile = profileMap.get(id)
         const profileData = (profile as any)?.data || profile
+        const profileDisplayName = profileData?.displayName
 
         return {
           id,
           username: username || id.slice(-8),
-          displayName: profileData?.displayName || username || `User ${id.slice(-8)}`,
+          displayName: profileDisplayName || username || `User ${id.slice(-8)}`,
           bio: profileData?.bio,
           hasDpnsName: !!username,
+          hasProfile: !!profileDisplayName,
           isFollowing: followStatus.get(id) || false,
           quoteContent: post.content,
           quotePostId: post.id
@@ -415,13 +422,15 @@ function EngagementsPageContent() {
                               {engagement.displayName}
                             </h3>
                             {engagement.hasDpnsName ? (
+                              // Has DPNS: show @username
                               <p
                                 onClick={() => router.push(`/user?id=${engagement.id}`)}
                                 className="text-sm text-gray-500 hover:underline cursor-pointer"
                               >
                                 @{engagement.username}
                               </p>
-                            ) : (
+                            ) : !engagement.hasProfile ? (
+                              // No DPNS and no profile: show identity ID
                               <Tooltip.Provider>
                                 <Tooltip.Root>
                                   <Tooltip.Trigger asChild>
@@ -446,7 +455,7 @@ function EngagementsPageContent() {
                                   </Tooltip.Portal>
                                 </Tooltip.Root>
                               </Tooltip.Provider>
-                            )}
+                            ) : null /* Has profile but no DPNS: display name is sufficient */}
                             {engagement.bio && (
                               <p className="text-sm mt-1 text-gray-600 dark:text-gray-400 line-clamp-2">
                                 {engagement.bio}
