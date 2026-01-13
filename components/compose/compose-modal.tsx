@@ -356,6 +356,16 @@ export function ComposeModal() {
 
     setIsPosting(true)
 
+    // Track successful posts for partial success reporting
+    interface SuccessfulPost {
+      index: number
+      postId: string
+      content: string
+    }
+    const successfulPosts: SuccessfulPost[] = []
+    let failedAtIndex: number | null = null
+    let failureError: Error | null = null
+
     try {
       const { getDashPlatformClient } = await import('@/lib/dash-platform-client')
       const { retryPostCreation } = await import('@/lib/retry-utils')
@@ -387,54 +397,125 @@ export function ComposeModal() {
             result.data?.$id ||
             result.data?.id
 
-          // Create hashtag documents
-          const hashtags = extractAllTags(postContent)
-          if (hashtags.length > 0 && postId) {
-            hashtagService.createPostHashtags(postId, authedUser.identityId, hashtags)
-              .then((results) => {
-                const successCount = results.filter((r) => r).length
-                console.log(`Created ${successCount}/${hashtags.length} hashtag documents`)
+          if (postId) {
+            // Track successful post
+            successfulPosts.push({ index: i, postId, content: postContent })
 
-                results.forEach((success, index) => {
-                  if (success) {
-                    window.dispatchEvent(
-                      new CustomEvent('hashtag-registered', {
-                        detail: { postId, hashtag: hashtags[index] },
-                      })
-                    )
-                  }
+            // Update previousPostId for thread chaining
+            previousPostId = postId
+
+            // Create hashtag documents for this successful post
+            const hashtags = extractAllTags(postContent)
+            if (hashtags.length > 0) {
+              hashtagService.createPostHashtags(postId, authedUser.identityId, hashtags)
+                .then((results) => {
+                  const successCount = results.filter((r) => r).length
+                  console.log(`Post ${i + 1}: Created ${successCount}/${hashtags.length} hashtag documents`)
+
+                  results.forEach((success, tagIndex) => {
+                    if (success) {
+                      window.dispatchEvent(
+                        new CustomEvent('hashtag-registered', {
+                          detail: { postId, hashtag: hashtags[tagIndex] },
+                        })
+                      )
+                    }
+                  })
                 })
-              })
-              .catch((err) => {
-                console.error('Failed to create hashtag documents:', err)
-              })
-          }
+                .catch((err) => {
+                  console.error(`Post ${i + 1}: Failed to create hashtag documents:`, err)
+                })
+            }
 
-          // Update previousPostId for thread chaining
-          previousPostId = postId
-
-          // Dispatch event for first post
-          if (i === 0) {
-            window.dispatchEvent(
-              new CustomEvent('post-created', {
-                detail: { post: result.data },
-              })
-            )
+            // Dispatch event for first post
+            if (i === 0) {
+              window.dispatchEvent(
+                new CustomEvent('post-created', {
+                  detail: { post: result.data },
+                })
+              )
+            }
+          } else {
+            // Post created but no ID returned - treat as failure for threading
+            failedAtIndex = i
+            failureError = new Error(`Post ${i + 1} created but no ID returned for threading`)
+            break
           }
         } else {
-          throw result.error || new Error(`Post ${i + 1} creation failed`)
+          // Post creation failed
+          failedAtIndex = i
+          const err = result.error as Error | { message?: string } | undefined
+          failureError = err instanceof Error
+            ? err
+            : new Error((err as { message?: string })?.message || `Post ${i + 1} creation failed`)
+          break
         }
       }
 
-      // Success - show appropriate message
-      if (postsToCreate.length > 1) {
-        toast.success(`Thread with ${postsToCreate.length} posts created!`)
-      } else {
-        toast.success('Post created successfully!')
-      }
+      // Handle results based on success/failure state
+      if (failedAtIndex === null) {
+        // Complete success
+        if (postsToCreate.length > 1) {
+          toast.success(`Thread with ${postsToCreate.length} posts created!`)
+        } else {
+          toast.success('Post created successfully!')
+        }
 
-      // Clean up
-      handleClose()
+        // Dispatch thread completion event
+        if (successfulPosts.length > 1) {
+          window.dispatchEvent(
+            new CustomEvent('thread-created', {
+              detail: {
+                posts: successfulPosts,
+                totalPosts: successfulPosts.length,
+              },
+            })
+          )
+        }
+
+        handleClose()
+      } else {
+        // Partial failure - some posts may have succeeded
+        if (successfulPosts.length > 0) {
+          // Partial success - dispatch event with details
+          window.dispatchEvent(
+            new CustomEvent('thread-partial-success', {
+              detail: {
+                successfulPosts,
+                failedAtIndex,
+                totalAttempted: postsToCreate.length,
+                error: failureError?.message,
+              },
+            })
+          )
+
+          // Show partial success toast
+          const errorMsg = failureError?.message || 'Unknown error'
+          toast.error(
+            `Thread partially created: ${successfulPosts.length} of ${postsToCreate.length} posts succeeded. ` +
+            `Post ${failedAtIndex + 1} failed: ${errorMsg}`,
+            { duration: 6000 }
+          )
+
+          // Keep modal open so user can retry failed posts
+          // Remove successful posts from the thread
+          const successfulIds = new Set(successfulPosts.map(p => postsToCreate[p.index].content))
+          const remainingPosts = threadPosts.filter(p => !successfulIds.has(p.content.trim()))
+
+          if (remainingPosts.length > 0) {
+            // Update thread to only show failed posts for retry
+            remainingPosts.forEach((post, idx) => {
+              if (idx === 0) {
+                updateThreadPost(post.id, post.content)
+                setActiveThreadPost(post.id)
+              }
+            })
+          }
+        } else {
+          // Complete failure on first post
+          throw failureError || new Error('Post creation failed')
+        }
+      }
     } catch (error) {
       console.error('Failed to create post:', error)
 

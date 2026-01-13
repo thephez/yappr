@@ -53,7 +53,13 @@ export const useAppStore = create<AppState>((set) => ({
         activeThreadPostId: initialPost.id
       })
     } else {
-      set({ isComposeOpen: open })
+      // Reset thread posts when closing modal to prevent stale state
+      const initialPost = createInitialThreadPost()
+      set({
+        isComposeOpen: false,
+        threadPosts: [initialPost],
+        activeThreadPostId: initialPost.id
+      })
     }
   },
   setReplyingTo: (post) => set({ replyingTo: post }),
