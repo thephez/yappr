@@ -580,8 +580,12 @@ export function ComposeModal() {
           if (isTimeoutError(result.error)) {
             console.warn(`Post ${i + 1} timed out - may have succeeded. Continuing...`)
             timeoutPosts.push({ index: i, threadPostId })
-            // Don't break - continue to next post, but we can't chain since we don't have the ID
-            // For timeouts, we'll treat them as needing retry but won't stop the whole process
+            // Path A: Preserve chaining by continuing with the last known good previousPostId
+            // Since we don't have the timed-out post's ID, subsequent posts will chain to:
+            // - The last successfully confirmed post's ID, or
+            // - The original replyingTo?.id if no posts have succeeded yet
+            // This maintains thread structure as best as possible despite the timeout
+            // previousPostId stays as-is (last known good ID)
             continue
           }
 
