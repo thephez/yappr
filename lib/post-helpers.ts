@@ -4,12 +4,13 @@
 
 /**
  * Suffix used to distinguish cashtags from hashtags in storage
- * e.g., $DASH is stored as "dash-cashtag"
+ * e.g., $DASH is stored as "dash_cashtag"
+ * Uses underscore (not hyphen) to match contract pattern: ^[a-z0-9_]{1,63}$
  */
-export const CASHTAG_SUFFIX = '-cashtag'
+export const CASHTAG_SUFFIX = '_cashtag'
 
 /**
- * Check if a stored tag is a cashtag (ends with -cashtag suffix)
+ * Check if a stored tag is a cashtag (ends with _cashtag suffix)
  */
 export function isCashtagStorage(tag: string): boolean {
   return tag.endsWith(CASHTAG_SUFFIX)
@@ -17,7 +18,7 @@ export function isCashtagStorage(tag: string): boolean {
 
 /**
  * Convert a stored cashtag format to display format
- * e.g., "dash-cashtag" -> "DASH"
+ * e.g., "dash_cashtag" -> "DASH"
  */
 export function cashtagStorageToDisplay(tag: string): string {
   if (!isCashtagStorage(tag)) return tag
@@ -26,7 +27,7 @@ export function cashtagStorageToDisplay(tag: string): string {
 
 /**
  * Convert a display cashtag to storage format
- * e.g., "DASH" or "$DASH" -> "dash-cashtag"
+ * e.g., "DASH" or "$DASH" -> "dash_cashtag"
  */
 export function cashtagDisplayToStorage(tag: string): string {
   const normalized = tag.startsWith('$') ? tag.slice(1) : tag
@@ -42,7 +43,7 @@ export function getTagSymbol(tag: string): string {
 
 /**
  * Get the display text for a stored tag
- * e.g., "dash-cashtag" -> "$DASH", "dash" -> "#dash"
+ * e.g., "dash_cashtag" -> "$DASH", "dash" -> "#dash"
  */
 export function getTagDisplayText(tag: string): string {
   if (isCashtagStorage(tag)) {
@@ -63,7 +64,7 @@ export function extractHashtags(content: string): string[] {
 
 /**
  * Extract cashtags from post content (e.g., $DASH, $BTC)
- * Returns tags in storage format (e.g., "dash-cashtag")
+ * Returns tags in storage format (e.g., "dash_cashtag")
  */
 export function extractCashtags(content: string): string[] {
   const regex = /\$[a-zA-Z][a-zA-Z0-9_]{0,62}/g
