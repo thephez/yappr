@@ -177,9 +177,6 @@ function ThreadPostEditor({
     const content = post.content
     const selectedText = content.substring(start, end)
 
-    // Focus the textarea first
-    textarea.focus()
-
     // Check if we should toggle OFF the formatting
     let shouldRemove = false
     let removeStart = start
@@ -187,14 +184,12 @@ function ThreadPostEditor({
 
     if (selectedText) {
       // Case 1: Selected text is already wrapped with the formatting
-      // e.g., selecting "**bold**" and clicking bold
       if (selectedText.startsWith(prefix) && selectedText.endsWith(suffix)) {
         shouldRemove = true
         removeStart = start
         removeEnd = end
       }
       // Case 2: Selection is inside formatted text
-      // e.g., selecting "bold" within "**bold**"
       else if (
         start >= prefix.length &&
         content.substring(start - prefix.length, start) === prefix &&
@@ -206,21 +201,16 @@ function ThreadPostEditor({
       }
     } else {
       // No selection - check if cursor is inside formatted text
-      // Look for matching prefix before and suffix after cursor
       const beforeCursor = content.substring(0, start)
       const afterCursor = content.substring(start)
 
-      // Find the nearest prefix before cursor
       const prefixIndex = beforeCursor.lastIndexOf(prefix)
       if (prefixIndex !== -1) {
-        // Check if there's a matching suffix after cursor
         const suffixIndex = afterCursor.indexOf(suffix)
         if (suffixIndex !== -1) {
-          // Make sure there's no unmatched prefix/suffix between
           const textBetweenPrefixAndCursor = beforeCursor.substring(prefixIndex + prefix.length)
           const textBetweenCursorAndSuffix = afterCursor.substring(0, suffixIndex)
 
-          // Only toggle if we're inside a single formatted region
           if (!textBetweenPrefixAndCursor.includes(suffix) && !textBetweenCursorAndSuffix.includes(prefix)) {
             shouldRemove = true
             removeStart = prefixIndex
@@ -230,34 +220,31 @@ function ThreadPostEditor({
       }
     }
 
-    let insertText: string
+    let newContent: string
     let newCursorPos: number
 
     if (shouldRemove) {
-      // Remove the formatting - select the full formatted region first
+      // Remove the formatting
       const innerText = content.substring(removeStart + prefix.length, removeEnd - suffix.length)
-      textarea.setSelectionRange(removeStart, removeEnd)
-      // Use execCommand to insert text (preserves undo stack)
-      document.execCommand('insertText', false, innerText)
+      newContent = content.substring(0, removeStart) + innerText + content.substring(removeEnd)
       newCursorPos = removeStart + innerText.length
-      insertText = innerText
     } else {
       // Add the formatting
-      insertText = prefix + selectedText + suffix
-      // Selection is already set from start to end
-      textarea.setSelectionRange(start, end)
-      // Use execCommand to insert text (preserves undo stack)
-      document.execCommand('insertText', false, insertText)
+      const insertText = prefix + selectedText + suffix
+      newContent = content.substring(0, start) + insertText + content.substring(end)
       newCursorPos = selectedText
-        ? start + insertText.length // After the inserted text if there was a selection
-        : start + prefix.length // Between prefix and suffix if no selection
+        ? start + insertText.length
+        : start + prefix.length
     }
 
-    // Update React state to match the new textarea value
-    onContentChange(textarea.value)
+    // Update content via React state
+    onContentChange(newContent)
 
-    // Position cursor
-    textarea.setSelectionRange(newCursorPos, newCursorPos)
+    // Restore focus and cursor position after React re-renders
+    requestAnimationFrame(() => {
+      textarea.focus()
+      textarea.setSelectionRange(newCursorPos, newCursorPos)
+    })
   }
 
   return (
@@ -412,7 +399,13 @@ export function ComposeModal() {
     status: string
   } | null>(null)
   const [showPreview, setShowPreview] = useState(false)
+  const [isMac, setIsMac] = useState(true) // Default to Mac symbol, will detect on mount
   const firstTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Detect platform for keyboard shortcut hints
+  useEffect(() => {
+    setIsMac(typeof navigator !== 'undefined' && /Mac|iPod|iPhone|iPad/.test(navigator.platform))
+  }, [])
 
   // Focus first textarea when modal opens
   useEffect(() => {
@@ -996,8 +989,8 @@ export function ComposeModal() {
                       <div className="flex items-center justify-end">
                         <span className="text-xs text-gray-400">
                           {threadPosts.length > 1
-                            ? `${totalCharacters} total chars · ⌘+Enter to post`
-                            : `⌘+Enter to post`}
+                            ? `${totalCharacters} total chars · ${isMac ? '⌘' : 'Ctrl'}+Enter to post`
+                            : `${isMac ? '⌘' : 'Ctrl'}+Enter to post`}
                         </span>
                       </div>
                     </div>
