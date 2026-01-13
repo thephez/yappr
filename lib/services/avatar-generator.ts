@@ -101,17 +101,3 @@ export function isValidStyle(style: string): boolean {
 export function getAvailableStyles(): string[] {
   return Object.keys(styleMap);
 }
-
-/**
- * Clear cached avatar for a specific style/seed combination
- */
-export function invalidateAvatarGeneratorCache(style: string, seed: string): void {
-  avatarCache.delete(`${style}:${seed}`);
-}
-
-/**
- * Clear all cached avatars
- */
-export function clearAvatarGeneratorCache(): void {
-  avatarCache.clear();
-}
