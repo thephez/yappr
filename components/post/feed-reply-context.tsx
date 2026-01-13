@@ -33,9 +33,10 @@ export function FeedReplyContext({
   originalPostEnrichment,
   isOwnPost
 }: FeedReplyContextProps) {
-  const replierName = replier.username
-    ? `@${replier.username}`
-    : replier.displayName || `User ${replier.id.slice(-6)}`
+  // Use enriched username from DPNS if available, fall back to replier data
+  const replierName = replyEnrichment?.username
+    ? `@${replyEnrichment.username}`
+    : replyEnrichment?.displayName || replier.displayName || `User ${replier.id.slice(-6)}`
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-800">
