@@ -1,9 +1,15 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useEffect, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { XMarkIcon } from '@heroicons/react/24/outline'
-import { useAppStore } from '@/lib/store'
+import {
+  XMarkIcon,
+  PlusIcon,
+  TrashIcon,
+  EyeIcon,
+  EyeSlashIcon,
+} from '@heroicons/react/24/outline'
+import { useAppStore, ThreadPost } from '@/lib/store'
 import { Button } from '@/components/ui/button'
 import { IconButton } from '@/components/ui/icon-button'
 import { motion, AnimatePresence } from 'framer-motion'
@@ -16,111 +22,439 @@ import { hashtagService } from '@/lib/services/hashtag-service'
 import { formatTime } from '@/lib/utils'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { getInitials } from '@/lib/utils'
+import { MarkdownContent } from '@/components/ui/markdown-content'
 
-export function ComposeModal() {
-  const { isComposeOpen, setComposeOpen, replyingTo, setReplyingTo, quotingPost, setQuotingPost } = useAppStore()
-  const { user } = useAuth()
-  const { requireAuth } = useRequireAuth()
-  const [content, setContent] = useState('')
-  const [isPosting, setIsPosting] = useState(false)
-  const textareaRef = useRef<HTMLTextAreaElement>(null)
-  
-  const characterLimit = 500
-  const remainingCharacters = characterLimit - content.length
-  const progressPercentage = (content.length / characterLimit) * 100
+const CHARACTER_LIMIT = 500
+
+// Formatting button component
+function FormatButton({
+  onClick,
+  title,
+  children,
+  disabled = false,
+}: {
+  onClick: () => void
+  title: string
+  children: React.ReactNode
+  disabled?: boolean
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={title}
+      className="p-1.5 rounded-md text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+    >
+      {children}
+    </button>
+  )
+}
+
+// Character counter component
+function CharacterCounter({ current, limit }: { current: number; limit: number }) {
+  const remaining = limit - current
+  const percentage = Math.min((current / limit) * 100, 100)
+  const isWarning = remaining <= 50 && remaining > 20
+  const isDanger = remaining <= 20
+
+  // Calculate circle properties
+  const radius = 10
+  const circumference = 2 * Math.PI * radius
+  const offset = circumference * (1 - percentage / 100)
+
+  return (
+    <div className="flex items-center gap-2">
+      {current > 0 && (
+        <>
+          <div className="relative w-6 h-6">
+            <svg className="w-6 h-6 -rotate-90" viewBox="0 0 24 24">
+              {/* Background circle */}
+              <circle
+                cx="12"
+                cy="12"
+                r={radius}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                className="text-gray-200 dark:text-gray-700"
+              />
+              {/* Progress circle */}
+              <circle
+                cx="12"
+                cy="12"
+                r={radius}
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeDasharray={circumference}
+                strokeDashoffset={offset}
+                strokeLinecap="round"
+                className={
+                  isDanger
+                    ? 'text-red-500'
+                    : isWarning
+                    ? 'text-amber-500'
+                    : 'text-yappr-500'
+                }
+              />
+            </svg>
+          </div>
+          {isDanger && (
+            <span
+              className={`text-xs font-medium tabular-nums ${
+                remaining < 0 ? 'text-red-500' : 'text-amber-500'
+              }`}
+            >
+              {remaining}
+            </span>
+          )}
+        </>
+      )}
+    </div>
+  )
+}
+
+// Thread post editor component
+function ThreadPostEditor({
+  post,
+  index,
+  isActive,
+  isOnly,
+  showPreview,
+  onActivate,
+  onRemove,
+  onContentChange,
+  textareaRef,
+}: {
+  post: ThreadPost
+  index: number
+  isActive: boolean
+  isOnly: boolean
+  showPreview: boolean
+  onActivate: () => void
+  onRemove: () => void
+  onContentChange: (content: string) => void
+  textareaRef?: React.RefObject<HTMLTextAreaElement>
+}) {
+  const localRef = useRef<HTMLTextAreaElement>(null)
+  const ref = textareaRef || localRef
 
   useEffect(() => {
+    if (isActive && ref.current) {
+      ref.current.focus()
+    }
+  }, [isActive, ref])
+
+  // Auto-resize textarea
+  const adjustHeight = useCallback(() => {
+    const textarea = ref.current
+    if (textarea) {
+      textarea.style.height = 'auto'
+      textarea.style.height = `${Math.max(80, textarea.scrollHeight)}px`
+    }
+  }, [ref])
+
+  useEffect(() => {
+    adjustHeight()
+  }, [post.content, adjustHeight])
+
+  const handleInsertFormat = (prefix: string, suffix: string = prefix) => {
+    const textarea = ref.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const selectedText = post.content.substring(start, end)
+    const newText =
+      post.content.substring(0, start) +
+      prefix +
+      selectedText +
+      suffix +
+      post.content.substring(end)
+
+    onContentChange(newText)
+
+    // Set cursor position after update
+    setTimeout(() => {
+      textarea.focus()
+      const newCursorPos = start + prefix.length + (selectedText ? selectedText.length + suffix.length : 0)
+      textarea.setSelectionRange(
+        selectedText ? newCursorPos : start + prefix.length,
+        selectedText ? newCursorPos : start + prefix.length
+      )
+    }, 0)
+  }
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -10, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className={`relative ${index > 0 ? 'mt-0' : ''}`}
+    >
+      {/* Thread connector line */}
+      {index > 0 && (
+        <div className="absolute left-5 -top-3 w-0.5 h-3 bg-gradient-to-b from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600" />
+      )}
+
+      <div
+        onClick={onActivate}
+        className={`relative rounded-xl border-2 transition-all cursor-pointer ${
+          isActive
+            ? 'border-yappr-500 bg-white dark:bg-neutral-900 shadow-sm'
+            : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950 hover:border-gray-300 dark:hover:border-gray-700'
+        }`}
+      >
+        {/* Post number indicator */}
+        <div className="absolute -left-2 top-3 flex items-center justify-center w-6 h-6 rounded-full bg-yappr-500 text-white text-xs font-semibold shadow-sm">
+          {index + 1}
+        </div>
+
+        <div className="p-4 pl-8">
+          {/* Formatting toolbar - only show when active */}
+          {isActive && !showPreview && (
+            <div className="flex items-center gap-1 mb-3 pb-2 border-b border-gray-100 dark:border-gray-800">
+              <FormatButton
+                onClick={() => handleInsertFormat('**')}
+                title="Bold (Ctrl+B)"
+              >
+                <span className="font-bold text-sm">B</span>
+              </FormatButton>
+              <FormatButton
+                onClick={() => handleInsertFormat('*')}
+                title="Italic (Ctrl+I)"
+              >
+                <span className="italic text-sm">I</span>
+              </FormatButton>
+              <FormatButton
+                onClick={() => handleInsertFormat('`')}
+                title="Code"
+              >
+                <span className="font-mono text-xs">&lt;/&gt;</span>
+              </FormatButton>
+              <div className="w-px h-4 bg-gray-200 dark:bg-gray-700 mx-1" />
+              <FormatButton
+                onClick={() => handleInsertFormat('@', '')}
+                title="Mention someone"
+              >
+                <span className="text-sm">@</span>
+              </FormatButton>
+              <FormatButton
+                onClick={() => handleInsertFormat('#', '')}
+                title="Add hashtag"
+              >
+                <span className="text-sm">#</span>
+              </FormatButton>
+
+              {/* Remove button for thread posts */}
+              {!isOnly && (
+                <>
+                  <div className="flex-1" />
+                  <FormatButton onClick={onRemove} title="Remove this post">
+                    <TrashIcon className="w-4 h-4 text-red-500" />
+                  </FormatButton>
+                </>
+              )}
+            </div>
+          )}
+
+          {/* Content area */}
+          {showPreview ? (
+            <div className="min-h-[80px] text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
+              {post.content ? (
+                <MarkdownContent content={post.content} />
+              ) : (
+                <span className="text-gray-400 dark:text-gray-600 italic">
+                  Nothing to preview
+                </span>
+              )}
+            </div>
+          ) : (
+            <textarea
+              ref={ref}
+              value={post.content}
+              onChange={(e) => onContentChange(e.target.value)}
+              onFocus={onActivate}
+              onKeyDown={(e) => {
+                // Formatting shortcuts
+                if ((e.ctrlKey || e.metaKey) && e.key === 'b') {
+                  e.preventDefault()
+                  handleInsertFormat('**')
+                } else if ((e.ctrlKey || e.metaKey) && e.key === 'i') {
+                  e.preventDefault()
+                  handleInsertFormat('*')
+                }
+              }}
+              placeholder={
+                index === 0
+                  ? "What's on your mind?"
+                  : 'Continue your thread...'
+              }
+              className="w-full min-h-[80px] text-base resize-none outline-none bg-transparent placeholder:text-gray-400 dark:placeholder:text-gray-600"
+              style={{ height: 'auto' }}
+            />
+          )}
+
+          {/* Footer with character count */}
+          <div className="flex items-center justify-between mt-3 pt-2 border-t border-gray-100 dark:border-gray-800">
+            <div className="text-xs text-gray-400">
+              {index === 0 ? 'Thread start' : `Post ${index + 1}`}
+            </div>
+            <CharacterCounter current={post.content.length} limit={CHARACTER_LIMIT} />
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  )
+}
+
+export function ComposeModal() {
+  const {
+    isComposeOpen,
+    setComposeOpen,
+    replyingTo,
+    setReplyingTo,
+    quotingPost,
+    setQuotingPost,
+    threadPosts,
+    activeThreadPostId,
+    addThreadPost,
+    removeThreadPost,
+    updateThreadPost,
+    setActiveThreadPost,
+    resetThreadPosts,
+  } = useAppStore()
+
+  const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
+  const [isPosting, setIsPosting] = useState(false)
+  const [showPreview, setShowPreview] = useState(false)
+  const firstTextareaRef = useRef<HTMLTextAreaElement>(null)
+
+  // Focus first textarea when modal opens
+  useEffect(() => {
     if (isComposeOpen) {
-      // Small delay to ensure the modal animation has mounted the textarea
       const timeoutId = setTimeout(() => {
-        textareaRef.current?.focus()
-      }, 50)
+        firstTextareaRef.current?.focus()
+      }, 100)
       return () => clearTimeout(timeoutId)
     }
   }, [isComposeOpen])
 
+  // Calculate totals
+  const totalCharacters = threadPosts.reduce((sum, p) => sum + p.content.length, 0)
+  const hasValidContent = threadPosts.some((p) => p.content.trim().length > 0)
+  const hasOverLimit = threadPosts.some((p) => p.content.length > CHARACTER_LIMIT)
+  const canPost = hasValidContent && !hasOverLimit && !isPosting
+  const canAddThread = threadPosts.length < 10 && !replyingTo && !quotingPost
+
   const handlePost = async () => {
-    if (!content.trim() || content.length > characterLimit) return
     const authedUser = requireAuth('post')
-    if (!authedUser) return
+    if (!authedUser || !canPost) return
 
     setIsPosting(true)
-    const postContent = content.trim()
 
     try {
       const { getDashPlatformClient } = await import('@/lib/dash-platform-client')
-      const { retryPostCreation, isNetworkError } = await import('@/lib/retry-utils')
+      const { retryPostCreation } = await import('@/lib/retry-utils')
 
-      console.log('Creating post with Dash SDK...')
+      // Filter to only posts with content
+      const postsToCreate = threadPosts.filter((p) => p.content.trim().length > 0)
 
-      // Use retry logic for post creation
-      const result = await retryPostCreation(async () => {
-        const dashClient = getDashPlatformClient()
-        return await dashClient.createPost(postContent, {
-          replyToPostId: replyingTo?.id,
-          quotedPostId: quotingPost?.id
+      let previousPostId: string | null = replyingTo?.id || null
+
+      for (let i = 0; i < postsToCreate.length; i++) {
+        const postContent = postsToCreate[i].content.trim()
+
+        console.log(`Creating post ${i + 1}/${postsToCreate.length}...`)
+
+        const result = await retryPostCreation(async () => {
+          const dashClient = getDashPlatformClient()
+          return await dashClient.createPost(postContent, {
+            replyToPostId: previousPostId || undefined,
+            quotedPostId: i === 0 ? quotingPost?.id : undefined,
+          })
         })
-      })
 
-      if (result.success) {
-        toast.success('Post created successfully!')
+        if (result.success) {
+          // Get the post ID for threading
+          const postId =
+            result.data?.documentId ||
+            result.data?.document?.$id ||
+            result.data?.document?.id ||
+            result.data?.$id ||
+            result.data?.id
 
-        // Create hashtag documents for the post (includes both #hashtags and $cashtags)
-        const hashtags = extractAllTags(postContent)
-        // Post ID can be in different fields depending on SDK response format
-        // Dash Platform uses $id (with $ prefix) for document IDs
-        const postId = result.data?.documentId || result.data?.document?.$id || result.data?.document?.id || result.data?.$id || result.data?.id
-        console.log('Post creation result:', { hashtags, postId, resultData: result.data })
+          // Create hashtag documents
+          const hashtags = extractAllTags(postContent)
+          if (hashtags.length > 0 && postId) {
+            hashtagService.createPostHashtags(postId, authedUser.identityId, hashtags)
+              .then((results) => {
+                const successCount = results.filter((r) => r).length
+                console.log(`Created ${successCount}/${hashtags.length} hashtag documents`)
 
-        if (hashtags.length > 0 && postId) {
-          // Create hashtag documents in background (don't block UI)
-          hashtagService.createPostHashtags(postId, authedUser.identityId, hashtags)
-            .then(results => {
-              const successCount = results.filter(r => r).length
-              console.log(`Created ${successCount}/${hashtags.length} hashtag documents`)
-
-              // Dispatch events for each successfully created hashtag so post cards revalidate
-              results.forEach((success, index) => {
-                if (success) {
-                  window.dispatchEvent(
-                    new CustomEvent('hashtag-registered', {
-                      detail: { postId, hashtag: hashtags[index] }
-                    })
-                  )
-                }
+                results.forEach((success, index) => {
+                  if (success) {
+                    window.dispatchEvent(
+                      new CustomEvent('hashtag-registered', {
+                        detail: { postId, hashtag: hashtags[index] },
+                      })
+                    )
+                  }
+                })
               })
-            })
-            .catch(err => {
-              console.error('Failed to create hashtag documents:', err)
-            })
-        } else if (hashtags.length > 0) {
-          console.warn('Could not create hashtag documents - no post ID found in result:', result)
+              .catch((err) => {
+                console.error('Failed to create hashtag documents:', err)
+              })
+          }
+
+          // Update previousPostId for thread chaining
+          previousPostId = postId
+
+          // Dispatch event for first post
+          if (i === 0) {
+            window.dispatchEvent(
+              new CustomEvent('post-created', {
+                detail: { post: result.data },
+              })
+            )
+          }
+        } else {
+          throw result.error || new Error(`Post ${i + 1} creation failed`)
         }
-
-        // Clear the form and close modal
-        setContent('')
-        setComposeOpen(false)
-        setReplyingTo(null)
-        setQuotingPost(null)
-
-        // Trigger feed refresh if possible
-        window.dispatchEvent(new CustomEvent('post-created', {
-          detail: { post: result.data }
-        }))
-      } else {
-        throw result.error || new Error('Post creation failed')
       }
-      
+
+      // Success - show appropriate message
+      if (postsToCreate.length > 1) {
+        toast.success(`Thread with ${postsToCreate.length} posts created!`)
+      } else {
+        toast.success('Post created successfully!')
+      }
+
+      // Clean up
+      handleClose()
     } catch (error) {
       console.error('Failed to create post:', error)
-      
+
       const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-      
-      if (errorMessage.includes('no available addresses') || errorMessage.includes('Missing response message')) {
+
+      if (
+        errorMessage.includes('no available addresses') ||
+        errorMessage.includes('Missing response message')
+      ) {
         toast.error('Dash Platform is temporarily unavailable. Please try again in a few moments.')
-      } else if (errorMessage.includes('Network') || errorMessage.includes('connection') || errorMessage.includes('timeout')) {
+      } else if (
+        errorMessage.includes('Network') ||
+        errorMessage.includes('connection') ||
+        errorMessage.includes('timeout')
+      ) {
         toast.error('Network error. Please check your connection and try again.')
-      } else if (errorMessage.includes('Private key not found') || errorMessage.includes('Not logged in')) {
+      } else if (
+        errorMessage.includes('Private key not found') ||
+        errorMessage.includes('Not logged in')
+      ) {
         toast.error('Your session has expired. Please log in again.')
       } else {
         toast.error(`Failed to create post: ${errorMessage}`)
@@ -134,7 +468,15 @@ export function ComposeModal() {
     setComposeOpen(false)
     setReplyingTo(null)
     setQuotingPost(null)
-    setContent('')
+    resetThreadPosts()
+    setShowPreview(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault()
+      handlePost()
+    }
   }
 
   return (
@@ -147,147 +489,215 @@ export function ComposeModal() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/50 z-50 flex items-start justify-center pt-20 px-4"
+                className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-start justify-center pt-12 sm:pt-20 px-4 overflow-y-auto pb-12"
               >
                 <Dialog.Content asChild>
                   <motion.div
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.95 }}
-                    transition={{ duration: 0.15 }}
-                    className="w-full max-w-[600px] bg-white dark:bg-neutral-900 rounded-2xl shadow-xl"
+                    initial={{ opacity: 0, scale: 0.95, y: 20 }}
+                    animate={{ opacity: 1, scale: 1, y: 0 }}
+                    exit={{ opacity: 0, scale: 0.95, y: 20 }}
+                    transition={{ duration: 0.2, ease: 'easeOut' }}
+                    className="w-full max-w-2xl bg-white dark:bg-neutral-900 rounded-2xl shadow-2xl overflow-hidden"
                     onClick={(e) => e.stopPropagation()}
+                    onKeyDown={handleKeyDown}
                   >
-                {/* Add Dialog Title for accessibility */}
-                <Dialog.Title className="sr-only">
-                  {replyingTo ? 'Reply to post' : quotingPost ? 'Quote post' : 'Create a new post'}
-                </Dialog.Title>
-                <Dialog.Description className="sr-only">
-                  {replyingTo ? 'Write your reply to the post' : quotingPost ? 'Add your thoughts to this quote' : 'Share your thoughts with the community'}
-                </Dialog.Description>
-                
-                <div className="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-800">
-                  <IconButton onClick={handleClose}>
-                    <XMarkIcon className="h-5 w-5" />
-                  </IconButton>
-                  
-                  <Button
-                    onClick={handlePost}
-                    disabled={!content.trim() || content.length > characterLimit || isPosting}
-                    size="sm"
-                  >
-                    {isPosting ? (
-                      <span className="flex items-center gap-2">
-                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-current"></div>
-                        {replyingTo ? 'Replying...' : quotingPost ? 'Quoting...' : 'Posting...'}
-                      </span>
-                    ) : (
-                      replyingTo ? 'Reply' : quotingPost ? 'Quote' : 'Post'
-                    )}
-                  </Button>
-                </div>
+                    {/* Accessibility */}
+                    <Dialog.Title className="sr-only">
+                      {replyingTo
+                        ? 'Reply to post'
+                        : quotingPost
+                        ? 'Quote post'
+                        : 'Create a new post'}
+                    </Dialog.Title>
+                    <Dialog.Description className="sr-only">
+                      {replyingTo
+                        ? 'Write your reply to the post'
+                        : quotingPost
+                        ? 'Add your thoughts to this quote'
+                        : 'Share your thoughts with the community'}
+                    </Dialog.Description>
 
-                <div className="p-4">
-                  {replyingTo && (
-                    <div className="mb-4 text-sm text-gray-500">
-                      Replying to <span className="text-yappr-500">
-                        {/* Priority: DPNS username > Profile display name > Truncated identity ID */}
-                        {replyingTo.author.username && !replyingTo.author.username.startsWith('user_')
-                          ? `@${replyingTo.author.username}`
-                          : replyingTo.author.displayName && replyingTo.author.displayName !== 'Unknown User' && !replyingTo.author.displayName.startsWith('User ')
-                            ? replyingTo.author.displayName
-                            : `${replyingTo.author.id.slice(0, 8)}...${replyingTo.author.id.slice(-6)}`}
-                      </span>
-                    </div>
-                  )}
-                  
-                  <div className="flex gap-3">
-                    {user && <UserAvatar userId={user.identityId} size="lg" alt="Your avatar" />}
-
-                    <div className="flex-1">
-                      <textarea
-                        ref={textareaRef}
-                        value={content}
-                        onChange={(e) => setContent(e.target.value)}
-                        onKeyDown={(e) => {
-                          if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-                            e.preventDefault()
-                            handlePost()
-                          }
-                        }}
-                        placeholder={replyingTo ? "Post your reply" : quotingPost ? "Add your comment" : "What's happening?"}
-                        className="w-full min-h-[120px] text-lg resize-none outline-none bg-transparent placeholder:text-gray-500"
-                      />
-
-                      {/* Quoted post preview */}
-                      {quotingPost && (
-                        <div className="mt-3 border border-gray-200 dark:border-gray-700 rounded-xl p-3">
-                          <div className="flex items-center gap-2 text-sm">
-                            <Avatar className="h-5 w-5">
-                              <AvatarImage src={quotingPost.author.avatar} />
-                              <AvatarFallback>{getInitials(quotingPost.author.displayName)}</AvatarFallback>
-                            </Avatar>
-                            <span className="font-semibold text-gray-900 dark:text-gray-100">
-                              {quotingPost.author.displayName}
-                            </span>
-                            <span className="text-gray-500">
-                              @{quotingPost.author.username}
-                            </span>
-                            <span className="text-gray-500">·</span>
-                            <span className="text-gray-500">{formatTime(quotingPost.createdAt)}</span>
-                          </div>
-                          <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
-                            {quotingPost.content}
-                          </p>
+                    {/* Header */}
+                    <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950">
+                      <div className="flex items-center gap-3">
+                        <IconButton onClick={handleClose} className="hover:bg-gray-200 dark:hover:bg-gray-800">
+                          <XMarkIcon className="h-5 w-5" />
+                        </IconButton>
+                        <div className="flex items-center gap-2">
+                          <h2 className="font-semibold text-gray-900 dark:text-gray-100">
+                            {replyingTo
+                              ? 'Reply'
+                              : quotingPost
+                              ? 'Quote'
+                              : threadPosts.length > 1
+                              ? `Thread (${threadPosts.length} posts)`
+                              : 'New Post'}
+                          </h2>
+                          {/* Preview toggle */}
+                          <button
+                            onClick={() => setShowPreview(!showPreview)}
+                            className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium transition-colors ${
+                              showPreview
+                                ? 'bg-yappr-100 dark:bg-yappr-900/30 text-yappr-600 dark:text-yappr-400'
+                                : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:bg-gray-200 dark:hover:bg-gray-700'
+                            }`}
+                          >
+                            {showPreview ? (
+                              <>
+                                <EyeSlashIcon className="w-3.5 h-3.5" />
+                                Edit
+                              </>
+                            ) : (
+                              <>
+                                <EyeIcon className="w-3.5 h-3.5" />
+                                Preview
+                              </>
+                            )}
+                          </button>
                         </div>
-                      )}
+                      </div>
 
-                      <div className="mt-4 flex items-center justify-end">
-                        <div className="flex items-center gap-3">
-                          {content.length > 0 && (
-                            <div className="relative">
-                              <svg className="h-8 w-8 -rotate-90">
-                                <circle
-                                  cx="16"
-                                  cy="16"
-                                  r="12"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  className="text-gray-200 dark:text-gray-800"
-                                />
-                                <circle
-                                  cx="16"
-                                  cy="16"
-                                  r="12"
-                                  fill="none"
-                                  stroke="currentColor"
-                                  strokeWidth="2"
-                                  strokeDasharray={`${2 * Math.PI * 12}`}
-                                  strokeDashoffset={`${2 * Math.PI * 12 * (1 - progressPercentage / 100)}`}
-                                  className={
-                                    remainingCharacters < 0
-                                      ? 'text-red-500'
-                                      : remainingCharacters < 20
-                                      ? 'text-yellow-500'
-                                      : 'text-yappr-500'
-                                  }
-                                />
-                              </svg>
-                              {remainingCharacters < 20 && (
-                                <span className={`absolute inset-0 flex items-center justify-center text-xs font-medium ${
-                                  remainingCharacters < 0 ? 'text-red-500' : ''
-                                }`}>
-                                  {remainingCharacters}
+                      <div className="flex items-center gap-2">
+                        {/* Post button */}
+                        <Button
+                          onClick={handlePost}
+                          disabled={!canPost}
+                          size="sm"
+                          className="min-w-[80px]"
+                        >
+                          {isPosting ? (
+                            <span className="flex items-center gap-2">
+                              <div className="animate-spin rounded-full h-3.5 w-3.5 border-2 border-current border-t-transparent" />
+                              {threadPosts.length > 1 ? 'Posting...' : 'Posting'}
+                            </span>
+                          ) : replyingTo ? (
+                            'Reply'
+                          ) : threadPosts.length > 1 ? (
+                            `Post all (${threadPosts.length})`
+                          ) : (
+                            'Post'
+                          )}
+                        </Button>
+                      </div>
+                    </div>
+
+                    {/* Reply context */}
+                    {replyingTo && (
+                      <div className="px-4 py-3 bg-gray-50 dark:bg-neutral-950 border-b border-gray-200 dark:border-gray-800">
+                        <div className="flex items-center gap-2 text-sm">
+                          <span className="text-gray-500">Replying to</span>
+                          <span className="text-yappr-500 font-medium">
+                            {replyingTo.author.username &&
+                            !replyingTo.author.username.startsWith('user_')
+                              ? `@${replyingTo.author.username}`
+                              : replyingTo.author.displayName &&
+                                replyingTo.author.displayName !== 'Unknown User' &&
+                                !replyingTo.author.displayName.startsWith('User ')
+                              ? replyingTo.author.displayName
+                              : `${replyingTo.author.id.slice(0, 8)}...${replyingTo.author.id.slice(-6)}`}
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Main content area */}
+                    <div className="p-4 max-h-[60vh] overflow-y-auto">
+                      <div className="flex gap-3">
+                        {/* User avatar */}
+                        {user && (
+                          <div className="flex-shrink-0">
+                            <UserAvatar userId={user.identityId} size="lg" alt="Your avatar" />
+                          </div>
+                        )}
+
+                        {/* Thread posts */}
+                        <div className="flex-1 space-y-4">
+                          <AnimatePresence mode="popLayout">
+                            {threadPosts.map((post, index) => (
+                              <ThreadPostEditor
+                                key={post.id}
+                                post={post}
+                                index={index}
+                                isActive={post.id === activeThreadPostId}
+                                isOnly={threadPosts.length === 1}
+                                showPreview={showPreview}
+                                onActivate={() => setActiveThreadPost(post.id)}
+                                onRemove={() => removeThreadPost(post.id)}
+                                onContentChange={(content) => updateThreadPost(post.id, content)}
+                                textareaRef={index === 0 ? firstTextareaRef : undefined}
+                              />
+                            ))}
+                          </AnimatePresence>
+
+                          {/* Add thread post button */}
+                          {canAddThread && (
+                            <motion.button
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              onClick={addThreadPost}
+                              className="flex items-center gap-2 px-4 py-2.5 w-full rounded-xl border-2 border-dashed border-gray-200 dark:border-gray-800 text-gray-500 hover:text-yappr-500 hover:border-yappr-300 dark:hover:border-yappr-700 transition-colors"
+                            >
+                              <PlusIcon className="w-5 h-5" />
+                              <span className="text-sm font-medium">Add to thread</span>
+                            </motion.button>
+                          )}
+
+                          {/* Quoted post preview */}
+                          {quotingPost && (
+                            <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-neutral-950">
+                              <div className="flex items-center gap-2 text-sm">
+                                <Avatar className="h-5 w-5">
+                                  <AvatarImage src={quotingPost.author.avatar} />
+                                  <AvatarFallback>
+                                    {getInitials(quotingPost.author.displayName)}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <span className="font-semibold text-gray-900 dark:text-gray-100">
+                                  {quotingPost.author.displayName}
                                 </span>
-                              )}
+                                <span className="text-gray-500">
+                                  @{quotingPost.author.username}
+                                </span>
+                                <span className="text-gray-500">·</span>
+                                <span className="text-gray-500">
+                                  {formatTime(quotingPost.createdAt)}
+                                </span>
+                              </div>
+                              <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+                                {quotingPost.content}
+                              </p>
                             </div>
                           )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                </div>
+
+                    {/* Footer */}
+                    <div className="px-4 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-4">
+                          <div className="text-xs text-gray-500">
+                            <span className="font-medium">Tip:</span> Use{' '}
+                            <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                              **bold**
+                            </code>{' '}
+                            <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                              *italic*
+                            </code>{' '}
+                            <code className="px-1 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs">
+                              `code`
+                            </code>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-3">
+                          <span className="text-xs text-gray-400">
+                            {threadPosts.length > 1
+                              ? `${totalCharacters} total chars`
+                              : `Press ⌘+Enter to post`}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
                   </motion.div>
                 </Dialog.Content>
               </motion.div>
