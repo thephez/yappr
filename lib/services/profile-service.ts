@@ -367,7 +367,7 @@ class ProfileService extends BaseDocumentService<User> {
 
     try {
       const username = await dpnsService.resolveUsername(ownerId);
-      
+
       if (username) {
         // Cache the result with user and username tags
         cacheManager.set(this.USERNAME_CACHE, ownerId, username, {
