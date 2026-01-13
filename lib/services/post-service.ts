@@ -581,18 +581,16 @@ class PostService extends BaseDocumentService<Post> {
    */
   async getUserPosts(userId: string, options: QueryOptions = {}): Promise<DocumentResult<Post>> {
     const queryOptions: QueryOptions = {
-      where: [['$ownerId', '==', userId]],
-      orderBy: [['$ownerId', 'asc'], ['$createdAt', 'asc']],
+      where: [
+        ['$ownerId', '==', userId],
+        ['$createdAt', '>', 0]
+      ],
+      orderBy: [['$ownerId', 'asc'], ['$createdAt', 'desc']],
       limit: 20,
       ...options
     };
 
-    const result = await this.query(queryOptions);
-
-    // Sort by createdAt descending (platform returns in index order which is asc)
-    result.documents.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
-
-    return result;
+    return this.query(queryOptions);
   }
 
   /**

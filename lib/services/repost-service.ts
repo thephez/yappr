@@ -154,7 +154,7 @@ class RepostService extends BaseDocumentService<RepostDocument> {
           ['$ownerId', '==', userId],
           ['$createdAt', '>', 0]
         ],
-        orderBy: [['$createdAt', 'asc']],
+        orderBy: [['$createdAt', 'desc']],
         limit: 50,
         ...options
       });
