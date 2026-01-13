@@ -116,6 +116,12 @@ The contract includes carefully designed indices for optimal query performance:
 - **Interaction queries** - Fast like/repost counts
 - **Thread queries** - Efficient reply chain loading
 
+## Platform Requirements
+
+- **Timestamp fields**: `$createdAt` and `$updatedAt` must be listed in the `required` array for the platform to automatically populate them
+- **Index sorting**: Platform only supports ascending (`asc`) sort order
+- **String fields**: All string properties must have `maxLength` defined
+
 ## Security Considerations
 
 1. **Identity-based** - All documents use Dash identities for ownership
