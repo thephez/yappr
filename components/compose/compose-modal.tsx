@@ -30,8 +30,12 @@ export function ComposeModal() {
   const progressPercentage = (content.length / characterLimit) * 100
 
   useEffect(() => {
-    if (isComposeOpen && textareaRef.current) {
-      textareaRef.current.focus()
+    if (isComposeOpen) {
+      // Small delay to ensure the modal animation has mounted the textarea
+      const timeoutId = setTimeout(() => {
+        textareaRef.current?.focus()
+      }, 50)
+      return () => clearTimeout(timeoutId)
     }
   }, [isComposeOpen])
 
