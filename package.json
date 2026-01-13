@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@dashevo/evo-sdk": "^3.0.0-dev.9",
+    "@dicebear/collection": "^9.2.4",
+    "@dicebear/core": "^9.2.4",
     "@headlessui/react": "^1.7.18",
     "@heroicons/react": "^2.1.1",
     "@noble/hashes": "^2.0.1",

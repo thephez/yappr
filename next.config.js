@@ -26,7 +26,7 @@ const nextConfig = {
   output: 'export',
   images: {
     unoptimized: true,
-    domains: ['images.unsplash.com', 'api.dicebear.com'],
+    domains: ['images.unsplash.com'],
   },
   webpack: (config, { isServer }) => {
     // Optimize EvoSDK bundle size
@@ -74,7 +74,7 @@ const nextConfig = {
             ].join('; ')
           },
           // CRITICAL: These headers are required for WASM to work
-          // Using 'credentialless' instead of 'require-corp' to allow cross-origin images (DiceBear avatars)
+          // Using 'credentialless' instead of 'require-corp' to allow cross-origin images
           {
             key: 'Cross-Origin-Embedder-Policy',
             value: 'credentialless'

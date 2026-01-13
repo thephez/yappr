@@ -2,20 +2,21 @@
  * Centralized mock data and default value utilities.
  *
  * This module provides:
- * - Default avatar URL generation
+ * - Default avatar URL generation (local DiceBear)
  * - Mock/default user creation for development
  * - Factory functions for creating test data
  */
 
 import { User } from './types';
+import { generateAvatarDataUri } from './services/avatar-generator';
 
 /**
- * Generate a default avatar URL using DiceBear.
+ * Generate a default avatar data URI using local DiceBear.
  * Provides consistent placeholder avatars based on user ID.
  */
 export function getDefaultAvatarUrl(userId: string): string {
   if (!userId) return '';
-  return `https://api.dicebear.com/7.x/thumbs/svg?seed=${encodeURIComponent(userId)}`;
+  return generateAvatarDataUri('thumbs', userId);
 }
 
 /**

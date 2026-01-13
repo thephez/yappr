@@ -4,6 +4,7 @@ import { dpnsService } from './dpns-service';
 import { cacheManager } from '../cache-manager';
 import { YAPPR_PROFILE_CONTRACT_ID } from '../constants';
 import { User, ParsedPaymentUri, SocialLink } from '../types';
+import { generateAvatarDataUri } from './avatar-generator';
 
 // Approved payment URI schemes (whitelist)
 export const APPROVED_PAYMENT_SCHEMES = [
@@ -141,14 +142,14 @@ class UnifiedProfileService extends BaseDocumentService<User> {
   // ==================== Avatar URL Helpers ====================
 
   /**
-   * Generate DiceBear avatar URL from config
+   * Generate DiceBear avatar data URI from config (local generation)
    */
   getAvatarUrlFromConfig(config: AvatarConfig): string {
     if (!config.seed) {
       console.warn('UnifiedProfileService: getAvatarUrlFromConfig called with empty seed');
       return '';
     }
-    return `https://api.dicebear.com/7.x/${config.style}/svg?seed=${encodeURIComponent(config.seed)}`;
+    return generateAvatarDataUri(config.style, config.seed);
   }
 
   /**
