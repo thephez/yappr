@@ -293,6 +293,20 @@ function UserProfileContent() {
     loadProfileData()
   }, [userId, enrichProgressively])
 
+  // Handle tip URL parameter for deep linking
+  useEffect(() => {
+    if (!profile?.paymentUris || profile.paymentUris.length === 0) return
+
+    const tipUri = searchParams.get('tip')
+    if (!tipUri) return
+
+    // Find matching payment URI
+    const matchingPayment = profile.paymentUris.find(p => p.uri === tipUri)
+    if (matchingPayment) {
+      setSelectedQrPayment(matchingPayment)
+    }
+  }, [profile?.paymentUris, searchParams])
+
   const handleFollow = async () => {
     const authedUser = requireAuth('follow')
     if (!authedUser) return
@@ -760,7 +774,13 @@ function UserProfileContent() {
                         {profile.paymentUris.map((payment, index) => (
                           <button
                             key={index}
-                            onClick={() => setSelectedQrPayment(payment)}
+                            onClick={() => {
+                              setSelectedQrPayment(payment)
+                              // Update URL with tip param for deep linking
+                              const url = new URL(window.location.href)
+                              url.searchParams.set('tip', payment.uri)
+                              window.history.replaceState({}, '', url.toString())
+                            }}
                             className="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
                           >
                             <PaymentSchemeIcon scheme={payment.scheme} />
@@ -893,8 +913,15 @@ function UserProfileContent() {
       {/* Payment QR Code Dialog */}
       <PaymentQRCodeDialog
         isOpen={!!selectedQrPayment}
-        onClose={() => setSelectedQrPayment(null)}
+        onClose={() => {
+          setSelectedQrPayment(null)
+          // Remove tip param from URL
+          const url = new URL(window.location.href)
+          url.searchParams.delete('tip')
+          window.history.replaceState({}, '', url.toString())
+        }}
         paymentUri={selectedQrPayment}
+        recipientName={username || displayName}
       />
     </div>
   )

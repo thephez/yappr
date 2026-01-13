@@ -10,10 +10,13 @@ interface PaymentQRCodeDialogProps {
   isOpen: boolean
   onClose: () => void
   paymentUri: ParsedPaymentUri | null
+  recipientName?: string
 }
 
-export function PaymentQRCodeDialog({ isOpen, onClose, paymentUri }: PaymentQRCodeDialogProps) {
+export function PaymentQRCodeDialog({ isOpen, onClose, paymentUri, recipientName }: PaymentQRCodeDialogProps) {
   if (!paymentUri) return null
+
+  const displayName = recipientName || 'this user'
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={onClose}>
@@ -37,11 +40,11 @@ export function PaymentQRCodeDialog({ isOpen, onClose, paymentUri }: PaymentQRCo
                   >
                     <Dialog.Title className="text-xl font-bold mb-4 flex items-center gap-2">
                       <QrCodeIcon className="h-6 w-6 text-amber-500" />
-                      Payment QR Code
+                      Send {displayName} a tip
                     </Dialog.Title>
 
                     <Dialog.Description className="sr-only">
-                      Scan QR code to send payment
+                      Scan QR code to send a tip to {displayName}
                     </Dialog.Description>
 
                     <button
