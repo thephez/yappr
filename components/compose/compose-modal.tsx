@@ -234,30 +234,26 @@ function ThreadPostEditor({
     let newCursorPos: number
 
     if (shouldRemove) {
-      // Remove the formatting
+      // Remove the formatting - select the full formatted region first
       const innerText = content.substring(removeStart + prefix.length, removeEnd - suffix.length)
-      textarea.setRangeText(innerText, removeStart, removeEnd, 'end')
+      textarea.setSelectionRange(removeStart, removeEnd)
+      // Use execCommand to insert text (preserves undo stack)
+      document.execCommand('insertText', false, innerText)
       newCursorPos = removeStart + innerText.length
       insertText = innerText
     } else {
       // Add the formatting
       insertText = prefix + selectedText + suffix
-      textarea.setRangeText(insertText, start, end, 'end')
+      // Selection is already set from start to end
+      textarea.setSelectionRange(start, end)
+      // Use execCommand to insert text (preserves undo stack)
+      document.execCommand('insertText', false, insertText)
       newCursorPos = selectedText
         ? start + insertText.length // After the inserted text if there was a selection
         : start + prefix.length // Between prefix and suffix if no selection
     }
 
-    // Dispatch input event so React can sync the state
-    const inputEvent = new InputEvent('input', {
-      bubbles: true,
-      cancelable: true,
-      inputType: 'insertText',
-      data: insertText,
-    })
-    textarea.dispatchEvent(inputEvent)
-
-    // Update React state to match
+    // Update React state to match the new textarea value
     onContentChange(textarea.value)
 
     // Position cursor
