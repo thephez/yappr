@@ -206,3 +206,23 @@ export interface BlockFollowData {
   $revision?: number
   followedUserIds: string[] // Decoded list of user IDs being followed
 }
+
+// Feed item that shows an original post with context that a followed user replied to it
+export interface FeedReplyContext {
+  type: 'reply_context'
+  originalPost: Post
+  reply: Post
+  replier: {
+    id: string
+    username?: string
+    displayName?: string
+  }
+}
+
+// Union type for all items that can appear in a feed
+export type FeedItem = Post | FeedReplyContext
+
+// Type guard to check if a feed item is a reply context
+export function isFeedReplyContext(item: FeedItem): item is FeedReplyContext {
+  return 'type' in item && item.type === 'reply_context'
+}
