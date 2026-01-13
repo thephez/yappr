@@ -13,6 +13,7 @@ import {
   PencilIcon,
   ArrowPathIcon,
   CurrencyDollarIcon,
+  QrCodeIcon,
 } from '@heroicons/react/24/outline'
 import { PaymentUriInput } from '@/components/profile/payment-uri-input'
 import { SocialLinksInput } from '@/components/profile/social-links-input'
@@ -30,6 +31,7 @@ import * as Tooltip from '@radix-ui/react-tooltip'
 import type { Post, ParsedPaymentUri, SocialLink } from '@/lib/types'
 import type { MigrationStatus } from '@/lib/services/profile-migration-service'
 import { PaymentSchemeIcon, getPaymentLabel, truncateAddress } from '@/components/ui/payment-icons'
+import { PaymentQRCodeDialog } from '@/components/ui/payment-qr-dialog'
 import { useBlock } from '@/hooks/use-block'
 import { useProgressiveEnrichment } from '@/hooks/use-progressive-enrichment'
 
@@ -79,6 +81,9 @@ function UserProfileContent() {
   const [editPaymentUris, setEditPaymentUris] = useState<string[]>([])
   const [editSocialLinks, setEditSocialLinks] = useState<SocialLink[]>([])
   const [isSaving, setIsSaving] = useState(false)
+
+  // QR code dialog state for tip addresses
+  const [selectedQrPayment, setSelectedQrPayment] = useState<ParsedPaymentUri | null>(null)
 
   // Block state - only check if viewing another user's profile
   const { isBlocked: isBlockedByMe, isLoading: blockLoading, toggleBlock } = useBlock(userId || '')
@@ -287,6 +292,20 @@ function UserProfileContent() {
 
     loadProfileData()
   }, [userId, enrichProgressively])
+
+  // Handle tip URL parameter for deep linking
+  useEffect(() => {
+    if (!profile?.paymentUris || profile.paymentUris.length === 0) return
+
+    const tipUri = searchParams.get('tip')
+    if (!tipUri) return
+
+    // Find matching payment URI
+    const matchingPayment = profile.paymentUris.find(p => p.uri === tipUri)
+    if (matchingPayment) {
+      setSelectedQrPayment(matchingPayment)
+    }
+  }, [profile?.paymentUris, searchParams])
 
   const handleFollow = async () => {
     const authedUser = requireAuth('follow')
@@ -756,8 +775,11 @@ function UserProfileContent() {
                           <button
                             key={index}
                             onClick={() => {
-                              navigator.clipboard.writeText(payment.uri)
-                              toast.success('Address copied!')
+                              setSelectedQrPayment(payment)
+                              // Update URL with tip param for deep linking
+                              const url = new URL(window.location.href)
+                              url.searchParams.set('tip', payment.uri)
+                              window.history.replaceState({}, '', url.toString())
                             }}
                             className="w-full flex items-center gap-2 p-2 bg-gray-50 dark:bg-gray-900 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-800 transition-colors text-left"
                           >
@@ -768,6 +790,7 @@ function UserProfileContent() {
                                 {truncateAddress(payment.uri, 24)}
                               </p>
                             </div>
+                            <QrCodeIcon className="w-4 h-4 text-gray-400" />
                           </button>
                         ))}
                       </div>
@@ -886,6 +909,20 @@ function UserProfileContent() {
           </div>
         </div>
       )}
+
+      {/* Payment QR Code Dialog */}
+      <PaymentQRCodeDialog
+        isOpen={!!selectedQrPayment}
+        onClose={() => {
+          setSelectedQrPayment(null)
+          // Remove tip param from URL
+          const url = new URL(window.location.href)
+          url.searchParams.delete('tip')
+          window.history.replaceState({}, '', url.toString())
+        }}
+        paymentUri={selectedQrPayment}
+        recipientName={username || displayName}
+      />
     </div>
   )
 }
