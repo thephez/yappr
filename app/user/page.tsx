@@ -72,6 +72,8 @@ function UserProfileContent() {
   const [hasMore, setHasMore] = useState(true)
   const [isLoadingMore, setIsLoadingMore] = useState(false)
   const [lastPostId, setLastPostId] = useState<string | null>(null)
+  const [lastRepostId, setLastRepostId] = useState<string | null>(null)
+  const [hasMoreReposts, setHasMoreReposts] = useState(true)
 
   // Edit profile state
   const [isEditingProfile, setIsEditingProfile] = useState(false)
@@ -195,7 +197,14 @@ function UserProfileContent() {
         // Fetch user's reposts and merge with their posts
         try {
           const { repostService } = await import('@/lib/services/repost-service')
-          const userReposts = await repostService.getUserReposts(userId)
+          const userReposts = await repostService.getUserReposts(userId, { limit: 50 })
+
+          // Track repost pagination
+          if (userReposts.length > 0) {
+            const lastRepost = userReposts[userReposts.length - 1]
+            setLastRepostId(lastRepost.$id)
+          }
+          setHasMoreReposts(userReposts.length >= 50)
 
           if (userReposts.length > 0) {
             // Get unique post IDs that this user has reposted
@@ -323,50 +332,99 @@ function UserProfileContent() {
   }, [profile?.paymentUris, searchParams])
 
   const loadMorePosts = useCallback(async () => {
-    if (!userId || isLoadingMore || !hasMore || !lastPostId) return
+    // Check if there's more content to load (either posts or reposts)
+    const canLoadMorePosts = hasMore && lastPostId
+    const canLoadMoreReposts = hasMoreReposts && lastRepostId
+    if (!userId || isLoadingMore || (!canLoadMorePosts && !canLoadMoreReposts)) return
 
     setIsLoadingMore(true)
     try {
       const { postService } = await import('@/lib/services')
+      const { repostService } = await import('@/lib/services/repost-service')
+
+      const newPosts: Post[] = []
+      let newPostDocs: any[] = []
+      let newRepostDocs: any[] = []
 
       // Fetch more posts using cursor-based pagination
-      const postsResult = await postService.getUserPosts(userId, {
-        limit: 50,
-        startAfter: lastPostId
-      })
+      if (canLoadMorePosts) {
+        const postsResult = await postService.getUserPosts(userId, {
+          limit: 50,
+          startAfter: lastPostId
+        })
 
-      const postDocs = postsResult.documents || []
+        newPostDocs = postsResult.documents || []
 
-      if (postDocs.length === 0) {
-        setHasMore(false)
-        return
+        // Transform new posts
+        for (const doc of newPostDocs) {
+          const authorIdStr = doc.$ownerId || doc.ownerId || userId
+          newPosts.push({
+            id: doc.$id || doc.id,
+            content: doc.content || '',
+            author: {
+              id: authorIdStr,
+              username: username || `user_${authorIdStr.slice(-6)}`,
+              displayName: profile?.displayName || `User ${authorIdStr.slice(-6)}`,
+              avatar: '',
+              verified: false,
+              followers: 0,
+              following: 0,
+              joinedAt: new Date(),
+              hasDpns: hasDpns,
+            } as any,
+            createdAt: new Date(doc.$createdAt || doc.createdAt || Date.now()),
+            likes: 0,
+            reposts: 0,
+            replies: 0,
+            views: 0,
+            quotedPostId: doc.quotedPostId || undefined,
+          })
+        }
       }
 
-      // Transform new posts
-      const newPosts: Post[] = postDocs.map((doc: any) => {
-        const authorIdStr = doc.$ownerId || doc.ownerId || userId
-        return {
-          id: doc.$id || doc.id,
-          content: doc.content || '',
-          author: {
-            id: authorIdStr,
-            username: username || `user_${authorIdStr.slice(-6)}`,
-            displayName: profile?.displayName || `User ${authorIdStr.slice(-6)}`,
-            avatar: '',
-            verified: false,
-            followers: 0,
-            following: 0,
-            joinedAt: new Date(),
-            hasDpns: hasDpns,
-          } as any,
-          createdAt: new Date(doc.$createdAt || doc.createdAt || Date.now()),
-          likes: 0,
-          reposts: 0,
-          replies: 0,
-          views: 0,
-          quotedPostId: doc.quotedPostId || undefined,
+      // Fetch more reposts using cursor-based pagination
+      if (canLoadMoreReposts) {
+        try {
+          newRepostDocs = await repostService.getUserReposts(userId, {
+            limit: 50,
+            startAfter: lastRepostId
+          })
+
+          if (newRepostDocs.length > 0) {
+            // Get unique post IDs that this user has reposted
+            const repostedPostIds = newRepostDocs.map(r => r.postId).filter((id: string) => id)
+            const repostedPosts = await postService.getPostsByIds(repostedPostIds)
+
+            // Try to resolve DPNS username for reposter display
+            let reposterUsername: string | undefined
+            try {
+              const { dpnsService } = await import('@/lib/services/dpns-service')
+              reposterUsername = await dpnsService.resolveUsername(userId) || undefined
+            } catch (e) {
+              // DPNS resolution is optional
+            }
+
+            // Create repost entries with repostedBy info
+            for (const repost of newRepostDocs) {
+              const originalPost = repostedPosts.find(p => p.id === repost.postId)
+              if (originalPost && originalPost.author.id !== userId) {
+                newPosts.push({
+                  ...originalPost,
+                  repostedBy: {
+                    id: userId,
+                    displayName: profile?.displayName || `User ${userId.slice(-6)}`,
+                    username: reposterUsername
+                  },
+                  repostTimestamp: new Date(repost.$createdAt)
+                })
+              }
+            }
+          }
+        } catch (repostError) {
+          console.error('Failed to fetch more reposts:', repostError)
+          // Continue without reposts - non-critical
         }
-      })
+      }
 
       // Fetch quoted posts for quote posts
       try {
@@ -403,20 +461,29 @@ function UserProfileContent() {
       })
 
       // Start progressive enrichment for new posts
-      enrichProgressively(newPosts)
+      if (newPosts.length > 0) {
+        enrichProgressively(newPosts)
+      }
 
-      // Update pagination state
-      if (postDocs.length > 0) {
-        const lastPost = postDocs[postDocs.length - 1] as any
+      // Update pagination state for posts
+      if (newPostDocs.length > 0) {
+        const lastPost = newPostDocs[newPostDocs.length - 1] as any
         setLastPostId(lastPost.$id || lastPost.id)
       }
-      setHasMore(postDocs.length >= 50)
+      setHasMore(newPostDocs.length >= 50)
+
+      // Update pagination state for reposts
+      if (newRepostDocs.length > 0) {
+        const lastRepost = newRepostDocs[newRepostDocs.length - 1] as any
+        setLastRepostId(lastRepost.$id)
+      }
+      setHasMoreReposts(newRepostDocs.length >= 50)
     } catch (error) {
       console.error('Failed to load more posts:', error)
     } finally {
       setIsLoadingMore(false)
     }
-  }, [userId, isLoadingMore, hasMore, lastPostId, username, profile?.displayName, hasDpns, enrichProgressively])
+  }, [userId, isLoadingMore, hasMore, hasMoreReposts, lastPostId, lastRepostId, username, profile?.displayName, hasDpns, enrichProgressively])
 
   const handleFollow = async () => {
     const authedUser = requireAuth('follow')
@@ -980,7 +1047,7 @@ function UserProfileContent() {
                   ))}
 
                   {/* Load More button */}
-                  {hasMore && (
+                  {(hasMore || hasMoreReposts) && (
                     <div className="p-4 flex justify-center border-t border-gray-200 dark:border-gray-800">
                       <Button
                         variant="outline"
