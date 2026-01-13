@@ -49,6 +49,7 @@ export function PaymentQRCodeDialog({ isOpen, onClose, paymentUri, recipientName
 
                     <button
                       onClick={onClose}
+                      aria-label="Close"
                       className="absolute top-4 right-4 p-2 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-full transition-colors"
                     >
                       <XMarkIcon className="h-5 w-5" />
