@@ -437,6 +437,7 @@ export function ComposeModal() {
       index: number
       postId: string
       content: string
+      threadPostId: string // The original threadPost.id from the store
     }
     const successfulPosts: SuccessfulPost[] = []
     let failedAtIndex: number | null = null
@@ -446,13 +447,15 @@ export function ComposeModal() {
       const { getDashPlatformClient } = await import('@/lib/dash-platform-client')
       const { retryPostCreation } = await import('@/lib/retry-utils')
 
-      // Filter to only posts with content
-      const postsToCreate = threadPosts.filter((p) => p.content.trim().length > 0)
+      // Filter to only posts with content, preserving their IDs
+      const postsToCreate = threadPosts
+        .filter((p) => p.content.trim().length > 0)
+        .map((p) => ({ threadPostId: p.id, content: p.content.trim() }))
 
       let previousPostId: string | null = replyingTo?.id || null
 
       for (let i = 0; i < postsToCreate.length; i++) {
-        const postContent = postsToCreate[i].content.trim()
+        const { threadPostId, content: postContent } = postsToCreate[i]
 
         console.log(`Creating post ${i + 1}/${postsToCreate.length}...`)
 
@@ -474,8 +477,8 @@ export function ComposeModal() {
             result.data?.id
 
           if (postId) {
-            // Track successful post
-            successfulPosts.push({ index: i, postId, content: postContent })
+            // Track successful post with its original threadPost ID
+            successfulPosts.push({ index: i, postId, content: postContent, threadPostId })
 
             // Update previousPostId for thread chaining
             previousPostId = postId
@@ -574,18 +577,22 @@ export function ComposeModal() {
           )
 
           // Keep modal open so user can retry failed posts
-          // Remove successful posts from the thread
-          const successfulIds = new Set(successfulPosts.map(p => postsToCreate[p.index].content))
-          const remainingPosts = threadPosts.filter(p => !successfulIds.has(p.content.trim()))
+          // Remove successful posts from the thread by their unique IDs
+          const successfulThreadPostIds = new Set(successfulPosts.map(p => p.threadPostId))
+
+          // Remove each successful post from the store
+          successfulThreadPostIds.forEach(threadPostId => {
+            removeThreadPost(threadPostId)
+          })
+
+          // Get the updated remaining posts and set the first one as active
+          // Note: After removing posts, threadPosts will be updated by the store
+          // We need to find remaining posts that weren't successfully created
+          const remainingPosts = threadPosts.filter(p => !successfulThreadPostIds.has(p.id))
 
           if (remainingPosts.length > 0) {
-            // Update thread to only show failed posts for retry
-            remainingPosts.forEach((post, idx) => {
-              if (idx === 0) {
-                updateThreadPost(post.id, post.content)
-                setActiveThreadPost(post.id)
-              }
-            })
+            // Set the first remaining post as active for retry
+            setActiveThreadPost(remainingPosts[0].id)
           }
         } else {
           // Complete failure on first post
