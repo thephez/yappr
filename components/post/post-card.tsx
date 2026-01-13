@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
@@ -18,9 +18,8 @@ import {
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid'
 import { Post } from '@/lib/types'
 import { formatTime, formatNumber } from '@/lib/utils'
-import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { IconButton } from '@/components/ui/icon-button'
-import { getInitials, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
 import { useAppStore } from '@/lib/store'
 import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
@@ -36,6 +35,44 @@ import { useFollow } from '@/hooks/use-follow'
 import { useHashtagValidation } from '@/hooks/use-hashtag-validation'
 import { useHashtagRecoveryModal } from '@/hooks/use-hashtag-recovery-modal'
 import { tipService } from '@/lib/services/tip-service'
+
+// Username loading state: undefined = loading, null = no DPNS, string = username
+type UsernameState = string | null | undefined
+
+/**
+ * Resolves username display state from progressive enrichment and post data.
+ * Priority: progressive enrichment > post.author.hasDpns flag
+ */
+function resolveUsernameState(
+  progressiveUsername: UsernameState,
+  postAuthor: Post['author'] & { hasDpns?: boolean }
+): UsernameState {
+  // Progressive enrichment takes priority when defined
+  if (progressiveUsername !== undefined) {
+    return progressiveUsername
+  }
+
+  // Fall back to hasDpns flag on author
+  if (postAuthor.hasDpns === undefined) {
+    return undefined // Still loading
+  }
+
+  if (postAuthor.hasDpns) {
+    return postAuthor.username // Has DPNS
+  }
+
+  return null // No DPNS
+}
+
+/**
+ * Checks if a display name represents a real profile (not a placeholder).
+ */
+function hasRealProfile(displayName: string | undefined): boolean {
+  if (!displayName) return false
+  if (displayName === 'Unknown User') return false
+  if (displayName.startsWith('User ')) return false
+  return true
+}
 
 // Enrichment data from progressive loading
 export interface ProgressiveEnrichment {
@@ -72,23 +109,14 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   const displayName = progressiveEnrichment?.displayName ?? post.author.displayName
   const avatarUrl = progressiveEnrichment?.avatarUrl ?? legacyEnrichment?.authorAvatarUrl ?? post.author.avatar
 
-  // Username state: undefined = loading, null = no DPNS, string = has DPNS
-  // Check progressive enrichment first, then fall back to hasDpns on author
-  const usernameState = progressiveEnrichment?.username !== undefined
-    ? progressiveEnrichment.username
-    : (post.author as any).hasDpns === undefined
-      ? undefined  // Still loading
-      : (post.author as any).hasDpns
-        ? post.author.username  // Has DPNS
-        : null  // No DPNS
-
-  // Check if user has a profile (display name from profile, not a fallback)
-  // A profile exists if displayName is set and is not a placeholder like "Unknown User" or "User abc123"
-  const hasProfile = !!(
-    displayName &&
-    displayName !== 'Unknown User' &&
-    !displayName.startsWith('User ')
+  // Resolve username state using helper (replaces nested ternary)
+  const usernameState = resolveUsernameState(
+    progressiveEnrichment?.username,
+    post.author as Post['author'] & { hasDpns?: boolean }
   )
+
+  // Check if user has a real profile (not a placeholder)
+  const hasProfile = hasRealProfile(displayName)
 
   // Stats: use progressive enrichment > post data
   const statsLikes = progressiveEnrichment?.stats?.likes ?? post.likes
@@ -101,48 +129,115 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   const initialBookmarked = progressiveEnrichment?.interactions?.bookmarked ?? post.bookmarked ?? false
 
   // ReplyTo: use post.replyTo if available, otherwise build from progressive enrichment
-  const replyTo = post.replyTo ?? (progressiveEnrichment?.replyTo ? {
-    id: progressiveEnrichment.replyTo.id,
-    author: {
-      id: progressiveEnrichment.replyTo.authorId,
-      username: progressiveEnrichment.replyTo.authorUsername || '',
-      displayName: progressiveEnrichment.replyTo.authorUsername || 'Unknown User',
-      avatar: '',
-      followers: 0,
-      following: 0,
-      verified: false,
-      joinedAt: new Date()
-    },
-    content: '',
-    createdAt: new Date(),
-    likes: 0,
-    reposts: 0,
-    replies: 0,
-    views: 0
-  } : undefined)
+  const replyTo = useMemo(() => {
+    if (post.replyTo) return post.replyTo
+    if (!progressiveEnrichment?.replyTo) return undefined
 
-  // Helper to get display text for replyTo author
+    const { id, authorId, authorUsername } = progressiveEnrichment.replyTo
+    return {
+      id,
+      author: {
+        id: authorId,
+        username: authorUsername || '',
+        displayName: authorUsername || 'Unknown User',
+        avatar: '',
+        followers: 0,
+        following: 0,
+        verified: false,
+        joinedAt: new Date()
+      },
+      content: '',
+      createdAt: new Date(),
+      likes: 0,
+      reposts: 0,
+      replies: 0,
+      views: 0
+    }
+  }, [post.replyTo, progressiveEnrichment?.replyTo])
+
+  // Get display text for replyTo author
   // Priority: DPNS username > Profile display name > Truncated identity ID
-  const getReplyToAuthorDisplay = () => {
+  const replyToDisplay = useMemo(() => {
     if (!replyTo) return { text: '', showAt: false }
-    const author = replyTo.author
-    const username = author.username
-    const displayName = author.displayName
+    const { username, displayName: replyDisplayName, id } = replyTo.author
 
-    // Check for DPNS (non-empty username that's not a placeholder)
+    // Has DPNS username (non-placeholder)
     if (username && !username.startsWith('user_')) {
       return { text: username, showAt: true }
     }
 
-    // Check for profile display name (not a placeholder)
-    if (displayName && displayName !== 'Unknown User' && !displayName.startsWith('User ')) {
-      return { text: displayName, showAt: false }
+    // Has real profile display name
+    if (hasRealProfile(replyDisplayName)) {
+      return { text: replyDisplayName, showAt: false }
     }
 
     // Fallback to truncated identity ID
-    return { text: `${author.id.slice(0, 8)}...${author.id.slice(-6)}`, showAt: false }
-  }
-  const replyToDisplay = getReplyToAuthorDisplay()
+    return { text: `${id.slice(0, 8)}...${id.slice(-6)}`, showAt: false }
+  }, [replyTo])
+
+  // Memoize enriched post for use in compose/tip modals
+  const enrichedPost = useMemo(() => ({
+    ...post,
+    author: {
+      ...post.author,
+      username: usernameState || post.author.username,
+      displayName: displayName || post.author.displayName
+    }
+  }), [post, usernameState, displayName])
+
+  // Render username/identity display based on state
+  const renderUsernameOrIdentity = useCallback(() => {
+    // Has DPNS username
+    if (usernameState) {
+      return (
+        <Link
+          href={`/user?id=${post.author.id}`}
+          onClick={(e) => e.stopPropagation()}
+          className="text-gray-500 hover:underline truncate"
+        >
+          @{usernameState}
+        </Link>
+      )
+    }
+
+    // Still loading
+    if (usernameState === undefined) {
+      return <span className="inline-block w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+    }
+
+    // No DPNS and no profile - show identity ID with copy tooltip
+    if (!hasProfile) {
+      return (
+        <Tooltip.Provider>
+          <Tooltip.Root>
+            <Tooltip.Trigger asChild>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  navigator.clipboard.writeText(post.author.id)
+                  toast.success('Identity ID copied')
+                }}
+                className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 truncate font-mono text-xs"
+              >
+                {post.author.id.slice(0, 8)}...{post.author.id.slice(-6)}
+              </button>
+            </Tooltip.Trigger>
+            <Tooltip.Portal>
+              <Tooltip.Content
+                className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded max-w-xs"
+                sideOffset={5}
+              >
+                Click to copy full identity ID
+              </Tooltip.Content>
+            </Tooltip.Portal>
+          </Tooltip.Root>
+        </Tooltip.Provider>
+      )
+    }
+
+    // Has profile but no DPNS - display name is sufficient
+    return null
+  }, [usernameState, hasProfile, post.author.id])
 
   const [liked, setLiked] = useState(initialLiked)
   const [likes, setLikes] = useState(statsLikes)
@@ -168,25 +263,14 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     initialValue: progressiveEnrichment?.isFollowing ?? legacyEnrichment?.authorIsFollowing
   })
 
-  // Sync local state with prop changes (progressive enrichment or post data changes)
+  // Sync local state with prop changes (reuses computed initial values)
   useEffect(() => {
-    setLiked(progressiveEnrichment?.interactions?.liked ?? post.liked ?? false)
-    setLikes(progressiveEnrichment?.stats?.likes ?? post.likes)
-    setReposted(progressiveEnrichment?.interactions?.reposted ?? post.reposted ?? false)
-    setReposts(progressiveEnrichment?.stats?.reposts ?? post.reposts)
-    setBookmarked(progressiveEnrichment?.interactions?.bookmarked ?? post.bookmarked ?? false)
-  }, [
-    progressiveEnrichment?.interactions?.liked,
-    progressiveEnrichment?.interactions?.reposted,
-    progressiveEnrichment?.interactions?.bookmarked,
-    progressiveEnrichment?.stats?.likes,
-    progressiveEnrichment?.stats?.reposts,
-    post.liked,
-    post.likes,
-    post.reposted,
-    post.reposts,
-    post.bookmarked
-  ])
+    setLiked(initialLiked)
+    setLikes(statsLikes)
+    setReposted(initialReposted)
+    setReposts(statsReposts)
+    setBookmarked(initialBookmarked)
+  }, [initialLiked, statsLikes, initialReposted, statsReposts, initialBookmarked])
 
   // Listen for hashtag registration events to revalidate
   useEffect(() => {
@@ -279,15 +363,6 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
 
   const handleQuote = () => {
     if (!requireAuth('quote')) return
-    // Merge enriched author data into the post so compose modal shows correct username
-    const enrichedPost = {
-      ...post,
-      author: {
-        ...post.author,
-        username: usernameState || post.author.username,
-        displayName: displayName || post.author.displayName
-      }
-    }
     setQuotingPost(enrichedPost)
     setComposeOpen(true)
   }
@@ -324,15 +399,6 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
 
   const handleReply = () => {
     if (!requireAuth('reply')) return
-    // Merge enriched author data into the post so compose modal shows correct username
-    const enrichedPost = {
-      ...post,
-      author: {
-        ...post.author,
-        username: usernameState || post.author.username,
-        displayName: displayName || post.author.displayName
-      }
-    }
     setReplyingTo(enrichedPost)
     setComposeOpen(true)
   }
@@ -345,15 +411,6 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
 
   const handleTip = () => {
     if (!requireAuth('tip')) return
-    // Merge enriched author data into the post so tip modal shows correct username
-    const enrichedPost = {
-      ...post,
-      author: {
-        ...post.author,
-        username: usernameState || post.author.username,
-        displayName: displayName || post.author.displayName
-      }
-    }
     openTipModal(enrichedPost)
   }
 
@@ -420,45 +477,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
                       <path d="M22.5 12.5c0-1.58-.875-2.95-2.148-3.6.154-.435.238-.905.238-1.4 0-2.21-1.71-3.998-3.818-3.998-.47 0-.92.084-1.336.25C14.818 2.415 13.51 1.5 12 1.5s-2.816.917-3.437 2.25c-.415-.165-.866-.25-1.336-.25-2.11 0-3.818 1.79-3.818 4 0 .494.083.964.237 1.4-1.272.65-2.147 2.018-2.147 3.6 0 1.495.782 2.798 1.942 3.486-.02.17-.032.34-.032.514 0 2.21 1.708 4 3.818 4 .47 0 .92-.086 1.335-.25.62 1.334 1.926 2.25 3.437 2.25 1.512 0 2.818-.916 3.437-2.25.415.163.865.248 1.336.248 2.11 0 3.818-1.79 3.818-4 0-.174-.012-.344-.033-.513 1.158-.687 1.943-1.99 1.943-3.484zm-6.616-3.334l-4.334 6.5c-.145.217-.382.334-.625.334-.143 0-.288-.04-.416-.126l-.115-.094-2.415-2.415c-.293-.293-.293-.768 0-1.06s.768-.294 1.06 0l1.77 1.767 3.825-5.74c.23-.345.696-.436 1.04-.207.346.23.44.696.21 1.04z" />
                     </svg>
                   )}
-                  {usernameState ? (
-                    // Has DPNS username
-                    <Link
-                      href={`/user?id=${post.author.id}`}
-                      onClick={(e) => e.stopPropagation()}
-                      className="text-gray-500 hover:underline truncate"
-                    >
-                      @{usernameState}
-                    </Link>
-                  ) : usernameState === undefined || (displayName === 'Unknown User' || displayName?.startsWith('User ')) ? (
-                    // Still loading DPNS OR profile data - show skeleton
-                    <span className="inline-block w-20 h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
-                  ) : !hasProfile ? (
-                    // No DPNS and no profile after enrichment - show identity ID
-                    <Tooltip.Provider>
-                      <Tooltip.Root>
-                        <Tooltip.Trigger asChild>
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation()
-                              navigator.clipboard.writeText(post.author.id)
-                              toast.success('Identity ID copied')
-                            }}
-                            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 truncate font-mono text-xs"
-                          >
-                            {post.author.id.slice(0, 8)}...{post.author.id.slice(-6)}
-                          </button>
-                        </Tooltip.Trigger>
-                        <Tooltip.Portal>
-                          <Tooltip.Content
-                            className="bg-gray-800 dark:bg-gray-700 text-white text-xs px-2 py-1 rounded max-w-xs"
-                            sideOffset={5}
-                          >
-                            Click to copy full identity ID
-                          </Tooltip.Content>
-                        </Tooltip.Portal>
-                      </Tooltip.Root>
-                    </Tooltip.Provider>
-                  ) : null /* Has profile but no DPNS - display name is sufficient */}
+                  {renderUsernameOrIdentity()}
                 </>
               )}
             </div>
