@@ -32,7 +32,6 @@ export function createDefaultUser(userId: string, overrides?: Partial<User>): Us
     following: 0,
     verified: false,
     joinedAt: new Date(),
-    hasDpns: false,
     ...overrides,
   };
 }

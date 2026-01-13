@@ -342,7 +342,7 @@ export function transformDocumentWithField<T extends BaseDocumentFields>(
     $ownerId: doc.$ownerId || doc.ownerId,
     $createdAt: doc.$createdAt || doc.createdAt,
     [fieldName]: convertedValue || '',
-  } as T;
+  } as unknown as T;
 }
 
 /**
