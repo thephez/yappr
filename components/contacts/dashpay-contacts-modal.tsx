@@ -8,12 +8,14 @@ import { Button } from '@/components/ui/button'
 import { LoadingState } from '@/components/ui/loading-state'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { dashPayContactsService, DashPayContact } from '@/lib/services/dashpay-contacts-service'
 import { followService } from '@/lib/services/follow-service'
 import toast from 'react-hot-toast'
 
 export function DashPayContactsModal() {
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const {
     isOpen,
     state,
@@ -51,11 +53,12 @@ export function DashPayContactsModal() {
   }, [isOpen, user, loadContacts])
 
   const handleFollowOne = async (contact: DashPayContact) => {
-    if (!user) return
+    const authedUser = requireAuth('follow')
+    if (!authedUser) return
     setFollowing(contact.identityId)
 
     try {
-      const result = await followService.followUser(user.identityId, contact.identityId)
+      const result = await followService.followUser(authedUser.identityId, contact.identityId)
       if (result.success) {
         setFollowComplete(contact.identityId)
         const displayName = contact.username || contact.displayName || 'user'
@@ -72,7 +75,8 @@ export function DashPayContactsModal() {
   }
 
   const handleFollowAll = async () => {
-    if (!user || contacts.length === 0) return
+    const authedUser = requireAuth('follow')
+    if (!authedUser || contacts.length === 0) return
     setFollowAll()
 
     let successCount = 0
@@ -81,7 +85,7 @@ export function DashPayContactsModal() {
     for (const contact of contactsCopy) {
       try {
         setFollowing(contact.identityId)
-        const result = await followService.followUser(user.identityId, contact.identityId)
+        const result = await followService.followUser(authedUser.identityId, contact.identityId)
         if (result.success) {
           successCount++
           setFollowComplete(contact.identityId)

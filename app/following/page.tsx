@@ -7,6 +7,7 @@ import { MagnifyingGlassIcon, XMarkIcon, InformationCircleIcon, ArrowPathIcon, A
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { withAuth, useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { LoadingState, useAsyncState } from '@/components/ui/loading-state'
 import ErrorBoundary from '@/components/error-boundary'
 import { followService, dpnsService, unifiedProfileService } from '@/lib/services'
@@ -54,6 +55,7 @@ function FollowingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const followingState = useAsyncState<FollowingUser[]>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [searchResults, setSearchResults] = useState<FollowingUser[]>([])
@@ -226,7 +228,8 @@ function FollowingPage() {
   }, [loadFollowing, user, targetUserId])
 
   const handleUnfollow = async (userId: string) => {
-    if (!user?.identityId) return
+    const authedUser = requireAuth('follow')
+    if (!authedUser) return
 
     // Add to in-progress set for UI feedback
     setFollowingInProgress(prev => new Set(prev).add(userId))
@@ -234,7 +237,7 @@ function FollowingPage() {
     try {
       console.log('Unfollowing user:', userId)
 
-      const result = await followService.unfollowUser(user.identityId, userId)
+      const result = await followService.unfollowUser(authedUser.identityId, userId)
 
       if (result.success) {
         // Update local state to remove from following list
@@ -246,7 +249,7 @@ function FollowingPage() {
           prev.map(u => u.id === userId ? { ...u, isFollowing: false } : u)
         )
         // Invalidate cache
-        cacheManager.delete('following', `following_${user.identityId}`)
+        cacheManager.delete('following', `following_${authedUser.identityId}`)
         toast.success('Unfollowed')
       } else {
         console.error('Failed to unfollow user:', result.error)
@@ -265,16 +268,17 @@ function FollowingPage() {
   }
 
   const handleFollow = async (userId: string) => {
-    if (!user?.identityId) return
+    const authedUser = requireAuth('follow')
+    if (!authedUser) return
 
     // Add to in-progress set
     setFollowingInProgress(prev => new Set(prev).add(userId))
 
     try {
       console.log('Following user:', userId)
-      
+
       // Create follow document
-      const result = await followService.followUser(user.identityId, userId)
+      const result = await followService.followUser(authedUser.identityId, userId)
       
       if (result.success) {
         // Update the search results to reflect the new follow status

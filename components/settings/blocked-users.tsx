@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { Button } from '@/components/ui/button'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { NoSymbolIcon } from '@heroicons/react/24/outline'
@@ -17,6 +18,7 @@ interface BlockedUser {
 
 export function BlockedUsersSettings() {
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
   const [blockedUsers, setBlockedUsers] = useState<BlockedUser[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [unblockingId, setUnblockingId] = useState<string | null>(null)
@@ -93,13 +95,14 @@ export function BlockedUsersSettings() {
   }, [loadBlockedUsers])
 
   const handleUnblock = async (blockedUserId: string) => {
-    if (!user?.identityId || unblockingId) return
+    const authedUser = requireAuth('block')
+    if (!authedUser || unblockingId) return
 
     setUnblockingId(blockedUserId)
 
     try {
       const { blockService } = await import('@/lib/services/block-service')
-      const result = await blockService.unblockUser(user.identityId, blockedUserId)
+      const result = await blockService.unblockUser(authedUser.identityId, blockedUserId)
 
       if (result.success) {
         // Remove from local state

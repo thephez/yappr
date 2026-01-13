@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import toast from 'react-hot-toast'
+import { useLoginPromptModal } from '@/hooks/use-login-prompt-modal'
 import {
   getFollowStatus,
   setFollowStatus,
@@ -29,6 +30,7 @@ export interface UseFollowOptions {
 export function useFollow(targetUserId: string, options: UseFollowOptions = {}): UseFollowResult {
   const { initialValue } = options
   const { user } = useAuth()
+  const { open: openLoginPrompt } = useLoginPromptModal()
   const [isFollowing, setIsFollowing] = useState(initialValue ?? false)
   // Only show loading if no initial value was provided
   const [isLoading, setIsLoading] = useState(initialValue === undefined)
@@ -79,7 +81,11 @@ export function useFollow(targetUserId: string, options: UseFollowOptions = {}):
   }, [checkFollowStatus])
 
   const toggleFollow = useCallback(async () => {
-    if (!user?.identityId || !targetUserId || isLoading) return
+    if (!user?.identityId) {
+      openLoginPrompt('follow')
+      return
+    }
+    if (!targetUserId || isLoading) return
 
     if (user.identityId === targetUserId) {
       toast.error('You cannot follow yourself')
@@ -120,7 +126,7 @@ export function useFollow(targetUserId: string, options: UseFollowOptions = {}):
     } finally {
       setIsLoading(false)
     }
-  }, [user?.identityId, targetUserId, isFollowing, isLoading, cacheKey])
+  }, [user?.identityId, targetUserId, isFollowing, isLoading, cacheKey, openLoginPrompt])
 
   const refresh = useCallback(() => {
     if (cacheKey) {

@@ -26,6 +26,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import * as Tooltip from '@radix-ui/react-tooltip'
 import toast from 'react-hot-toast'
 import { useAuth } from '@/contexts/auth-context'
+import { useRequireAuth } from '@/hooks/use-require-auth'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { LikesModal } from './likes-modal'
 import { PostContent } from './post-content'
@@ -59,6 +60,7 @@ interface PostCardProps {
 export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, enrichment: progressiveEnrichment }: PostCardProps) {
   const router = useRouter()
   const { user } = useAuth()
+  const { requireAuth } = useRequireAuth()
 
   // Compute isOwnPost from auth context if not explicitly provided
   const isOwnPost = isOwnPostProp ?? (user?.identityId === post.author.id)
@@ -180,10 +182,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
       return
     }
 
-    if (!user) {
-      toast.error('Please log in to like posts')
-      return
-    }
+    const authedUser = requireAuth('like')
+    if (!authedUser) return
 
     if (likeLoading) return
 
@@ -198,8 +198,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     try {
       const { likeService } = await import('@/lib/services/like-service')
       const success = wasLiked
-        ? await likeService.unlikePost(post.id, user.identityId)
-        : await likeService.likePost(post.id, user.identityId)
+        ? await likeService.unlikePost(post.id, authedUser.identityId)
+        : await likeService.likePost(post.id, authedUser.identityId)
 
       if (!success) throw new Error('Like operation failed')
     } catch (error) {
@@ -214,10 +214,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleRepost = async () => {
-    if (!user) {
-      toast.error('Please log in to repost')
-      return
-    }
+    const authedUser = requireAuth('repost')
+    if (!authedUser) return
 
     if (repostLoading) return
 
@@ -232,8 +230,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     try {
       const { repostService } = await import('@/lib/services/repost-service')
       const success = wasReposted
-        ? await repostService.removeRepost(post.id, user.identityId)
-        : await repostService.repostPost(post.id, user.identityId)
+        ? await repostService.removeRepost(post.id, authedUser.identityId)
+        : await repostService.repostPost(post.id, authedUser.identityId)
 
       if (!success) throw new Error('Repost operation failed')
       toast.success(wasReposted ? 'Removed repost' : 'Reposted!')
@@ -249,10 +247,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleQuote = () => {
-    if (!user) {
-      toast.error('Please log in to quote posts')
-      return
-    }
+    if (!requireAuth('quote')) return
     // Merge enriched author data into the post so compose modal shows correct username
     const enrichedPost = {
       ...post,
@@ -267,10 +262,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleBookmark = async () => {
-    if (!user) {
-      toast.error('Please log in to bookmark posts')
-      return
-    }
+    const authedUser = requireAuth('bookmark')
+    if (!authedUser) return
 
     if (bookmarkLoading) return
 
@@ -283,8 +276,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     try {
       const { bookmarkService } = await import('@/lib/services/bookmark-service')
       const success = wasBookmarked
-        ? await bookmarkService.removeBookmark(post.id, user.identityId)
-        : await bookmarkService.bookmarkPost(post.id, user.identityId)
+        ? await bookmarkService.removeBookmark(post.id, authedUser.identityId)
+        : await bookmarkService.bookmarkPost(post.id, authedUser.identityId)
 
       if (!success) throw new Error('Bookmark operation failed')
       toast.success(wasBookmarked ? 'Removed from bookmarks' : 'Added to bookmarks')
@@ -299,6 +292,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleReply = () => {
+    if (!requireAuth('reply')) return
     // Merge enriched author data into the post so compose modal shows correct username
     const enrichedPost = {
       ...post,
@@ -319,10 +313,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   }
 
   const handleTip = () => {
-    if (!user) {
-      toast.error('Please log in to send tips')
-      return
-    }
+    if (!requireAuth('tip')) return
     // Merge enriched author data into the post so tip modal shows correct username
     const enrichedPost = {
       ...post,
