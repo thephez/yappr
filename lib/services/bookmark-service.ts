@@ -125,6 +125,30 @@ class BookmarkService extends BaseDocumentService<BookmarkDocument> {
     const bookmarks = await this.getUserBookmarks(userId);
     return bookmarks.length;
   }
+
+  /**
+   * Get user's bookmarks for specific posts.
+   * Uses the ownerAndPost index: [$ownerId, postId]
+   */
+  async getUserBookmarksForPosts(userId: string, postIds: string[]): Promise<BookmarkDocument[]> {
+    if (postIds.length === 0) return [];
+
+    try {
+      const result = await this.query({
+        where: [
+          ['$ownerId', '==', userId],
+          ['postId', 'in', postIds]
+        ],
+        orderBy: [['$ownerId', 'asc'], ['postId', 'asc']],
+        limit: postIds.length
+      });
+
+      return result.documents;
+    } catch (error) {
+      console.error('Error getting user bookmarks for posts:', error);
+      return [];
+    }
+  }
 }
 
 // Singleton instance
