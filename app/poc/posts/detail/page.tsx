@@ -4,6 +4,7 @@
 import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { usePostDetail } from '@/hooks/use-post-detail'
+import { useSdk } from '@/contexts/sdk-context'
 import { ReplyThread } from '@/lib/types'
 
 function formatRelativeTime(date: Date): string {
@@ -67,10 +68,11 @@ function PostDetailContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const postId = searchParams.get('id')
+  const { isReady } = useSdk()
 
   const { post, replyThreads, isLoading, error } = usePostDetail({
     postId,
-    enabled: !!postId
+    enabled: !!postId && isReady
   })
 
   if (!postId) {

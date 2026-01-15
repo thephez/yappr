@@ -5,6 +5,7 @@ import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { postService } from '@/lib/services/post-service'
 import { dpnsService } from '@/lib/services/dpns-service'
+import { useSdk } from '@/contexts/sdk-context'
 import { Post } from '@/lib/types'
 
 type Tab = 'posts' | 'comments'
@@ -38,6 +39,7 @@ function ProfileContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const userId = searchParams.get('id')
+  const { isReady } = useSdk()
 
   const [tab, setTab] = useState<Tab>('posts')
   const [username, setUsername] = useState<string | null>(null)
@@ -45,7 +47,7 @@ function ProfileContent() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    if (!userId) return
+    if (!userId || !isReady) return
 
     async function fetchData() {
       if (!userId) return
@@ -67,7 +69,7 @@ function ProfileContent() {
     }
 
     fetchData()
-  }, [userId])
+  }, [userId, isReady])
 
   const rootPosts = allPosts.filter(p => !p.replyToId)
   const replies = allPosts.filter(p => p.replyToId)

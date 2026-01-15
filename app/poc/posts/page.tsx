@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { postService } from '@/lib/services/post-service'
+import { useSdk } from '@/contexts/sdk-context'
 import { Post } from '@/lib/types'
 
 function getTitle(content: string): string {
@@ -27,10 +28,13 @@ function formatRelativeTime(date: Date): string {
 
 export default function PocPostsPage() {
   const router = useRouter()
+  const { isReady } = useSdk()
   const [posts, setPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!isReady) return
+
     async function fetchPosts() {
       try {
         const result = await postService.getTimeline({ limit: 100 })
@@ -44,7 +48,7 @@ export default function PocPostsPage() {
       }
     }
     fetchPosts()
-  }, [])
+  }, [isReady])
 
   if (loading) {
     return (
