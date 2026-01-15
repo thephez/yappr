@@ -48,6 +48,7 @@ function ProfileContent() {
     if (!userId) return
 
     async function fetchData() {
+      if (!userId) return
       setLoading(true)
       try {
         // Resolve username via DPNS
