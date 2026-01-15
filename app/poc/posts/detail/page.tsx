@@ -24,7 +24,7 @@ function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyTh
   return (
     <div className={depth > 0 ? 'ml-6 border-l-2 border-gray-200 dark:border-gray-800 pl-4' : ''}>
       <div className={`py-3 ${isAuthorThread ? 'bg-blue-50 dark:bg-blue-950/20 -mx-4 px-4 rounded' : ''}`}>
-        <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+        <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
           {post.content}
         </div>
         <div className="mt-2 text-xs text-gray-500">
@@ -119,8 +119,8 @@ function PostDetailContent() {
       </button>
 
       {/* Main post */}
-      <div className="border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-black p-4 mb-6">
-        <div className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap">
+      <div className="border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-black p-4 mb-6 overflow-hidden">
+        <div className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
           {post.content}
         </div>
         <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500">
