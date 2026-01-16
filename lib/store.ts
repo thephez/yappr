@@ -10,11 +10,11 @@ export interface ThreadPost {
   postedPostId?: string // Platform post ID if successfully posted
 }
 
-// Cache entry for posts seen in feed (for instant navigation)
-export interface CachedPost {
+// Pending navigation data for instant feed -> post detail transitions
+// This is NOT a cache - it's set at navigation time and consumed immediately
+export interface PendingPostNavigation {
   post: Post
   enrichment?: ProgressiveEnrichment
-  cachedAt: number
 }
 
 interface AppState {
@@ -25,8 +25,8 @@ interface AppState {
   // Thread composition state
   threadPosts: ThreadPost[]
   activeThreadPostId: string | null
-  // Post cache for instant navigation from feed to post detail
-  postCache: Map<string, CachedPost>
+  // Pending navigation data (set when clicking post, consumed on detail page mount)
+  pendingPostNavigation: PendingPostNavigation | null
 
   setCurrentUser: (user: User | null) => void
   setComposeOpen: (open: boolean) => void
@@ -39,21 +39,15 @@ interface AppState {
   markThreadPostAsPosted: (id: string, postedPostId: string) => void
   setActiveThreadPost: (id: string | null) => void
   resetThreadPosts: () => void
-  // Post cache actions
-  cachePost: (post: Post, enrichment?: ProgressiveEnrichment) => void
-  getCachedPost: (postId: string) => CachedPost | undefined
-  clearPostCache: () => void
+  // Navigation actions for instant post detail transitions
+  setPendingPostNavigation: (post: Post, enrichment?: ProgressiveEnrichment) => void
+  consumePendingPostNavigation: (postId: string) => PendingPostNavigation | null
 }
 
 const createInitialThreadPost = (): ThreadPost => ({
   id: crypto.randomUUID(),
   content: '',
 })
-
-// Cache TTL: 5 minutes
-const POST_CACHE_TTL = 5 * 60 * 1000
-// Max cache size to prevent memory issues
-const MAX_CACHE_SIZE = 100
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentUser: mockCurrentUser,
@@ -62,7 +56,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   quotingPost: null,
   threadPosts: [createInitialThreadPost()],
   activeThreadPostId: null,
-  postCache: new Map(),
+  pendingPostNavigation: null,
 
   setCurrentUser: (user) => set({ currentUser: user }),
   setComposeOpen: (open) => {
@@ -137,51 +131,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
   },
 
-  // Post cache actions for instant navigation
-  cachePost: (post, enrichment) => {
-    const { postCache } = get()
-    const now = Date.now()
-
-    // Create new map to trigger React update
-    const newCache = new Map(postCache)
-
-    // Add/update the post
-    newCache.set(post.id, {
-      post,
-      enrichment,
-      cachedAt: now
+  // Navigation actions for instant feed -> post detail transitions
+  setPendingPostNavigation: (post, enrichment) => {
+    set({
+      pendingPostNavigation: { post, enrichment }
     })
-
-    // Clean up expired entries and enforce max size
-    const entries = Array.from(newCache.entries())
-    const validEntries = entries
-      .filter(([, entry]) => now - entry.cachedAt < POST_CACHE_TTL)
-      .sort((a, b) => b[1].cachedAt - a[1].cachedAt) // Most recent first
-      .slice(0, MAX_CACHE_SIZE)
-
-    set({ postCache: new Map(validEntries) })
   },
 
-  getCachedPost: (postId) => {
-    const { postCache } = get()
-    const cached = postCache.get(postId)
+  consumePendingPostNavigation: (postId) => {
+    const { pendingPostNavigation } = get()
 
-    if (!cached) return undefined
-
-    // Check if still valid
-    if (Date.now() - cached.cachedAt > POST_CACHE_TTL) {
-      // Expired - remove it
-      const newCache = new Map(postCache)
-      newCache.delete(postId)
-      set({ postCache: newCache })
-      return undefined
+    // Only consume if it matches the requested post
+    if (pendingPostNavigation && pendingPostNavigation.post.id === postId) {
+      // Clear the pending navigation after consuming
+      set({ pendingPostNavigation: null })
+      return pendingPostNavigation
     }
 
-    return cached
-  },
-
-  clearPostCache: () => {
-    set({ postCache: new Map() })
+    return null
   },
 }))
 

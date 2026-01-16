@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { Post, ReplyThread } from '@/lib/types'
 import { postService } from '@/lib/services/post-service'
 import { usePostEnrichment } from './use-post-enrichment'
-import { useAppStore, CachedPost } from '@/lib/store'
+import { useAppStore } from '@/lib/store'
 import { ProgressiveEnrichment } from '@/components/post/post-card'
 
 interface PostDetailState {
@@ -124,29 +124,45 @@ export function usePostDetail({
   postId,
   enabled = true
 }: UsePostDetailOptions): UsePostDetailResult {
-  // Get cached post for instant display
-  const getCachedPost = useAppStore(state => state.getCachedPost)
-  const cachedData = postId ? getCachedPost(postId) : undefined
+  // Consume pending navigation data (set when clicking from feed)
+  // This is called once on mount and clears the pending data
+  const consumePendingPostNavigation = useAppStore(state => state.consumePendingPostNavigation)
+
+  // Use a ref to track the initial navigation data (consumed once)
+  const initialNavigationRef = useRef<{ post: Post; enrichment?: ProgressiveEnrichment } | null>(null)
+
+  // On first render, try to consume pending navigation for this post
+  if (initialNavigationRef.current === null && postId) {
+    const pending = consumePendingPostNavigation(postId)
+    initialNavigationRef.current = pending || { post: null as unknown as Post } // Mark as checked
+  }
+
+  const initialPost = initialNavigationRef.current?.post?.id === postId
+    ? initialNavigationRef.current.post
+    : null
+  const initialEnrichment = initialNavigationRef.current?.post?.id === postId
+    ? initialNavigationRef.current.enrichment
+    : undefined
 
   const [state, setState] = useState<PostDetailState>(() => ({
-    // Use cached post immediately if available
-    post: cachedData?.post || null,
+    // Use navigation data immediately if available
+    post: initialPost,
     parentPost: null,
     replies: [],
     replyThreads: []
   }))
-  // Only show main loading if no cached post
-  const [isLoading, setIsLoading] = useState(!cachedData?.post)
+  // Only show main loading if no navigation data
+  const [isLoading, setIsLoading] = useState(!initialPost)
   const [isLoadingReplies, setIsLoadingReplies] = useState(true)
   const [postEnrichment, setPostEnrichment] = useState<ProgressiveEnrichment | undefined>(
-    cachedData?.enrichment
+    initialEnrichment
   )
   const [error, setError] = useState<string | null>(null)
 
   // Track loaded post to prevent duplicate loads
   const loadedPostIdRef = useRef<string | null>(null)
-  // Track if we used cached data for initial render
-  const usedCacheRef = useRef<boolean>(!!cachedData?.post)
+  // Track if we used navigation data for initial render
+  const usedNavigationDataRef = useRef<boolean>(!!initialPost)
 
   // Enrichment hook with callback to update state
   const { enrich, reset: resetEnrichment } = usePostEnrichment({
@@ -183,12 +199,8 @@ export function usePostDetail({
     if (loadedPostIdRef.current === postId) return
     loadedPostIdRef.current = postId
 
-    // Check cache again (in case it was populated after mount)
-    const freshCachedData = getCachedPost(postId)
-    const hasCachedPost = usedCacheRef.current || !!freshCachedData?.post
-
-    // Only show main loading if no cached data
-    if (!hasCachedPost) {
+    // Only show main loading if no navigation data was available
+    if (!usedNavigationDataRef.current) {
       setIsLoading(true)
     }
     // Always loading replies until we fetch them
@@ -326,39 +338,41 @@ export function usePostDetail({
     } catch (err) {
       console.error('usePostDetail: Failed to load post:', err)
       setError(err instanceof Error ? err.message : 'Failed to load post')
-      // Only clear state if we don't have cached data to show
-      if (!usedCacheRef.current) {
+      // Only clear state if we don't have navigation data to show
+      if (!usedNavigationDataRef.current) {
         setState({ post: null, parentPost: null, replies: [], replyThreads: [] })
       }
     } finally {
       setIsLoading(false)
       setIsLoadingReplies(false)
     }
-  }, [postId, enabled, enrich, getCachedPost])
+  }, [postId, enabled, enrich])
 
   // Load on mount/postId change
   useEffect(() => {
     loadedPostIdRef.current = null // Reset on postId change
     resetEnrichment() // Reset enrichment tracking
 
-    // Check for cached post on postId change
-    const newCachedData = postId ? getCachedPost(postId) : undefined
-    if (newCachedData?.post) {
-      // Use cached post immediately
-      setState(current => ({
-        ...current,
-        post: newCachedData.post
-      }))
-      setPostEnrichment(newCachedData.enrichment)
-      usedCacheRef.current = true
-      setIsLoading(false)
-    } else {
-      usedCacheRef.current = false
-      setIsLoading(true)
+    // Try to consume pending navigation data for the new postId
+    if (postId) {
+      const pending = consumePendingPostNavigation(postId)
+      if (pending) {
+        // Use navigation data immediately
+        setState(current => ({
+          ...current,
+          post: pending.post
+        }))
+        setPostEnrichment(pending.enrichment)
+        usedNavigationDataRef.current = true
+        setIsLoading(false)
+      } else {
+        usedNavigationDataRef.current = false
+        setIsLoading(true)
+      }
     }
 
     loadPost()
-  }, [postId, loadPost, resetEnrichment, getCachedPost])
+  }, [postId, loadPost, resetEnrichment, consumePendingPostNavigation])
 
   const refresh = useCallback(async () => {
     loadedPostIdRef.current = null

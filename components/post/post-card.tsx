@@ -450,10 +450,9 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   const handleCardClick = (e: React.MouseEvent) => {
     const url = `/post?id=${post.id}`
 
-    // Cache the post for instant navigation
-    // Create a resolved enrichment snapshot with current display values
-    // This ensures we cache what's actually shown, not raw progressive state
-    const { cachePost } = useAppStore.getState()
+    // Set pending navigation data for instant display on post detail page
+    // This is consumed immediately when the detail page mounts - no TTL needed
+    const { setPendingPostNavigation } = useAppStore.getState()
     const resolvedEnrichment: ProgressiveEnrichment = {
       // Use resolved values (what's currently displayed) instead of raw progressive state
       username: usernameState,
@@ -475,7 +474,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
       isFollowing: progressiveEnrichment?.isFollowing ?? isFollowing,
       replyTo: progressiveEnrichment?.replyTo
     }
-    cachePost(enrichedPost, resolvedEnrichment)
+    setPendingPostNavigation(enrichedPost, resolvedEnrichment)
 
     // Handle Ctrl/Cmd+click to open in new tab (standard browser behavior)
     if (e.ctrlKey || e.metaKey) {
