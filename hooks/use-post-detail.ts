@@ -127,6 +127,7 @@ export function usePostDetail({
   // Get initial navigation data synchronously from store (for useState initializers)
   // This must be done outside hooks to capture the value at component mount time
   const getInitialData = () => {
+    if (!postId || !enabled) return null
     const pending = useAppStore.getState().pendingPostNavigation
     if (pending && pending.post.id === postId) {
       return pending
@@ -145,11 +146,17 @@ export function usePostDetail({
   })
 
   const [isLoading, setIsLoading] = useState(() => {
+    // Not loading if no postId or disabled
+    if (!postId || !enabled) return false
     const initial = getInitialData()
     return !initial?.post
   })
 
-  const [isLoadingReplies, setIsLoadingReplies] = useState(true)
+  const [isLoadingReplies, setIsLoadingReplies] = useState(() => {
+    // Not loading replies if no postId or disabled
+    if (!postId || !enabled) return false
+    return true
+  })
 
   const [postEnrichment, setPostEnrichment] = useState<ProgressiveEnrichment | undefined>(() => {
     const initial = getInitialData()
@@ -348,34 +355,52 @@ export function usePostDetail({
     }
   }, [postId, enabled, enrich])
 
-  // Load on mount/postId change
+  // Load on mount/postId change/enabled change
   useEffect(() => {
     loadedPostIdRef.current = null // Reset on postId change
     resetEnrichment() // Reset enrichment tracking
 
+    // Handle disabled or no postId - reset all state
+    if (!postId || !enabled) {
+      setState({ post: null, parentPost: null, replies: [], replyThreads: [] })
+      setPostEnrichment(undefined)
+      setIsLoading(false)
+      setIsLoadingReplies(false)
+      setError(null)
+      usedNavigationDataRef.current = false
+      return
+    }
+
     // Check for pending navigation data for the new postId
-    if (postId) {
-      const store = useAppStore.getState()
-      const pending = store.pendingPostNavigation
-      if (pending && pending.post.id === postId) {
-        // Use navigation data immediately
-        setState(current => ({
-          ...current,
-          post: pending.post
-        }))
-        setPostEnrichment(pending.enrichment)
-        usedNavigationDataRef.current = true
-        setIsLoading(false)
-        // Clear the pending navigation
-        store.consumePendingPostNavigation(postId)
-      } else {
-        usedNavigationDataRef.current = false
-        setIsLoading(true)
-      }
+    const store = useAppStore.getState()
+    const pending = store.pendingPostNavigation
+    if (pending && pending.post.id === postId) {
+      // Use navigation data immediately, reset stale context
+      setState({
+        post: pending.post,
+        parentPost: null,
+        replies: [],
+        replyThreads: []
+      })
+      setPostEnrichment(pending.enrichment)
+      usedNavigationDataRef.current = true
+      setIsLoading(false)
+      setIsLoadingReplies(true) // Will load replies
+      setError(null)
+      // Clear the pending navigation
+      store.consumePendingPostNavigation(postId)
+    } else {
+      // No pending data - reset state and show loading
+      setState({ post: null, parentPost: null, replies: [], replyThreads: [] })
+      setPostEnrichment(undefined)
+      usedNavigationDataRef.current = false
+      setIsLoading(true)
+      setIsLoadingReplies(true)
+      setError(null)
     }
 
     loadPost()
-  }, [postId, loadPost, resetEnrichment])
+  }, [postId, enabled, loadPost, resetEnrichment])
 
   const refresh = useCallback(async () => {
     loadedPostIdRef.current = null
