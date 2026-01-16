@@ -162,21 +162,21 @@ function NotificationsPage() {
                   <div className="flex-1">
                     <div className="flex items-start gap-3">
                       <Link
-                        href={`/user?id=${notification.from.id}`}
+                        href={`/user?id=${notification.from?.id}`}
                         onClick={(e) => e.stopPropagation()}
                         className="h-10 w-10 rounded-full overflow-hidden bg-white dark:bg-neutral-900 flex-shrink-0"
                       >
-                        <UserAvatar userId={notification.from.id} size="md" alt="User avatar" />
+                        <UserAvatar userId={notification.from?.id || ''} size="md" alt="User avatar" />
                       </Link>
 
                       <div className="flex-1 min-w-0">
                         <p className="text-sm">
                           <Link
-                            href={`/user?id=${notification.from.id}`}
+                            href={`/user?id=${notification.from?.id}`}
                             onClick={(e) => e.stopPropagation()}
                             className="font-semibold hover:underline"
                           >
-                            {notification.from.displayName || notification.from.username}
+                            {notification.from?.displayName || notification.from?.username || 'Unknown User'}
                           </Link>
                           {' '}
                           {getMessage(notification.type)}

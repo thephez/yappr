@@ -1,10 +1,14 @@
 import { getEvoSdk } from './evo-sdk-service';
 import { dpnsService } from './dpns-service';
 import { unifiedProfileService } from './unified-profile-service';
-import { postService } from './post-service';
 import { normalizeSDKResponse, identifierToBase58 } from './sdk-helpers';
 import { YAPPR_CONTRACT_ID, MENTION_CONTRACT_ID } from '../constants';
 import { Notification, User, Post } from '../types';
+
+// Constants for notification queries
+const NOTIFICATION_QUERY_LIMIT = 100;
+const INITIAL_FETCH_DAYS = 7;
+const INITIAL_FETCH_MS = INITIAL_FETCH_DAYS * 24 * 60 * 60 * 1000;
 
 /**
  * Raw notification data before enrichment
@@ -39,6 +43,7 @@ class NotificationService {
     try {
       const sdk = await getEvoSdk();
 
+      // SDK query types are incomplete, cast needed for valid query options
       const response = await sdk.documents.query({
         dataContractId: YAPPR_CONTRACT_ID,
         documentTypeName: 'follow',
@@ -47,7 +52,7 @@ class NotificationService {
           ['$createdAt', '>', sinceTimestamp]
         ],
         orderBy: [['followingId', 'asc'], ['$createdAt', 'asc']],
-        limit: 100
+        limit: NOTIFICATION_QUERY_LIMIT
       } as any);
 
       const documents = normalizeSDKResponse(response);
@@ -72,6 +77,7 @@ class NotificationService {
     try {
       const sdk = await getEvoSdk();
 
+      // SDK query types are incomplete, cast needed for valid query options
       const response = await sdk.documents.query({
         dataContractId: MENTION_CONTRACT_ID,
         documentTypeName: 'postMention',
@@ -80,7 +86,7 @@ class NotificationService {
           ['$createdAt', '>', sinceTimestamp]
         ],
         orderBy: [['mentionedUserId', 'asc'], ['$createdAt', 'asc']],
-        limit: 100
+        limit: NOTIFICATION_QUERY_LIMIT
       } as any);
 
       const documents = normalizeSDKResponse(response);
@@ -104,7 +110,8 @@ class NotificationService {
   }
 
   /**
-   * Enrich raw notifications with user profiles and post data
+   * Enrich raw notifications with user profiles and post data.
+   * Uses Promise.allSettled for fault tolerance - partial failures don't block other notifications.
    */
   private async enrichNotifications(
     rawNotifications: RawNotification[],
@@ -120,17 +127,39 @@ class NotificationService {
         .map(n => n.postId!)
     ));
 
-    // Batch fetch all required data in parallel
-    const [usernameMap, profiles, avatarUrls, posts] = await Promise.all([
+    // Batch fetch all required data in parallel with fault tolerance
+    const results = await Promise.allSettled([
       dpnsService.resolveUsernamesBatch(userIds),
       unifiedProfileService.getProfilesByIdentityIds(userIds),
       unifiedProfileService.getAvatarUrlsBatch(userIds),
       postIds.length > 0 ? this.fetchPostsByIds(postIds) : Promise.resolve(new Map<string, Post>())
     ]);
 
+    // Extract results with fallbacks for failures
+    const usernameMap = results[0].status === 'fulfilled'
+      ? results[0].value
+      : new Map<string, string>();
+    const profiles = results[1].status === 'fulfilled'
+      ? results[1].value
+      : [];
+    const avatarUrls = results[2].status === 'fulfilled'
+      ? results[2].value
+      : new Map<string, string>();
+    const posts = results[3].status === 'fulfilled'
+      ? results[3].value
+      : new Map<string, Post>();
+
+    // Log any enrichment failures for debugging
+    results.forEach((result, index) => {
+      if (result.status === 'rejected') {
+        const fetchTypes = ['usernames', 'profiles', 'avatars', 'posts'];
+        console.error(`Failed to fetch ${fetchTypes[index]} for notification enrichment:`, result.reason);
+      }
+    });
+
     // Transform to Notification type
     return rawNotifications.map(raw => {
-      const profile = profiles.find(p => p.$ownerId === raw.fromUserId);
+      const profile = profiles.find((p: { $ownerId: string }) => p.$ownerId === raw.fromUserId);
       const username = usernameMap.get(raw.fromUserId);
       const avatarUrl = avatarUrls.get(raw.fromUserId);
 
@@ -230,12 +259,11 @@ class NotificationService {
     userId: string,
     readIds: Set<string> = new Set()
   ): Promise<NotificationResult> {
-    // 7 days ago in milliseconds
-    const sevenDaysAgo = Date.now() - (7 * 24 * 60 * 60 * 1000);
+    const sinceTimestamp = Date.now() - INITIAL_FETCH_MS;
 
     const [followers, mentions] = await Promise.all([
-      this.getNewFollowers(userId, sevenDaysAgo),
-      this.getNewMentions(userId, sevenDaysAgo)
+      this.getNewFollowers(userId, sinceTimestamp),
+      this.getNewMentions(userId, sinceTimestamp)
     ]);
 
     const rawNotifications = [...followers, ...mentions];

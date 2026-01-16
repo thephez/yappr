@@ -64,13 +64,9 @@ export function Sidebar() {
   const { setComposeOpen } = useAppStore()
   const { user, logout, refreshBalance } = useAuth()
 
-  // Notification store
+  // Notification store - get state directly, use store.getState() for actions in effects
   const unreadNotificationCount = useNotificationStore((s) => s.getUnreadCount())
   const lastFetchTimestamp = useNotificationStore((s) => s.lastFetchTimestamp)
-  const setNotifications = useNotificationStore((s) => s.setNotifications)
-  const addNotifications = useNotificationStore((s) => s.addNotifications)
-  const setLastFetchTimestamp = useNotificationStore((s) => s.setLastFetchTimestamp)
-  const getReadIdsSet = useNotificationStore((s) => s.getReadIdsSet)
 
   const [isHydrated, setIsHydrated] = useState(false)
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false)
@@ -86,7 +82,7 @@ export function Sidebar() {
     setIsHydrated(true)
   }, [])
 
-  // Initial notification fetch and polling
+  // Initial notification fetch and polling (uses Page Visibility API to skip polls when hidden)
   useEffect(() => {
     if (!user?.identityId) return
 
@@ -99,8 +95,11 @@ export function Sidebar() {
       const currentUser = userRef.current
       if (!currentUser?.identityId) return
 
+      // Access store actions via getState() to avoid dependency issues
+      const store = useNotificationStore.getState()
+
       try {
-        const readIds = getReadIdsSet()
+        const readIds = store.getReadIdsSet()
         const timestamp = isInitial ? 0 : lastFetchTimestampRef.current
 
         const result = isInitial
@@ -110,13 +109,13 @@ export function Sidebar() {
         if (cancelled) return
 
         if (isInitial) {
-          setNotifications(result.notifications)
+          store.setNotifications(result.notifications)
         } else if (result.notifications.length > 0) {
-          addNotifications(result.notifications)
+          store.addNotifications(result.notifications)
         }
-        setLastFetchTimestamp(result.latestTimestamp)
+        store.setLastFetchTimestamp(result.latestTimestamp)
       } catch (error) {
-        console.debug('Notification fetch error:', error)
+        console.error('Notification fetch error:', error)
       }
     }
 
@@ -128,6 +127,11 @@ export function Sidebar() {
       // Start polling loop
       const poll = async () => {
         if (cancelled) return
+        // Skip poll if page is hidden
+        if (document.hidden) {
+          timeoutId = setTimeout(poll, NOTIFICATION_POLL_INTERVAL)
+          return
+        }
         await fetchNotifications(false)
         if (!cancelled) {
           timeoutId = setTimeout(poll, NOTIFICATION_POLL_INTERVAL)
@@ -140,13 +144,13 @@ export function Sidebar() {
       }
     }
 
-    startPolling().catch((err) => console.debug('Notification polling error:', err))
+    startPolling().catch((err) => console.error('Notification polling error:', err))
 
     return () => {
       cancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [user?.identityId, getReadIdsSet, setNotifications, addNotifications, setLastFetchTimestamp])
+  }, [user?.identityId]) // Only depend on user identity - store actions accessed via getState()
   
   // Get navigation based on auth status (use safe defaults during SSR)
   const navigation = getNavigation(isHydrated ? !!user : false, user?.identityId)

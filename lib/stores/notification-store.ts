@@ -2,6 +2,10 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Notification } from '../types';
 
+// Maximum number of read IDs to store in localStorage
+// At ~44 chars per base58 ID, 1000 IDs ≈ 44KB, well under localStorage limits
+const MAX_READ_IDS = 1000;
+
 type NotificationFilter = 'all' | 'follow' | 'mention';
 
 interface NotificationState {
@@ -85,7 +89,12 @@ export const useNotificationStore = create<NotificationState>()(
         if (readIdsSet.has(id)) return;
 
         readIdsSet.add(id);
-        const newReadIds = Array.from(readIdsSet);
+        let newReadIds = Array.from(readIdsSet);
+
+        // Prune oldest read IDs if limit exceeded (keep most recent)
+        if (newReadIds.length > MAX_READ_IDS) {
+          newReadIds = newReadIds.slice(-MAX_READ_IDS);
+        }
 
         // Update notifications with new read status
         const updatedNotifications = state.notifications.map(n =>
@@ -107,7 +116,12 @@ export const useNotificationStore = create<NotificationState>()(
           readIdsSet.add(n.id);
         }
 
-        const newReadIds = Array.from(readIdsSet);
+        let newReadIds = Array.from(readIdsSet);
+
+        // Prune oldest read IDs if limit exceeded (keep most recent)
+        if (newReadIds.length > MAX_READ_IDS) {
+          newReadIds = newReadIds.slice(-MAX_READ_IDS);
+        }
 
         // Update all notifications to read
         const updatedNotifications = state.notifications.map(n => ({
