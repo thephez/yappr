@@ -8,6 +8,18 @@ const MAX_READ_IDS = 1000;
 
 type NotificationFilter = 'all' | 'follow' | 'mention';
 
+/**
+ * Add IDs to read set and prune if exceeds limit
+ */
+function addToReadIds(currentIds: string[], idsToAdd: string[]): string[] {
+  const readIdsSet = new Set(currentIds);
+  for (const id of idsToAdd) {
+    readIdsSet.add(id);
+  }
+  const result = Array.from(readIdsSet);
+  return result.length > MAX_READ_IDS ? result.slice(-MAX_READ_IDS) : result;
+}
+
 interface NotificationState {
   // Data
   notifications: Notification[];
@@ -84,54 +96,23 @@ export const useNotificationStore = create<NotificationState>()(
 
       markAsRead: (id) => {
         const state = get();
-        const readIdsSet = new Set(state.readIds);
-
-        if (readIdsSet.has(id)) return;
-
-        readIdsSet.add(id);
-        let newReadIds = Array.from(readIdsSet);
-
-        // Prune oldest read IDs if limit exceeded (keep most recent)
-        if (newReadIds.length > MAX_READ_IDS) {
-          newReadIds = newReadIds.slice(-MAX_READ_IDS);
-        }
-
-        // Update notifications with new read status
-        const updatedNotifications = state.notifications.map(n =>
-          n.id === id ? { ...n, read: true } : n
-        );
+        if (state.readIds.includes(id)) return;
 
         set({
-          readIds: newReadIds,
-          notifications: updatedNotifications
+          readIds: addToReadIds(state.readIds, [id]),
+          notifications: state.notifications.map(n =>
+            n.id === id ? { ...n, read: true } : n
+          )
         });
       },
 
       markAllAsRead: () => {
         const state = get();
-        const readIdsSet = new Set(state.readIds);
-
-        // Add all current notification IDs to read set
-        for (const n of state.notifications) {
-          readIdsSet.add(n.id);
-        }
-
-        let newReadIds = Array.from(readIdsSet);
-
-        // Prune oldest read IDs if limit exceeded (keep most recent)
-        if (newReadIds.length > MAX_READ_IDS) {
-          newReadIds = newReadIds.slice(-MAX_READ_IDS);
-        }
-
-        // Update all notifications to read
-        const updatedNotifications = state.notifications.map(n => ({
-          ...n,
-          read: true
-        }));
+        const allIds = state.notifications.map(n => n.id);
 
         set({
-          readIds: newReadIds,
-          notifications: updatedNotifications
+          readIds: addToReadIds(state.readIds, allIds),
+          notifications: state.notifications.map(n => ({ ...n, read: true }))
         });
       },
 

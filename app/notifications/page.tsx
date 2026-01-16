@@ -24,6 +24,29 @@ const FILTER_TABS: { key: NotificationFilter; label: string }[] = [
   { key: 'mention', label: 'Mentions' }
 ]
 
+const NOTIFICATION_ICONS: Record<Notification['type'], JSX.Element> = {
+  follow: <UserPlusIcon className="h-5 w-5 text-purple-500" />,
+  mention: <AtSymbolIcon className="h-5 w-5 text-yellow-500" />
+}
+
+const NOTIFICATION_MESSAGES: Record<Notification['type'], string> = {
+  follow: 'started following you',
+  mention: 'mentioned you in a post'
+}
+
+function formatTime(date: Date): string {
+  const diff = Date.now() - date.getTime()
+  const minutes = Math.floor(diff / 60000)
+  const hours = Math.floor(diff / 3600000)
+  const days = Math.floor(diff / 86400000)
+
+  if (minutes < 1) return 'just now'
+  if (minutes < 60) return `${minutes}m`
+  if (hours < 24) return `${hours}h`
+  if (days < 7) return `${days}d`
+  return date.toLocaleDateString()
+}
+
 function NotificationsPage() {
   // Store - polling is handled by Sidebar, we just display data
   const filter = useNotificationStore((s) => s.filter)
@@ -34,50 +57,8 @@ function NotificationsPage() {
   const getFilteredNotifications = useNotificationStore((s) => s.getFilteredNotifications)
   const getUnreadCount = useNotificationStore((s) => s.getUnreadCount)
 
-  const getIcon = (type: Notification['type']) => {
-    switch (type) {
-      case 'follow':
-        return <UserPlusIcon className="h-5 w-5 text-purple-500" />
-      case 'mention':
-        return <AtSymbolIcon className="h-5 w-5 text-yellow-500" />
-      default:
-        return <BellIcon className="h-5 w-5 text-gray-500" />
-    }
-  }
-
-  const getMessage = (type: Notification['type']) => {
-    switch (type) {
-      case 'follow':
-        return 'started following you'
-      case 'mention':
-        return 'mentioned you in a post'
-      default:
-        return 'interacted with you'
-    }
-  }
-
-  const formatTime = (date: Date) => {
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (minutes < 1) return 'just now'
-    if (minutes < 60) return `${minutes}m`
-    if (hours < 24) return `${hours}h`
-    if (days < 7) return `${days}d`
-    return date.toLocaleDateString()
-  }
-
   const filteredNotifications = getFilteredNotifications()
   const unreadCount = getUnreadCount()
-
-  const handleNotificationClick = (notification: Notification) => {
-    if (!notification.read) {
-      markAsRead(notification.id)
-    }
-  }
 
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
@@ -151,13 +132,15 @@ function NotificationsPage() {
                 key={notification.id}
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                onClick={() => handleNotificationClick(notification)}
+                onClick={() => !notification.read && markAsRead(notification.id)}
                 className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors cursor-pointer ${
                   !notification.read ? 'bg-yappr-50/20 dark:bg-yappr-950/10' : ''
                 }`}
               >
                 <div className="flex gap-3">
-                  <div className="mt-1">{getIcon(notification.type)}</div>
+                  <div className="mt-1">
+                    {NOTIFICATION_ICONS[notification.type] || <BellIcon className="h-5 w-5 text-gray-500" />}
+                  </div>
 
                   <div className="flex-1">
                     <div className="flex items-start gap-3">
@@ -179,7 +162,7 @@ function NotificationsPage() {
                             {notification.from?.displayName || notification.from?.username || 'Unknown User'}
                           </Link>
                           {' '}
-                          {getMessage(notification.type)}
+                          {NOTIFICATION_MESSAGES[notification.type] || 'interacted with you'}
                           <span className="text-gray-500 ml-2">
                             {formatTime(notification.createdAt)}
                           </span>

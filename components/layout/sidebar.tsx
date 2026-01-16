@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import {
   HomeIcon,
   EnvelopeIcon,
@@ -64,47 +64,41 @@ export function Sidebar() {
   const { setComposeOpen } = useAppStore()
   const { user, logout, refreshBalance } = useAuth()
 
-  // Notification store - get state directly, use store.getState() for actions in effects
+  // Notification store - only subscribe to unread count for badge display
   const unreadNotificationCount = useNotificationStore((s) => s.getUnreadCount())
-  const lastFetchTimestamp = useNotificationStore((s) => s.lastFetchTimestamp)
 
   const [isHydrated, setIsHydrated] = useState(false)
   const [isRefreshingBalance, setIsRefreshingBalance] = useState(false)
-
-  // Refs for stable closure references in polling
-  const userRef = useRef(user)
-  userRef.current = user
-  const lastFetchTimestampRef = useRef(lastFetchTimestamp)
-  lastFetchTimestampRef.current = lastFetchTimestamp
 
   // Prevent hydration mismatches
   useEffect(() => {
     setIsHydrated(true)
   }, [])
 
-  // Initial notification fetch and polling (uses Page Visibility API to skip polls when hidden)
+  // Initial notification fetch and polling
   useEffect(() => {
     if (!user?.identityId) return
 
+    const userId = user.identityId
     let timeoutId: NodeJS.Timeout | null = null
     let cancelled = false
 
-    const fetchNotifications = async (isInitial: boolean) => {
+    async function fetchAndSchedule(isInitial: boolean): Promise<void> {
       if (cancelled) return
 
-      const currentUser = userRef.current
-      if (!currentUser?.identityId) return
+      // Skip poll if page is hidden (but still schedule next poll)
+      if (!isInitial && document.hidden) {
+        timeoutId = setTimeout(() => fetchAndSchedule(false), NOTIFICATION_POLL_INTERVAL)
+        return
+      }
 
-      // Access store actions via getState() to avoid dependency issues
       const store = useNotificationStore.getState()
 
       try {
         const readIds = store.getReadIdsSet()
-        const timestamp = isInitial ? 0 : lastFetchTimestampRef.current
-
         const result = isInitial
-          ? await notificationService.getInitialNotifications(currentUser.identityId, readIds)
-          : await notificationService.pollNewNotifications(currentUser.identityId, timestamp, readIds)
+          ? await notificationService.getInitialNotifications(userId, readIds)
+          : await notificationService.pollNewNotifications(userId, store.lastFetchTimestamp, readIds)
 
         if (cancelled) return
 
@@ -117,40 +111,19 @@ export function Sidebar() {
       } catch (error) {
         console.error('Notification fetch error:', error)
       }
-    }
 
-    const startPolling = async () => {
-      // Always do initial fetch on mount to get last 7 days of notifications
-      // (notifications array is not persisted, only lastFetchTimestamp is)
-      await fetchNotifications(true)
-
-      // Start polling loop
-      const poll = async () => {
-        if (cancelled) return
-        // Skip poll if page is hidden
-        if (document.hidden) {
-          timeoutId = setTimeout(poll, NOTIFICATION_POLL_INTERVAL)
-          return
-        }
-        await fetchNotifications(false)
-        if (!cancelled) {
-          timeoutId = setTimeout(poll, NOTIFICATION_POLL_INTERVAL)
-        }
-      }
-
-      // Start first poll after interval
       if (!cancelled) {
-        timeoutId = setTimeout(poll, NOTIFICATION_POLL_INTERVAL)
+        timeoutId = setTimeout(() => fetchAndSchedule(false), NOTIFICATION_POLL_INTERVAL)
       }
     }
 
-    startPolling().catch((err) => console.error('Notification polling error:', err))
+    fetchAndSchedule(true)
 
     return () => {
       cancelled = true
       if (timeoutId) clearTimeout(timeoutId)
     }
-  }, [user?.identityId]) // Only depend on user identity - store actions accessed via getState()
+  }, [user?.identityId])
   
   // Get navigation based on auth status (use safe defaults during SSR)
   const navigation = getNavigation(isHydrated ? !!user : false, user?.identityId)

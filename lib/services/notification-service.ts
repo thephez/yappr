@@ -260,24 +260,7 @@ class NotificationService {
     readIds: Set<string> = new Set()
   ): Promise<NotificationResult> {
     const sinceTimestamp = Date.now() - INITIAL_FETCH_MS;
-
-    const [followers, mentions] = await Promise.all([
-      this.getNewFollowers(userId, sinceTimestamp),
-      this.getNewMentions(userId, sinceTimestamp)
-    ]);
-
-    const rawNotifications = [...followers, ...mentions];
-
-    // Sort by createdAt descending (newest first)
-    rawNotifications.sort((a, b) => b.createdAt - a.createdAt);
-
-    const notifications = await this.enrichNotifications(rawNotifications, readIds);
-
-    const latestTimestamp = rawNotifications.length > 0
-      ? Math.max(...rawNotifications.map(n => n.createdAt))
-      : Date.now();
-
-    return { notifications, latestTimestamp };
+    return this.fetchNotifications(userId, sinceTimestamp, readIds, Date.now());
   }
 
   /**
@@ -289,21 +272,31 @@ class NotificationService {
     sinceTimestamp: number,
     readIds: Set<string> = new Set()
   ): Promise<NotificationResult> {
+    return this.fetchNotifications(userId, sinceTimestamp, readIds, sinceTimestamp);
+  }
+
+  /**
+   * Core notification fetching logic
+   */
+  private async fetchNotifications(
+    userId: string,
+    sinceTimestamp: number,
+    readIds: Set<string>,
+    fallbackTimestamp: number
+  ): Promise<NotificationResult> {
     const [followers, mentions] = await Promise.all([
       this.getNewFollowers(userId, sinceTimestamp),
       this.getNewMentions(userId, sinceTimestamp)
     ]);
 
     const rawNotifications = [...followers, ...mentions];
-
-    // Sort by createdAt descending (newest first)
     rawNotifications.sort((a, b) => b.createdAt - a.createdAt);
 
     const notifications = await this.enrichNotifications(rawNotifications, readIds);
 
     const latestTimestamp = rawNotifications.length > 0
       ? Math.max(...rawNotifications.map(n => n.createdAt))
-      : sinceTimestamp;
+      : fallbackTimestamp;
 
     return { notifications, latestTimestamp };
   }
