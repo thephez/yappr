@@ -19,6 +19,7 @@ export interface User {
   nsfw?: boolean
   socialLinks?: SocialLink[]
   hasUnifiedProfile?: boolean  // true if migrated to new contract
+  hasDpns?: boolean  // DPNS resolution state: undefined = loading, true = has DPNS, false = no DPNS
 }
 
 // Payment URI parsed from profile

@@ -47,7 +47,7 @@ type UsernameState = string | null | undefined
  */
 function resolveUsernameState(
   progressiveUsername: UsernameState,
-  postAuthor: Post['author'] & { hasDpns?: boolean }
+  postAuthor: Post['author']
 ): UsernameState {
   // Progressive enrichment takes priority when defined
   if (progressiveUsername !== undefined) {
@@ -114,7 +114,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   // Resolve username state using helper (replaces nested ternary)
   const usernameState = resolveUsernameState(
     progressiveEnrichment?.username,
-    post.author as Post['author'] & { hasDpns?: boolean }
+    post.author
   )
 
   // Check if user has a real profile (not a placeholder)
@@ -177,15 +177,20 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     return { text: `${id.slice(0, 8)}...${id.slice(-6)}`, showAt: false }
   }, [replyTo])
 
-  // Memoize enriched post for use in compose/tip modals
+  // Memoize enriched post for use in compose/tip modals and caching
+  // Includes all resolved values so cached posts display correctly
   const enrichedPost = useMemo(() => ({
     ...post,
     author: {
       ...post.author,
       username: usernameState || post.author.username,
-      displayName: displayName || post.author.displayName
+      displayName: displayName || post.author.displayName,
+      avatar: avatarUrl || post.author.avatar,
+      // Set hasDpns based on resolved username state to prevent loading skeletons
+      // undefined = still loading, true = has DPNS, false = no DPNS
+      hasDpns: usernameState !== undefined ? (usernameState !== null) : post.author.hasDpns
     }
-  }), [post, usernameState, displayName])
+  }), [post, usernameState, displayName, avatarUrl])
 
   // Render username/identity display based on state
   const renderUsernameOrIdentity = useCallback(() => {
@@ -444,6 +449,33 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
 
   const handleCardClick = (e: React.MouseEvent) => {
     const url = `/post?id=${post.id}`
+
+    // Set pending navigation data for instant display on post detail page
+    // This is consumed immediately when the detail page mounts - no TTL needed
+    const { setPendingPostNavigation } = useAppStore.getState()
+    const resolvedEnrichment: ProgressiveEnrichment = {
+      // Use resolved values (what's currently displayed) instead of raw progressive state
+      username: usernameState,
+      displayName: displayName,
+      avatarUrl: avatarUrl,
+      // Preserve stats and interactions from progressive enrichment
+      stats: progressiveEnrichment?.stats ?? {
+        likes: statsLikes,
+        reposts: statsReposts,
+        replies: statsReplies,
+        views: post.views
+      },
+      interactions: progressiveEnrichment?.interactions ?? {
+        liked: liked,
+        reposted: reposted,
+        bookmarked: bookmarked
+      },
+      isBlocked: progressiveEnrichment?.isBlocked ?? isBlocked,
+      isFollowing: progressiveEnrichment?.isFollowing ?? isFollowing,
+      replyTo: progressiveEnrichment?.replyTo
+    }
+    setPendingPostNavigation(enrichedPost, resolvedEnrichment)
+
     // Handle Ctrl/Cmd+click to open in new tab (standard browser behavior)
     if (e.ctrlKey || e.metaKey) {
       window.open(url, '_blank')

@@ -2,11 +2,19 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { User, Post } from './types'
 import { mockCurrentUser } from './mock-data'
+import { ProgressiveEnrichment } from '@/components/post/post-card'
 
 export interface ThreadPost {
   id: string
   content: string
   postedPostId?: string // Platform post ID if successfully posted
+}
+
+// Pending navigation data for instant feed -> post detail transitions
+// This is NOT a cache - it's set at navigation time and consumed immediately
+export interface PendingPostNavigation {
+  post: Post
+  enrichment?: ProgressiveEnrichment
 }
 
 interface AppState {
@@ -17,6 +25,8 @@ interface AppState {
   // Thread composition state
   threadPosts: ThreadPost[]
   activeThreadPostId: string | null
+  // Pending navigation data (set when clicking post, consumed on detail page mount)
+  pendingPostNavigation: PendingPostNavigation | null
 
   setCurrentUser: (user: User | null) => void
   setComposeOpen: (open: boolean) => void
@@ -29,6 +39,9 @@ interface AppState {
   markThreadPostAsPosted: (id: string, postedPostId: string) => void
   setActiveThreadPost: (id: string | null) => void
   resetThreadPosts: () => void
+  // Navigation actions for instant post detail transitions
+  setPendingPostNavigation: (post: Post, enrichment?: ProgressiveEnrichment) => void
+  consumePendingPostNavigation: (postId: string) => PendingPostNavigation | null
 }
 
 const createInitialThreadPost = (): ThreadPost => ({
@@ -36,13 +49,14 @@ const createInitialThreadPost = (): ThreadPost => ({
   content: '',
 })
 
-export const useAppStore = create<AppState>((set) => ({
+export const useAppStore = create<AppState>((set, get) => ({
   currentUser: mockCurrentUser,
   isComposeOpen: false,
   replyingTo: null,
   quotingPost: null,
   threadPosts: [createInitialThreadPost()],
   activeThreadPostId: null,
+  pendingPostNavigation: null,
 
   setCurrentUser: (user) => set({ currentUser: user }),
   setComposeOpen: (open) => {
@@ -115,6 +129,26 @@ export const useAppStore = create<AppState>((set) => ({
       threadPosts: [initialPost],
       activeThreadPostId: initialPost.id
     })
+  },
+
+  // Navigation actions for instant feed -> post detail transitions
+  setPendingPostNavigation: (post, enrichment) => {
+    set({
+      pendingPostNavigation: { post, enrichment }
+    })
+  },
+
+  consumePendingPostNavigation: (postId) => {
+    const { pendingPostNavigation } = get()
+
+    // Only consume if it matches the requested post
+    if (pendingPostNavigation && pendingPostNavigation.post.id === postId) {
+      // Clear the pending navigation after consuming
+      set({ pendingPostNavigation: null })
+      return pendingPostNavigation
+    }
+
+    return null
   },
 }))
 
