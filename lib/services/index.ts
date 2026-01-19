@@ -76,3 +76,11 @@ export {
   AAD_GRANT,
   AAD_FEED_STATE,
 } from './private-feed-crypto-service';
+
+// Private feed key store
+export { privateFeedKeyStore } from './private-feed-key-store';
+export type {
+  StoredPathKey,
+  CachedCEK,
+  RecipientLeafMap,
+} from './private-feed-key-store';

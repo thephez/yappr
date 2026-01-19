@@ -79,3 +79,41 @@
 **Dependencies:** Uses already-installed `@noble/ciphers`, `@noble/hashes`, `@noble/secp256k1`
 
 **Screenshot:** `screenshots/private-feed-crypto-service.png`
+
+## 2026-01-18: PrivateFeedKeyStore Implementation
+
+**Task:** Create local key storage service for private feeds (Phase 1 Foundation)
+
+**Changes made:**
+1. Created `lib/services/private-feed-key-store.ts` implementing the PRD §3.4 interface:
+
+   **Owner Key Storage:**
+   - `storeFeedSeed()` / `getFeedSeed()` - Store/retrieve feed seed
+   - `storeCurrentEpoch()` / `getCurrentEpoch()` - Track current epoch
+   - `storeRevokedLeaves()` / `getRevokedLeaves()` - Maintain ordered revocation history
+   - `storeAvailableLeaves()` / `getAvailableLeaves()` - Cache available leaves (derived from grants)
+   - `storeRecipientMap()` / `getRecipientMap()` - Track recipientId → leafIndex mapping
+   - `initializeOwnerState()` - Initialize all owner state for new feed
+
+   **Follower Key Storage (per feed owner):**
+   - `storePathKeys()` / `getPathKeys()` - Store LKH path keys for followed feeds
+   - `updatePathKeys()` - Update specific path keys after rekey application
+   - `storeCachedCEK()` / `getCachedCEK()` - Cache current epoch CEK
+   - `initializeFollowerState()` - Initialize follower keys from grant payload
+
+   **Cleanup:**
+   - `clearFeedKeys()` - Clear keys for a specific followed feed
+   - `clearOwnerKeys()` - Clear all owner keys (when disabling private feed)
+   - `clearAllKeys()` - Clear all private feed keys
+   - `getFollowedFeedOwners()` - List all feeds we have keys for
+
+   **Utilities:**
+   - Base64 encoding/decoding for Uint8Array storage
+   - Storage availability detection for SSR safety
+   - Storage key prefix: `yappr:pf:` as specified in PRD
+
+2. Exported service and types from `lib/services/index.ts`:
+   - `privateFeedKeyStore` singleton
+   - Types: `StoredPathKey`, `CachedCEK`, `RecipientLeafMap`
+
+**Screenshot:** `screenshots/private-feed-key-store.png`

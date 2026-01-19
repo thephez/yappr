@@ -29,3 +29,19 @@
 
 **No blockers encountered** - the service implementation follows the SPEC precisely and all build/lint checks pass.
 
+## 2026-01-18: PrivateFeedKeyStore Implementation
+
+**Key observations:**
+
+1. **Base64 encoding for Uint8Array in localStorage**: localStorage only stores strings, so Uint8Array (keys, CEKs) must be encoded. Used manual base64 encoding with `btoa`/`atob` and binary string conversion rather than adding a dependency like `base64-js`. This is sufficient for the key sizes involved (32-byte keys, path of ~11 keys).
+
+2. **SSR safety is critical**: Next.js renders components on the server where `localStorage` is undefined. All storage access must be wrapped with `typeof window === 'undefined'` checks. Created a reusable `isStorageAvailable()` helper that also tests storage access works (handles private browsing mode).
+
+3. **Available leaves is a derived cache, not authoritative**: Per SPEC §6.3, the authoritative source of leaf assignments is the set of active `PrivateFeedGrant` documents. The local `availableLeaves` cache improves performance but must be re-derived from grants on recovery. The platform's unique index on `($ownerId, leafIndex)` prevents collisions even with stale cache.
+
+4. **Consistent key prefix pattern**: Used `yappr:pf:` prefix as specified in PRD §3.4. Individual keys within this namespace use descriptive names like `feed_seed`, `path_keys:${ownerId}`, `cached_cek:${ownerId}` to keep storage organized and debuggable.
+
+5. **Follower keys are per-feed-owner**: Unlike owner keys (single set), follower keys are stored per followed feed using the ownerId as part of the key. This allows following multiple private feeds while keeping keys separate.
+
+**No issues encountered** - straightforward implementation following existing patterns from `secure-storage.ts`.
+
