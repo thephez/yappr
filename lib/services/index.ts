@@ -84,3 +84,11 @@ export type {
   CachedCEK,
   RecipientLeafMap,
 } from './private-feed-key-store';
+
+// Private feed service (owner operations)
+export { privateFeedService } from './private-feed-service';
+export type {
+  PrivateFeedStateDocument,
+  PrivateFeedRekeyDocument,
+  PrivatePostResult,
+} from './private-feed-service';

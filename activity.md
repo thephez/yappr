@@ -117,3 +117,46 @@
    - Types: `StoredPathKey`, `CachedCEK`, `RecipientLeafMap`
 
 **Screenshot:** `screenshots/private-feed-key-store.png`
+
+## 2026-01-18: PrivateFeedService Implementation
+
+**Task:** Create high-level service for private feed owner operations (Phase 1 Foundation)
+
+**Changes made:**
+1. Created `lib/services/private-feed-service.ts` implementing PRD §3.2 interface:
+
+   **Query Operations:**
+   - `hasPrivateFeed(ownerId)` - Check if user has private feed enabled
+   - `getPrivateFeedState(ownerId)` - Fetch PrivateFeedState document
+   - `getLatestEpoch(ownerId)` - Get current epoch from rekey documents
+   - `getRekeyDocuments(ownerId)` - Fetch all rekey documents for recovery
+
+   **Owner Operations (SPEC §8.1, §8.2):**
+   - `enablePrivateFeed(ownerId, encryptionPrivateKey)` - Initialize private feed:
+     - Generate 256-bit feed seed
+     - Pre-compute epoch chain (CEK[1] cached for immediate use)
+     - Encrypt seed to owner's public key using ECIES
+     - Create PrivateFeedState document on platform
+     - Initialize local state (all 1024 leaves available)
+   - `createPrivatePost(ownerId, content, teaser?)` - Create encrypted post:
+     - Sync check: compare chain epoch vs local epoch
+     - Validate content size (max 999 bytes)
+     - Derive/retrieve CEK for current epoch
+     - Encrypt content using XChaCha20-Poly1305
+     - Create post document with encryptedContent, epoch, nonce
+
+   **State Accessors:**
+   - `getCurrentEpoch()` - Get local epoch
+   - `getAvailableLeafCount()` - Count available follower slots
+   - `getRevokedLeaves()` - Get revocation history
+   - `isLocallyInitialized()` - Check if local keys exist
+
+   **Utilities:**
+   - `identifierToBytes()` - Convert base58 identity to 32-byte array for crypto
+   - `normalizeBytes()` - Handle SDK byte array response formats
+
+2. Updated `lib/services/index.ts` exports:
+   - `privateFeedService` singleton
+   - Types: `PrivateFeedStateDocument`, `PrivateFeedRekeyDocument`, `PrivatePostResult`
+
+**Screenshot:** `screenshots/private-feed-service.png`

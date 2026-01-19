@@ -45,3 +45,19 @@
 
 **No issues encountered** - straightforward implementation following existing patterns from `secure-storage.ts`.
 
+## 2026-01-18: PrivateFeedService Implementation
+
+**Key observations:**
+
+1. **Base58 identifier conversion for cryptography**: Dash Platform identifiers are base58-encoded 32-byte values. The cryptographic operations (AAD construction, etc.) require the raw bytes, so implemented `identifierToBytes()` with manual base58 decoding to convert identifiers to 32-byte Uint8Arrays.
+
+2. **SDK byte array response normalization**: The Dash Platform SDK returns byte array fields in different formats depending on context: Uint8Array, regular arrays, base64 strings, or hex strings. Created a `normalizeBytes()` utility to handle all cases consistently.
+
+3. **Sync check is critical for forward secrecy**: Per SPEC §7.6, before any write operation (post, approve, revoke), the client must check if another device has advanced the epoch. Implemented sync check in `createPrivatePost()` that compares chain epoch vs local epoch. Full recovery is deferred to Phase 4, but the check ensures we don't accidentally create posts with stale epochs.
+
+4. **CEK caching optimization**: Rather than regenerating the full 2000-epoch chain every time, the service caches CEK[1] immediately after feed enablement and uses the cached CEK for posts. The deriveCEK() method in the crypto service can derive older epochs from a cached newer epoch via hash chain.
+
+5. **Document data format for byte arrays**: When creating documents via state transitions, byte arrays must be passed as regular JavaScript arrays (`Array.from(uint8array)`), not as Uint8Array objects. The SDK/platform handles the conversion internally.
+
+**No blockers encountered** - the service follows the existing patterns in post-service.ts and state-transition-service.ts.
+
