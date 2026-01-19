@@ -1678,3 +1678,44 @@ Cleaning up stale FollowRequest for approved user
 4. Automatic stale FollowRequest cleanup works correctly
 
 This test also implicitly verified **Test 4.2 (Approve Request - Happy Path)** as part of the setup.
+
+---
+
+## 2026-01-19: E2E Test 5.5 - View as Owner - BUG FOUND
+
+### Test Objective
+Verify that the feed owner can always view their own private posts, even when:
+- Logged in on a new device
+- Local private feed keys are not present
+- Encryption key is available in session
+
+### Test Steps Performed
+1. Cleared localStorage and sessionStorage to simulate a fresh session
+2. Logged in as feed owner (identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2)
+3. Stored encryption key in session via localStorage (`yappr_secure_ek_*`)
+4. Navigated to owner's profile page
+5. Clicked on a private post (17 minutes old, no teaser)
+6. **BUG FOUND:** Post showed "Private Content - Only approved followers can see this content" with "Request Access" button
+
+### Expected Result (Per PRD §4.8)
+- Content displays normally (owner always decrypts their own posts)
+- Subtle "Private" indicator (lock icon)
+- Shows "Visible to X private followers" count
+- No locked/teaser UI
+
+### Actual Result
+- Post showed locked state with 🔒 emoji
+- "Private Content" heading displayed
+- "Only approved followers can see this content" message
+- "Request Access" button shown (incorrect for owner!)
+
+### Bug Filed
+**BUG-011: Owner cannot decrypt their own private posts when local feed keys are missing**
+
+The `PrivatePostContent` component checks for `feedSeed` but doesn't trigger auto-recovery when it's missing and the encryption key is available. This is inconsistent with the BUG-010 fix that added auto-recovery to `createPrivatePost()`.
+
+### Screenshots
+- `screenshots/e2e-test5.5-owner-cannot-decrypt-BUG.png` - Owner seeing "Request Access" on their own post
+
+### Test Result
+**BLOCKED** - Cannot complete Test 5.5 due to BUG-011. Test should be re-run after fix is applied.

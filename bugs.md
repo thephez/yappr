@@ -2,7 +2,119 @@
 
 ## Active Bugs
 
-(none)
+### BUG-011: Owner cannot decrypt their own private posts when local feed keys are missing
+
+**Severity:** HIGH - Blocks Test 5.5 (View as Owner)
+
+**Description:** When a feed owner views their own private post but has no local `yappr:pf:*` keys stored (e.g., fresh session, cleared localStorage, new device), the post shows "Private Content - Only approved followers can see this content" with a "Request Access" button. The owner should always be able to decrypt and view their own private posts.
+
+**Steps to Reproduce:**
+1. Clear localStorage/sessionStorage
+2. Log in as the feed owner (identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2)
+3. Store encryption key in session (yappr_secure_ek_*)
+4. Navigate to owner's profile and click on a private post
+5. Post shows locked state with "Request Access" button instead of decrypted content
+
+**Expected Behavior:**
+- Owner views their own private post
+- `PrivatePostContent` component detects owner has encryption key but no feed seed
+- Auto-recovery triggers using `recoverOwnerState()` with the encryption key
+- Post decrypts and displays normally with "Visible to X private followers" indicator
+
+**Actual Behavior:**
+- `PrivatePostContent.attemptDecryption()` checks `privateFeedKeyStore.getFeedSeed()` which returns null
+- Component sets state to `{ status: 'locked', reason: 'no-keys' }`
+- Owner sees "Request Access" button for their own post
+
+**Root Cause Analysis:**
+In `components/post/private-post-content.tsx`, lines 173-179:
+```typescript
+if (isEncryptionSourceOwner) {
+  const feedSeed = privateFeedKeyStore.getFeedSeed()
+  if (!feedSeed) {
+    // Owner doesn't have local keys - needs to recover
+    setState({ status: 'locked', reason: 'no-keys' })
+    return
+  }
+  // ... decryption logic
+}
+```
+
+The code correctly identifies that feed keys are missing, but instead of triggering auto-recovery (like BUG-010 fix did for `createPrivatePost()`), it just shows the locked state.
+
+**Proposed Fix:**
+Similar to BUG-010 fix, when the owner has no feed seed but has an encryption key available, trigger `recoverOwnerState()` automatically:
+
+```typescript
+if (isEncryptionSourceOwner) {
+  let feedSeed = privateFeedKeyStore.getFeedSeed()
+
+  // BUG-011 fix: If owner has no local keys but has encryption key, attempt recovery
+  if (!feedSeed) {
+    const encryptionKeyHex = getEncryptionKey(user.identityId)
+    if (encryptionKeyHex) {
+      setState({ status: 'recovering' })
+      const { privateFeedService } = await import('@/lib/services')
+      const encryptionPrivateKey = new Uint8Array(
+        encryptionKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+      )
+      const recoveryResult = await privateFeedService.recoverOwnerState(
+        encryptionSourceOwnerId,
+        encryptionPrivateKey
+      )
+      if (recoveryResult.success) {
+        feedSeed = privateFeedKeyStore.getFeedSeed()
+      }
+    }
+  }
+
+  if (!feedSeed) {
+    setState({ status: 'locked', reason: 'no-keys' })
+    return
+  }
+  // ... continue with decryption
+}
+```
+
+**Files to Modify:**
+- `components/post/private-post-content.tsx` - Add auto-recovery for owner when encryption key is available
+
+**Screenshot:** `screenshots/e2e-test5.5-owner-cannot-decrypt-BUG.png`
+
+**Date Reported:** 2026-01-19
+
+### BUG-010: Failed to create post: Private feed not enabled (RESOLVED)
+
+**Resolution:** Added a check for missing local keys at the beginning of `createPrivatePost()` to trigger full recovery when the feed seed is not stored locally, even if the epoch check passes.
+
+**Root Cause:** The `createPrivatePost()` function only triggered recovery when `chainEpoch > localEpoch`. When local keys were completely absent (not just out of sync), `getCurrentEpoch()` returned 1 by default, and if the chain epoch was also 1, the recovery check passed. Then `getFeedSeed()` returned null because no feed seed was stored locally, causing the "Private feed not enabled" error.
+
+**Fix Applied:**
+```typescript
+// 0. Check if local keys exist at all (BUG-010 fix)
+const hasLocalKeys = privateFeedKeyStore.hasFeedSeed();
+
+if (!hasLocalKeys) {
+  console.log('No local private feed keys found, need full recovery');
+  if (encryptionPrivateKey) {
+    const recoveryResult = await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+    // ... handle result
+  } else {
+    return { success: false, error: 'SYNC_REQUIRED:No local keys found...' };
+  }
+}
+```
+
+**Files Modified:**
+- `lib/services/private-feed-service.ts` - Added missing local keys check before epoch sync check
+
+**Verification:**
+- Tested with user who has private feed enabled on-chain but no local `yappr:pf:*` keys
+- Console showed "No local private feed keys found, need full recovery"
+- Recovery completed successfully, post was created
+- Screenshot: `screenshots/bug010-fix-verified.png`
+
+**Date Resolved:** 2026-01-19
 
 ### BUG-007: getPrivateFollowers query fails with WasmSdkError (RESOLVED)
 

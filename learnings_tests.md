@@ -925,3 +925,43 @@ Successfully cleaned up stale FollowRequest
 11. **Verify "Private Follower" badge** - This badge on the owner's profile is the clearest indicator that approval worked and grant was created correctly.
 
 12. **Check for automatic stale document cleanup** - The system cleans up FollowRequest documents after approval. Look for "Cleaning up stale FollowRequest" in console logs.
+
+---
+
+## 2026-01-19: E2E Test 5.5 - Owner View Auto-Recovery Gap
+
+### Issue 59: Inconsistent Auto-Recovery Between Create and View (BUG-011)
+**Problem:** The `PrivatePostContent` component does not trigger auto-recovery when the owner has an encryption key but no feed seed, unlike `createPrivatePost()` which was fixed in BUG-010.
+
+**Root Cause:** Different code paths for creating vs viewing private posts. The BUG-010 fix added auto-recovery to `createPrivatePost()` in `private-feed-service.ts`, but the equivalent fix was not applied to `PrivatePostContent.attemptDecryption()` in `private-post-content.tsx`.
+
+**Key Pattern:**
+```typescript
+// BUG-010 fix (in createPrivatePost):
+const hasLocalKeys = privateFeedKeyStore.hasFeedSeed();
+if (!hasLocalKeys && encryptionPrivateKey) {
+  await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+}
+
+// Missing in PrivatePostContent:
+// Same pattern should be applied when owner attempts to decrypt
+```
+
+**Lesson:** When fixing auto-recovery bugs, identify ALL code paths that may need the same fix. In this case:
+- `createPrivatePost()` - FIXED (BUG-010)
+- `PrivatePostContent.attemptDecryption()` - MISSING (BUG-011)
+- `createInheritedPrivateReply()` - May also need fix
+
+**Best Practice:** Search codebase for all calls to `privateFeedKeyStore.getFeedSeed()` and ensure each has appropriate recovery handling when the result is null but an encryption key is available.
+
+### Issue 60: Feed Seed vs Encryption Key Distinction
+**Observation:** There are two keys the owner needs:
+1. **Encryption Private Key** (`yappr_secure_ek_*`): The ECDSA key used for ECIES operations. User enters this manually or via modal.
+2. **Feed Seed** (`yappr:pf:feedSeed`): The 32-byte seed derived from the on-chain `PrivateFeedState` document. Recovered automatically from chain.
+
+**Key Insight:** If the encryption key is available but the feed seed is not:
+- The system CAN recover the feed seed automatically
+- The recovery uses `recoverOwnerState(ownerId, encryptionPrivateKey)`
+- After recovery, `getFeedSeed()` will return the recovered value
+
+**Lesson:** Don't treat missing feed seed as a permanent "no access" state. If the encryption key is available, trigger recovery before giving up.
