@@ -3,7 +3,7 @@
  */
 
 // Contract IDs
-export const YAPPR_CONTRACT_ID = 'AyWK6nDVfb8d1ZmkM5MmZZrThbUyWyso1aMeGuuVSfxf' // Testnet
+export const YAPPR_CONTRACT_ID = 'FNDUsTkqMQ1Wv4qhvg25VqHRnLLfCwwvw1YFMUL9iQ7e' // Testnet - v2 with private feed support
 export const YAPPR_PROFILE_CONTRACT_ID = 'FZSnZdKsLAuWxE7iZJq12eEz6xfGTgKPxK7uZJapTQxe' // Unified profile contract
 export const YAPPR_DM_CONTRACT_ID = 'J7MP9YU1aEGNAe7bjB45XdrjDLBsevFLPK1t1YwFS4ck' // Testnet - DM contract v3 (simplified readReceipt)
 export const YAPPR_BLOCK_CONTRACT_ID = 'DCLfH2tgyQhyaFeQigFk8ptC1MjQgsDghkYDvDrLMF3m' // Enhanced blocking contract with bloom filters
@@ -35,7 +35,12 @@ export const DOCUMENT_TYPES = {
   NOTIFICATION: 'notification',
   ENCRYPTED_KEY_BACKUP: 'encryptedKeyBackup',
   POST_HASHTAG: 'postHashtag',
-  POST_MENTION: 'postMention'
+  POST_MENTION: 'postMention',
+  // Private feed document types
+  FOLLOW_REQUEST: 'followRequest',
+  PRIVATE_FEED_GRANT: 'privateFeedGrant',
+  PRIVATE_FEED_REKEY: 'privateFeedRekey',
+  PRIVATE_FEED_STATE: 'privateFeedState'
 } as const
 
 // DPNS

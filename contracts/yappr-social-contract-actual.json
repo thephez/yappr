@@ -194,14 +194,7 @@
         "position": 0,
         "maxLength": 500,
         "minLength": 1,
-        "description": "Post content"
-      },
-      "language": {
-        "type": "string",
-        "pattern": "^[a-z]{2}$",
-        "position": 6,
-        "maxLength": 2,
-        "description": "Language code of the post"
+        "description": "Post content (public content or teaser for private posts)"
       },
       "mediaUrl": {
         "type": "string",
@@ -210,10 +203,14 @@
         "maxLength": 512,
         "description": "URL to media file (temporary field - will support multiple media in future)"
       },
-      "sensitive": {
-        "type": "boolean",
-        "position": 7,
-        "description": "Whether post contains sensitive content"
+      "replyToPostId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 2,
+        "byteArray": true,
+        "description": "ID of post this is replying to",
+        "contentMediaType": "application/x.dash.dpp.identifier"
       },
       "quotedPostId": {
         "type": "array",
@@ -222,15 +219,6 @@
         "position": 3,
         "byteArray": true,
         "description": "ID of quoted post",
-        "contentMediaType": "application/x.dash.dpp.identifier"
-      },
-      "replyToPostId": {
-        "type": "array",
-        "maxItems": 32,
-        "minItems": 32,
-        "position": 2,
-        "byteArray": true,
-        "description": "ID of post this is replying to",
         "contentMediaType": "application/x.dash.dpp.identifier"
       },
       "firstMentionId": {
@@ -248,6 +236,41 @@
         "position": 5,
         "maxLength": 100,
         "description": "Primary hashtag for the post (temporary field - will support multiple hashtags in future)"
+      },
+      "language": {
+        "type": "string",
+        "pattern": "^[a-z]{2}$",
+        "position": 6,
+        "maxLength": 2,
+        "description": "Language code of the post"
+      },
+      "sensitive": {
+        "type": "boolean",
+        "position": 7,
+        "description": "Whether post contains sensitive content"
+      },
+      "encryptedContent": {
+        "type": "array",
+        "maxItems": 1024,
+        "minItems": 1,
+        "position": 8,
+        "byteArray": true,
+        "description": "Encrypted private post content (AEAD ciphertext). Presence indicates private post."
+      },
+      "epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4294967295,
+        "position": 9,
+        "description": "Epoch number for private post key derivation"
+      },
+      "nonce": {
+        "type": "array",
+        "maxItems": 24,
+        "minItems": 24,
+        "position": 10,
+        "byteArray": true,
+        "description": "24-byte nonce for XChaCha20-Poly1305 encryption"
       }
     },
     "description": "A post/tweet in the social network",
@@ -690,7 +713,10 @@
           "follow",
           "reply",
           "mention",
-          "quote"
+          "quote",
+          "privateFeedRequest",
+          "privateFeedApproved",
+          "privateFeedRevoked"
         ],
         "type": "string",
         "position": 0,
@@ -782,6 +808,239 @@
       }
     },
     "description": "A direct message between users",
+    "additionalProperties": false
+  },
+  "followRequest": {
+    "type": "object",
+    "indices": [
+      {
+        "name": "targetAndRequester",
+        "unique": true,
+        "properties": [
+          {
+            "targetId": "asc"
+          },
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "target",
+        "properties": [
+          {
+            "targetId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      }
+    ],
+    "required": [
+      "$createdAt",
+      "targetId"
+    ],
+    "properties": {
+      "targetId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 0,
+        "byteArray": true,
+        "description": "Identity ID of the private feed owner being requested",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "publicKey": {
+        "type": "array",
+        "maxItems": 33,
+        "minItems": 33,
+        "position": 1,
+        "byteArray": true,
+        "description": "Requester's secp256k1 public key (compressed, 33 bytes) - required if only hash160 on-chain"
+      }
+    },
+    "description": "A request to follow a user's private feed",
+    "additionalProperties": false
+  },
+  "privateFeedGrant": {
+    "type": "object",
+    "indices": [
+      {
+        "name": "ownerAndRecipient",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          },
+          {
+            "recipientId": "asc"
+          }
+        ]
+      },
+      {
+        "name": "ownerAndLeaf",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          },
+          {
+            "leafIndex": "asc"
+          }
+        ]
+      }
+    ],
+    "mutable": false,
+    "required": [
+      "$createdAt",
+      "recipientId",
+      "leafIndex",
+      "epoch",
+      "encryptedPayload"
+    ],
+    "properties": {
+      "recipientId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 0,
+        "byteArray": true,
+        "description": "Identity ID of the approved private follower",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "leafIndex": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535,
+        "position": 1,
+        "description": "Assigned leaf index in the key tree (0-1023 for 1024-leaf tree)"
+      },
+      "epoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4294967295,
+        "position": 2,
+        "description": "Epoch at time of grant"
+      },
+      "encryptedPayload": {
+        "type": "array",
+        "maxItems": 600,
+        "minItems": 1,
+        "position": 3,
+        "byteArray": true,
+        "description": "ECIES-encrypted payload containing path keys and current CEK (~485 bytes)"
+      }
+    },
+    "description": "A grant giving a user access to decrypt private feed posts",
+    "additionalProperties": false
+  },
+  "privateFeedRekey": {
+    "type": "object",
+    "canBeDeleted": false,
+    "indices": [
+      {
+        "name": "ownerAndEpoch",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          },
+          {
+            "epoch": "asc"
+          }
+        ]
+      }
+    ],
+    "mutable": false,
+    "required": [
+      "$createdAt",
+      "epoch",
+      "revokedLeaf",
+      "packets",
+      "encryptedCEK"
+    ],
+    "properties": {
+      "epoch": {
+        "type": "integer",
+        "minimum": 2,
+        "maximum": 4294967295,
+        "position": 0,
+        "description": "New epoch number after this rekey (starts at 2 for first revocation)"
+      },
+      "revokedLeaf": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 65535,
+        "position": 1,
+        "description": "Leaf index that was revoked"
+      },
+      "packets": {
+        "type": "array",
+        "maxItems": 2048,
+        "minItems": 1,
+        "position": 2,
+        "byteArray": true,
+        "description": "Binary-encoded rekey packets for LKH key update (~1.2KB typical)"
+      },
+      "encryptedCEK": {
+        "type": "array",
+        "maxItems": 48,
+        "minItems": 48,
+        "position": 3,
+        "byteArray": true,
+        "description": "CEK[epoch] encrypted under new root key (32 bytes + 16 byte auth tag)"
+      }
+    },
+    "description": "A rekey document created when revoking a private feed follower. IMMUTABLE - cannot be deleted.",
+    "additionalProperties": false
+  },
+  "privateFeedState": {
+    "type": "object",
+    "canBeDeleted": false,
+    "indices": [
+      {
+        "name": "owner",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "mutable": false,
+    "required": [
+      "$createdAt",
+      "treeCapacity",
+      "maxEpoch",
+      "encryptedSeed"
+    ],
+    "properties": {
+      "treeCapacity": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 65535,
+        "position": 0,
+        "description": "Key tree capacity (typically 1024 for 1024 max private followers)"
+      },
+      "maxEpoch": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 4294967295,
+        "position": 1,
+        "description": "Maximum pre-generated epoch chain length (typically 2000)"
+      },
+      "encryptedSeed": {
+        "type": "array",
+        "maxItems": 256,
+        "minItems": 1,
+        "position": 2,
+        "byteArray": true,
+        "description": "ECIES-encrypted feed seed (33 byte ephemeral pubkey + encrypted payload)"
+      }
+    },
+    "description": "Private feed state document created when enabling a private feed. IMMUTABLE - cannot be deleted.",
     "additionalProperties": false
   }
 }
