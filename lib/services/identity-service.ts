@@ -204,20 +204,92 @@ class IdentityService {
   }
 
   /**
+   * Validate that a private key has sufficient security level for identity updates
+   * Identity modifications require CRITICAL (1) or MASTER (0) security level
+   *
+   * @param privateKeyWif - The WIF-encoded private key to validate
+   * @param identityId - The identity to validate against
+   * @returns Validation result with security level info
+   */
+  async validateKeySecurityLevel(
+    privateKeyWif: string,
+    identityId: string
+  ): Promise<{
+    isValid: boolean;
+    securityLevel?: number;
+    keyId?: number;
+    error?: string;
+  }> {
+    try {
+      const { findMatchingKeyIndex, getSecurityLevelName } = await import('@/lib/crypto/keys');
+      const identity = await this.getIdentity(identityId);
+
+      if (!identity) {
+        return { isValid: false, error: 'Identity not found' };
+      }
+
+      // Convert identity public keys to the format expected by findMatchingKeyIndex
+      const publicKeys = identity.publicKeys.map(key => ({
+        id: key.id,
+        type: key.type,
+        purpose: key.purpose,
+        securityLevel: key.securityLevel ?? key.security_level ?? 0,
+        data: typeof key.data === 'string'
+          ? Uint8Array.from(atob(key.data), c => c.charCodeAt(0))
+          : key.data as Uint8Array
+      }));
+
+      const network = (process.env.NEXT_PUBLIC_NETWORK as 'testnet' | 'mainnet') || 'testnet';
+      const match = findMatchingKeyIndex(privateKeyWif, publicKeys, network);
+
+      if (!match) {
+        return { isValid: false, error: 'Private key does not match any key on this identity' };
+      }
+
+      // For identity updates, we need CRITICAL (1) or MASTER (0) security level
+      // HIGH (2) and below are not allowed
+      if (match.securityLevel > 1) {
+        const levelName = getSecurityLevelName(match.securityLevel);
+        return {
+          isValid: false,
+          securityLevel: match.securityLevel,
+          keyId: match.keyId,
+          error: `Identity modifications require a CRITICAL or MASTER key. You provided a ${levelName} key.`
+        };
+      }
+
+      return {
+        isValid: true,
+        securityLevel: match.securityLevel,
+        keyId: match.keyId
+      };
+    } catch (error) {
+      console.error('Error validating key security level:', error);
+      return {
+        isValid: false,
+        error: error instanceof Error ? error.message : 'Failed to validate key'
+      };
+    }
+  }
+
+  /**
    * Add an encryption public key to an identity
    * This creates an identity update state transition
    *
+   * NOTE: Identity modifications on Dash Platform require a CRITICAL (1) or MASTER (0)
+   * security level key for signing. The typical HIGH (2) login key is insufficient.
+   *
    * @param identityId - The identity to update
    * @param encryptionPrivateKey - The private key bytes (32 bytes)
-   * @param authPrivateKeyWif - The authentication key for signing (in WIF format)
+   * @param signingPrivateKeyWif - The CRITICAL/MASTER level key for signing (in WIF format)
    * @param contractId - Optional contract ID to bind the key to
    * @returns Result with success status and the new key ID
    */
   async addEncryptionKey(
     identityId: string,
     encryptionPrivateKey: Uint8Array,
-    authPrivateKeyWif: string,
-    contractId?: string
+    signingPrivateKeyWif: string,
+    _contractId?: string // Reserved for future use: contract-bound keys
   ): Promise<{ success: boolean; keyId?: number; error?: string }> {
     try {
       const sdk = await getEvoSdk();
@@ -272,14 +344,22 @@ class IdentityService {
       );
       console.log('IdentityPublicKeyInCreation created successfully');
 
+      // Validate signing key has sufficient security level before calling SDK
+      const validation = await this.validateKeySecurityLevel(signingPrivateKeyWif, identityId);
+      if (!validation.isValid) {
+        console.error('Signing key validation failed:', validation.error);
+        return { success: false, error: validation.error };
+      }
+      console.log(`Signing key validated: keyId=${validation.keyId}, securityLevel=${validation.securityLevel}`);
+
       console.log(`Adding encryption key (id=${newKeyId}) to identity ${identityId}...`);
-      console.log('Calling sdk.identities.update with privateKeyWif length:', authPrivateKeyWif?.length);
+      console.log('Calling sdk.identities.update with privateKeyWif length:', signingPrivateKeyWif?.length);
 
       // Update the identity
       await sdk.identities.update({
         identityId,
         addPublicKeys: [newKey],
-        privateKeyWif: authPrivateKeyWif,
+        privateKeyWif: signingPrivateKeyWif,
       });
       console.log('sdk.identities.update completed');
 

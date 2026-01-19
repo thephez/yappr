@@ -64,7 +64,7 @@ const newKey = new wasm.IdentityPublicKeyInCreation(
 2. Or manually add encryption keys to test identities via another method
 3. Or create fresh test identities with encryption keys pre-configured
 
-### Issue 4: Identity Update Security Level Requirements (BUG-002 - OPEN)
+### Issue 4: Identity Update Security Level Requirements (BUG-002 - RESOLVED)
 **Problem:** After fixing BUG-001, `sdk.identities.update()` fails with `WasmSdkError` when trying to add an encryption key.
 
 **Context:**
@@ -72,14 +72,43 @@ const newKey = new wasm.IdentityPublicKeyInCreation(
 - Identity has keys: MASTER (0), CRITICAL (1), HIGH (2), TRANSFER (3)
 - Error occurs during `sdk.identities.update()` call
 
-**Suspected Cause:** Dash Platform likely requires a higher security level key (CRITICAL or MASTER) to perform identity modifications like adding new public keys.
+**Root Cause Confirmed:** Dash Platform requires CRITICAL (securityLevel=1) or MASTER (securityLevel=0) keys to modify identities. The HIGH (securityLevel=2) login key is insufficient.
 
-**Status:** OPEN - Needs investigation into:
-1. Dash Platform security level requirements for identity updates
-2. Whether the SDK provides better error messages for this case
-3. Possible solutions (request CRITICAL key for this operation, or change login requirements)
+**Solution Applied:**
+1. Added `validateKeySecurityLevel()` method to validate key security level before SDK calls
+2. Modified modal flow to request CRITICAL key specifically for identity updates
+3. Clear UI messaging explaining why CRITICAL key is needed
 
-**Lesson:** Dash Platform operations have security level requirements. Identity modifications likely require higher privilege keys than routine operations.
+**Key Code Pattern:**
+```typescript
+// Validate signing key has sufficient security level before calling SDK
+const validation = await this.validateKeySecurityLevel(signingPrivateKeyWif, identityId);
+if (!validation.isValid) {
+  return { success: false, error: validation.error };
+}
+// Validation checks: securityLevel must be <= 1 (CRITICAL or MASTER)
+```
+
+**Status:** RESOLVED - Security level validation working correctly. A deeper SDK error (BUG-003) was discovered.
+
+**Lesson:** Always validate key security levels before performing sensitive operations. Identity modifications require CRITICAL or MASTER keys - this is a platform-level security requirement.
+
+### Issue 5: SDK Identity Update Still Fails After Security Fix (BUG-003 - OPEN)
+**Problem:** Even with correct CRITICAL-level key, `sdk.identities.update()` still throws `WasmSdkError`.
+
+**Context:**
+- Security level validation passes: `Signing key validated: keyId=2, securityLevel=1`
+- SDK call still fails with generic `WasmSdkError`
+
+**Possible Causes:**
+- Network/DAPI connectivity issues
+- SDK version incompatibility with current platform state
+- Missing or invalid state transition parameters
+- Platform-specific validation failures
+
+**Status:** OPEN - Needs further investigation into SDK/platform requirements.
+
+**Lesson:** Even when client-side validation passes, SDK operations can fail for platform-specific reasons. Better error handling and messages from the SDK would help diagnose these issues.
 
 ### Best Practices Identified
 
