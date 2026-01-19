@@ -579,10 +579,22 @@ export function ComposeModal() {
         if (isThisPostPrivate) {
           // Create private post using privateFeedService
           const { privateFeedService } = await import('@/lib/services')
+          const { getEncryptionKey } = await import('@/lib/secure-storage')
+
+          // Try to get encryption key for automatic sync/recovery
+          const storedKeyHex = getEncryptionKey(authedUser.identityId)
+          let encryptionPrivateKey: Uint8Array | undefined
+          if (storedKeyHex) {
+            encryptionPrivateKey = new Uint8Array(
+              storedKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+            )
+          }
+
           const privateResult = await privateFeedService.createPrivatePost(
             authedUser.identityId,
             postContent,
-            postVisibility === 'private-with-teaser' ? teaser : undefined
+            postVisibility === 'private-with-teaser' ? teaser : undefined,
+            encryptionPrivateKey
           )
 
           // Convert to the expected result format
@@ -592,6 +604,19 @@ export function ComposeModal() {
               data: { postId: privateResult.postId },
             }
           } else {
+            // Check if this is a sync required error
+            if (privateResult.error?.startsWith('SYNC_REQUIRED:')) {
+              const { useEncryptionKeyModal } = await import('@/hooks/use-encryption-key-modal')
+              useEncryptionKeyModal.getState().open('sync_state', () => {
+                // After user enters key, they should retry posting
+                toast('Please try posting again now that your keys are synced')
+              })
+              toast.error('Your private feed state needs to sync. Please enter your encryption key.')
+              // Don't treat as fatal - user can retry
+              setIsPosting(false)
+              setPostingProgress(null)
+              return
+            }
             result = {
               success: false,
               error: new Error(privateResult.error || 'Failed to create private post'),

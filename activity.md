@@ -914,3 +914,59 @@
 - Stale requests are harmless but cleaned up for tidiness
 
 **Screenshot:** `screenshots/follow-request-cleanup-settings.png` (Private Feed settings page showing the private follower management UI where approved users would have their FollowRequests cleaned up)
+
+## 2026-01-19: Owner Recovery (SPEC §8.8) for Multi-Device Sync
+
+**Task:** Implement Owner Recovery functionality for private feed multi-device synchronization
+
+**Changes made:**
+1. Extended `lib/services/private-feed-service.ts` with recovery functionality:
+   - `recoverOwnerState(ownerId, encryptionPrivateKey)` - Full owner recovery implementation per SPEC §8.8:
+     - Fetches PrivateFeedState document from chain
+     - Decrypts feedSeed using ECIES with owner's encryption private key
+     - Validates protocol version prefix
+     - Fetches ALL PrivateFeedRekey documents to rebuild revokedLeaves list
+     - Determines currentEpoch from rekey documents (or 1 if none exist)
+     - Fetches ALL PrivateFeedGrant documents to rebuild recipientId → leafIndex mapping
+     - Derives availableLeaves from grants (authoritative source per SPEC §6.3)
+     - Clears existing owner state and reinitializes with recovered data
+     - Computes and caches current CEK for immediate use
+   - `syncAndRecover(ownerId, encryptionPrivateKey)` - Sync check helper:
+     - Checks if local keys exist (triggers full recovery if not)
+     - Compares chain epoch vs local epoch
+     - Triggers recovery automatically when local state is behind
+
+2. Updated `createPrivatePost()`, `approveFollower()`, and `revokeFollower()` methods:
+   - Added optional `encryptionPrivateKey` parameter to all three methods
+   - Modified sync check to automatically trigger recovery when local state is behind and key is provided
+   - Returns `SYNC_REQUIRED:` error prefix when sync needed but no key provided (for UI detection)
+   - Properly refreshes `feedSeed` and `localEpoch` variables after recovery
+
+3. Updated `hooks/use-encryption-key-modal.ts`:
+   - Added `sync_state` to `EncryptionKeyAction` type
+   - Added description: "sync your private feed state"
+
+4. Updated `components/compose/compose-modal.tsx`:
+   - Retrieves encryption key from secure storage before creating private posts
+   - Passes encryption key to `createPrivatePost()` for automatic sync/recovery
+   - Handles `SYNC_REQUIRED:` error by opening encryption key modal with `sync_state` action
+   - Shows user-friendly toast notification about needing to sync
+
+5. Updated `components/settings/private-feed-follow-requests.tsx`:
+   - Retrieves encryption key from secure storage before approving followers
+   - Passes encryption key to `approveFollower()` for automatic sync/recovery
+   - Handles `SYNC_REQUIRED:` error appropriately
+
+6. Updated `components/settings/private-feed-followers.tsx`:
+   - Retrieves encryption key from secure storage before revoking followers
+   - Passes encryption key to `revokeFollower()` for automatic sync/recovery
+   - Handles `SYNC_REQUIRED:` error appropriately
+
+**Key features per SPEC §8.8 and PRD §10.3:**
+- Owner can recover feed state from chain data using only their encryption private key
+- Automatic sync/recovery when creating posts, approving, or revoking from a different device
+- Falls back to prompting for encryption key when key not in session storage
+- Graceful error handling with user-friendly messages
+- Local state properly rebuilt from authoritative chain documents
+
+**Screenshot:** `screenshots/owner-recovery-private-feed-settings.png`

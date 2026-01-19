@@ -7,6 +7,7 @@ export type EncryptionKeyAction =
   | 'create_private_post'
   | 'manage_private_feed'
   | 'decrypt_grant'
+  | 'sync_state'
   | 'generic'
 
 interface EncryptionKeyModalStore {
@@ -43,6 +44,8 @@ export function getEncryptionKeyActionDescription(action: EncryptionKeyAction): 
       return 'manage your private feed'
     case 'decrypt_grant':
       return 'access private feeds you follow'
+    case 'sync_state':
+      return 'sync your private feed state'
     case 'generic':
     default:
       return 'use private feed features'

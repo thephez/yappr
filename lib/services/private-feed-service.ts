@@ -325,12 +325,14 @@ class PrivateFeedService {
    * @param ownerId - The identity ID of the post author
    * @param content - The plaintext content to encrypt
    * @param teaser - Optional public teaser content
+   * @param encryptionPrivateKey - Optional: encryption key for automatic sync/recovery
    * @returns Promise<PrivatePostResult>
    */
   async createPrivatePost(
     ownerId: string,
     content: string,
-    teaser?: string
+    teaser?: string,
+    encryptionPrivateKey?: Uint8Array
   ): Promise<PrivatePostResult> {
     try {
       // 1. SYNC CHECK (SPEC §8.2 step 1)
@@ -341,11 +343,24 @@ class PrivateFeedService {
       if (chainEpoch > localEpoch) {
         // Need to run owner recovery to sync state
         console.log(`Chain epoch ${chainEpoch} > local epoch ${localEpoch}, need recovery`);
-        // For now, return error - full recovery will be implemented in Phase 4
-        return {
-          success: false,
-          error: 'Local state out of sync. Please refresh and try again.',
-        };
+
+        if (encryptionPrivateKey) {
+          // Automatic recovery with provided key
+          const recoveryResult = await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+          if (!recoveryResult.success) {
+            return {
+              success: false,
+              error: `Sync failed: ${recoveryResult.error}`,
+            };
+          }
+          console.log('Automatic recovery completed, continuing with post creation');
+        } else {
+          // No key provided - return a specific error that UI can detect
+          return {
+            success: false,
+            error: 'SYNC_REQUIRED:Local state out of sync. Please enter your encryption key to sync.',
+          };
+        }
       }
 
       // 2. Validate plaintext size (SPEC §8.2 step 2)
@@ -436,29 +451,58 @@ class PrivateFeedService {
    * @param ownerId - The identity ID of the feed owner
    * @param requesterId - The identity ID of the requester
    * @param requesterPublicKey - The requester's encryption public key
+   * @param encryptionPrivateKey - Optional: owner's encryption key for automatic sync/recovery
    * @returns Promise<{success: boolean, error?: string}>
    */
   async approveFollower(
     ownerId: string,
     requesterId: string,
-    requesterPublicKey: Uint8Array
+    requesterPublicKey: Uint8Array,
+    encryptionPrivateKey?: Uint8Array
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // 1. Get feed seed
-      const feedSeed = privateFeedKeyStore.getFeedSeed();
+      let feedSeed = privateFeedKeyStore.getFeedSeed();
       if (!feedSeed) {
-        return { success: false, error: 'Private feed not initialized locally' };
+        // Try to recover if we have the encryption key
+        if (encryptionPrivateKey) {
+          const recoveryResult = await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+          if (!recoveryResult.success) {
+            return { success: false, error: `Recovery failed: ${recoveryResult.error}` };
+          }
+          feedSeed = privateFeedKeyStore.getFeedSeed();
+          if (!feedSeed) {
+            return { success: false, error: 'Private feed not initialized after recovery' };
+          }
+        } else {
+          return { success: false, error: 'SYNC_REQUIRED:Private feed not initialized locally. Please enter your encryption key to sync.' };
+        }
       }
 
       // 2. SYNC CHECK: Compare chain epoch vs local epoch
       const chainEpoch = await this.getLatestEpoch(ownerId);
-      const localEpoch = privateFeedKeyStore.getCurrentEpoch();
+      let localEpoch = privateFeedKeyStore.getCurrentEpoch();
 
       if (chainEpoch > localEpoch) {
-        return {
-          success: false,
-          error: 'Local state out of sync. Please refresh and try again.',
-        };
+        if (encryptionPrivateKey) {
+          // Automatic recovery with provided key
+          const recoveryResult = await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+          if (!recoveryResult.success) {
+            return { success: false, error: `Sync failed: ${recoveryResult.error}` };
+          }
+          // Refresh feedSeed and localEpoch after recovery
+          feedSeed = privateFeedKeyStore.getFeedSeed();
+          localEpoch = privateFeedKeyStore.getCurrentEpoch();
+          if (!feedSeed) {
+            return { success: false, error: 'Feed seed not available after recovery' };
+          }
+          console.log('Automatic recovery completed, continuing with approval');
+        } else {
+          return {
+            success: false,
+            error: 'SYNC_REQUIRED:Local state out of sync. Please enter your encryption key to sync.',
+          };
+        }
       }
 
       // 3. Get an available leaf index
@@ -582,28 +626,57 @@ class PrivateFeedService {
    *
    * @param ownerId - The identity ID of the feed owner
    * @param followerId - The identity ID of the follower to revoke
+   * @param encryptionPrivateKey - Optional: owner's encryption key for automatic sync/recovery
    * @returns Promise<{success: boolean, error?: string}>
    */
   async revokeFollower(
     ownerId: string,
-    followerId: string
+    followerId: string,
+    encryptionPrivateKey?: Uint8Array
   ): Promise<{ success: boolean; error?: string }> {
     try {
       // 1. Get feed seed
-      const feedSeed = privateFeedKeyStore.getFeedSeed();
+      let feedSeed = privateFeedKeyStore.getFeedSeed();
       if (!feedSeed) {
-        return { success: false, error: 'Private feed not initialized locally' };
+        // Try to recover if we have the encryption key
+        if (encryptionPrivateKey) {
+          const recoveryResult = await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+          if (!recoveryResult.success) {
+            return { success: false, error: `Recovery failed: ${recoveryResult.error}` };
+          }
+          feedSeed = privateFeedKeyStore.getFeedSeed();
+          if (!feedSeed) {
+            return { success: false, error: 'Private feed not initialized after recovery' };
+          }
+        } else {
+          return { success: false, error: 'SYNC_REQUIRED:Private feed not initialized locally. Please enter your encryption key to sync.' };
+        }
       }
 
       // 2. SYNC CHECK: Compare chain epoch vs local epoch
       const chainEpoch = await this.getLatestEpoch(ownerId);
-      const localEpoch = privateFeedKeyStore.getCurrentEpoch();
+      let localEpoch = privateFeedKeyStore.getCurrentEpoch();
 
       if (chainEpoch > localEpoch) {
-        return {
-          success: false,
-          error: 'Local state out of sync. Please refresh and try again.',
-        };
+        if (encryptionPrivateKey) {
+          // Automatic recovery with provided key
+          const recoveryResult = await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+          if (!recoveryResult.success) {
+            return { success: false, error: `Sync failed: ${recoveryResult.error}` };
+          }
+          // Refresh feedSeed and localEpoch after recovery
+          feedSeed = privateFeedKeyStore.getFeedSeed();
+          localEpoch = privateFeedKeyStore.getCurrentEpoch();
+          if (!feedSeed) {
+            return { success: false, error: 'Feed seed not available after recovery' };
+          }
+          console.log('Automatic recovery completed, continuing with revocation');
+        } else {
+          return {
+            success: false,
+            error: 'SYNC_REQUIRED:Local state out of sync. Please enter your encryption key to sync.',
+          };
+        }
       }
 
       // 3. Get follower's grant to find their leaf index
@@ -1044,6 +1117,184 @@ class PrivateFeedService {
   async getPrivateFollowerCount(ownerId: string): Promise<number> {
     const followers = await this.getPrivateFollowers(ownerId);
     return followers.length;
+  }
+
+  // ============================================================
+  // Owner Recovery (SPEC §8.8)
+  // ============================================================
+
+  /**
+   * Recover owner state from chain documents
+   *
+   * This is used when:
+   * - Logging in on a new device
+   * - Local state is behind chain state (another device made changes)
+   * - After a session where local state was corrupted
+   *
+   * Per SPEC §8.8, this:
+   * 1. Decrypts feedSeed from PrivateFeedState using owner's encryption key
+   * 2. Fetches ALL PrivateFeedRekey documents to rebuild revokedLeaves list
+   * 3. Determines currentEpoch from rekey documents
+   * 4. Fetches ALL PrivateFeedGrant documents to rebuild recipientId → leafIndex mapping
+   * 5. Derives availableLeaves from grants (authoritative source)
+   * 6. Stores all state in local storage
+   *
+   * @param ownerId - The identity ID of the feed owner
+   * @param encryptionPrivateKey - The owner's encryption private key (32 bytes)
+   * @returns Promise<{success: boolean, error?: string}>
+   */
+  async recoverOwnerState(
+    ownerId: string,
+    encryptionPrivateKey: Uint8Array
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      console.log('Starting owner recovery for:', ownerId);
+
+      // 1. Fetch PrivateFeedState document
+      const feedState = await this.getPrivateFeedState(ownerId);
+      if (!feedState) {
+        return { success: false, error: 'No PrivateFeedState found - private feed not enabled' };
+      }
+
+      // 2. Decrypt feedSeed using ECIES
+      const ownerIdBytes = identifierToBytes(ownerId);
+      const aad = privateFeedCryptoService.buildFeedStateAAD(ownerIdBytes);
+
+      let versionedPayload: Uint8Array;
+      try {
+        versionedPayload = await privateFeedCryptoService.eciesDecrypt(
+          encryptionPrivateKey,
+          feedState.encryptedSeed,
+          aad
+        );
+      } catch (decryptError) {
+        console.error('Failed to decrypt feed seed:', decryptError);
+        return { success: false, error: 'Failed to decrypt feed seed - invalid encryption key' };
+      }
+
+      // 3. Validate and extract feedSeed
+      if (versionedPayload[0] !== PROTOCOL_VERSION) {
+        return { success: false, error: `Unknown protocol version: ${versionedPayload[0]}` };
+      }
+      const feedSeed = versionedPayload.slice(1);
+      if (feedSeed.length !== 32) {
+        return { success: false, error: `Invalid feed seed length: ${feedSeed.length}` };
+      }
+
+      // 4. Fetch ALL PrivateFeedRekey documents (ordered by epoch)
+      const rekeyDocs = await this.getRekeyDocuments(ownerId);
+      console.log(`Found ${rekeyDocs.length} rekey documents`);
+
+      // 5. Build revokedLeaves list from rekey docs (in epoch order)
+      const revokedLeaves: number[] = [];
+      for (const rekey of rekeyDocs) {
+        revokedLeaves.push(rekey.revokedLeaf);
+      }
+
+      // 6. Determine currentEpoch
+      const currentEpoch = rekeyDocs.length > 0
+        ? rekeyDocs[rekeyDocs.length - 1].epoch
+        : 1;
+      console.log(`Current epoch: ${currentEpoch}, revoked leaves: ${revokedLeaves.length}`);
+
+      // 7. Fetch ALL PrivateFeedGrant documents
+      const grants = await this.getPrivateFollowers(ownerId);
+      console.log(`Found ${grants.length} active grants`);
+
+      // 8. Build recipientId → leafIndex mapping
+      const recipientMap: Record<string, number> = {};
+      for (const grant of grants) {
+        recipientMap[grant.recipientId] = grant.leafIndex;
+      }
+
+      // 9. Derive availableLeaves from grants (authoritative source per SPEC §6.3)
+      // Start with all leaves available, then mark assigned ones as unavailable
+      const availableLeaves: number[] = [];
+      const assignedLeaves = new Set(grants.map(g => g.leafIndex));
+      for (let i = 0; i < TREE_CAPACITY; i++) {
+        if (!assignedLeaves.has(i)) {
+          availableLeaves.push(i);
+        }
+      }
+      console.log(`Available leaves: ${availableLeaves.length}`);
+
+      // 10. Clear existing owner state and initialize with recovered data
+      privateFeedKeyStore.clearOwnerKeys();
+
+      // Store feedSeed
+      privateFeedKeyStore.storeFeedSeed(feedSeed);
+
+      // Store currentEpoch
+      privateFeedKeyStore.storeCurrentEpoch(currentEpoch);
+
+      // Store revokedLeaves
+      privateFeedKeyStore.storeRevokedLeaves(revokedLeaves);
+
+      // Store availableLeaves
+      privateFeedKeyStore.storeAvailableLeaves(availableLeaves);
+
+      // Store recipientMap
+      privateFeedKeyStore.storeRecipientMap(recipientMap);
+
+      // 11. Compute and cache current CEK for immediate use
+      const epochChain = privateFeedCryptoService.generateEpochChain(feedSeed, MAX_EPOCH);
+      const currentCEK = epochChain[currentEpoch];
+      privateFeedKeyStore.storeCachedCEK(ownerId, currentEpoch, currentCEK);
+
+      console.log('Owner recovery completed successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Error during owner recovery:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error during recovery',
+      };
+    }
+  }
+
+  /**
+   * Run sync check and recovery if needed before write operations
+   *
+   * This is the critical sync-before-write check per SPEC §7.6.
+   * Must be called before: createPrivatePost, approveFollower, revokeFollower
+   *
+   * @param ownerId - The identity ID of the feed owner
+   * @param encryptionPrivateKey - The owner's encryption private key (for recovery if needed)
+   * @returns Promise<{success: boolean, error?: string}>
+   */
+  async syncAndRecover(
+    ownerId: string,
+    encryptionPrivateKey: Uint8Array
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // Check if local keys exist
+      const hasLocalKeys = privateFeedKeyStore.hasFeedSeed();
+
+      if (!hasLocalKeys) {
+        // No local keys - need full recovery
+        console.log('No local keys found, running full owner recovery');
+        return await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+      }
+
+      // Compare chain epoch vs local epoch
+      const chainEpoch = await this.getLatestEpoch(ownerId);
+      const localEpoch = privateFeedKeyStore.getCurrentEpoch();
+
+      if (chainEpoch > localEpoch) {
+        // Local state is behind - need recovery
+        console.log(`Local epoch ${localEpoch} < chain epoch ${chainEpoch}, running recovery`);
+        return await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+      }
+
+      // Already synced
+      return { success: true };
+    } catch (error) {
+      console.error('Error during sync check:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Sync check failed',
+      };
+    }
   }
 
   // ============================================================

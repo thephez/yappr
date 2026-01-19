@@ -171,11 +171,22 @@ export function PrivateFeedFollowRequests() {
         return
       }
 
+      // Try to get encryption key for automatic sync/recovery
+      const { getEncryptionKey } = await import('@/lib/secure-storage')
+      const storedKeyHex = getEncryptionKey(user.identityId)
+      let encryptionPrivateKey: Uint8Array | undefined
+      if (storedKeyHex) {
+        encryptionPrivateKey = new Uint8Array(
+          storedKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+        )
+      }
+
       // Approve the follower
       const result = await privateFeedService.approveFollower(
         user.identityId,
         request.id,
-        publicKey
+        publicKey,
+        encryptionPrivateKey
       )
 
       if (result.success) {
@@ -183,6 +194,16 @@ export function PrivateFeedFollowRequests() {
         setRequests(prev => prev.filter(r => r.id !== request.id))
         toast.success(`Approved ${request.username ? `@${request.username}` : request.displayName}`)
       } else {
+        // Check if this is a sync required error
+        if (result.error?.startsWith('SYNC_REQUIRED:')) {
+          const { useEncryptionKeyModal } = await import('@/hooks/use-encryption-key-modal')
+          useEncryptionKeyModal.getState().open('sync_state', () => {
+            toast('Please try approving again now that your keys are synced')
+          })
+          toast.error('Your private feed state needs to sync. Please enter your encryption key.')
+          setProcessingId(null)
+          return
+        }
         throw new Error(result.error || 'Failed to approve follower')
       }
     } catch (error) {

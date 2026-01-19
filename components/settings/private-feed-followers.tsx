@@ -161,8 +161,22 @@ export function PrivateFeedFollowers() {
 
     try {
       const { privateFeedService } = await import('@/lib/services')
+      const { getEncryptionKey } = await import('@/lib/secure-storage')
 
-      const result = await privateFeedService.revokeFollower(user.identityId, follower.id)
+      // Try to get encryption key for automatic sync/recovery
+      const storedKeyHex = getEncryptionKey(user.identityId)
+      let encryptionPrivateKey: Uint8Array | undefined
+      if (storedKeyHex) {
+        encryptionPrivateKey = new Uint8Array(
+          storedKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
+        )
+      }
+
+      const result = await privateFeedService.revokeFollower(
+        user.identityId,
+        follower.id,
+        encryptionPrivateKey
+      )
 
       if (result.success) {
         // Remove from local state
@@ -171,6 +185,16 @@ export function PrivateFeedFollowers() {
           `Revoked access for ${follower.username ? `@${follower.username}` : follower.displayName}`
         )
       } else {
+        // Check if this is a sync required error
+        if (result.error?.startsWith('SYNC_REQUIRED:')) {
+          const { useEncryptionKeyModal } = await import('@/hooks/use-encryption-key-modal')
+          useEncryptionKeyModal.getState().open('sync_state', () => {
+            toast('Please try revoking again now that your keys are synced')
+          })
+          toast.error('Your private feed state needs to sync. Please enter your encryption key.')
+          setRevokingId(null)
+          return
+        }
         throw new Error(result.error || 'Failed to revoke access')
       }
     } catch (error) {
