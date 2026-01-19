@@ -1023,3 +1023,57 @@ if (!feedSeed) {
 14. **Use distinct UI states for recovery** - Differentiate between "decrypting locally" and "recovering from chain" so users understand why it might take longer.
 
 15. **Test fresh session scenarios** - Always test features both with existing state AND with cleared localStorage to ensure recovery paths work correctly.
+
+---
+
+## 2026-01-19: E2E Test 5.6 - Loading States Performance
+
+### Issue 63: Loading States Complete Too Fast to Observe
+**Observation:** The decryption loading states ("Decrypting...", "Recovering access keys...") are properly implemented in the code but complete so quickly that they are rarely visible to users.
+
+**Technical Details:**
+- PRD §17.3 specifies single post decryption latency should be < 100ms
+- Actual observed decryption time: < 100ms (not visible to human eye)
+- Console logs show the key recovery happens, but by the time React re-renders with loading state, decryption is already complete
+
+**Why This Is Good:**
+1. Meeting the performance requirement is more important than showing a loading state
+2. A visible "Decrypting..." state would actually indicate poor performance
+3. The loading states serve as fallbacks for slow network conditions or large posts
+
+**Testing Approach:**
+- Verified loading states exist in code through code review
+- Confirmed state transitions happen via console logs
+- Tested that decryption actually succeeds with correct content displayed
+- Performance meets PRD requirements
+
+**Lesson:** When testing loading/transition states for fast operations, don't expect to visually observe them during manual testing. Instead:
+1. Review the code to confirm states are implemented
+2. Check console logs for state transitions
+3. Verify the final state is correct
+4. Consider the loading state as a fallback for edge cases, not the normal flow
+
+### Issue 64: PrivateFeedSync Background Sync
+**Observation:** The `PrivateFeedSync` service runs automatically when navigating to pages with private content. It checks for updates to followed private feeds and syncs keys as needed.
+
+**Console Logs:**
+```
+PrivateFeedSync: Syncing 1 followed private feed(s)
+PrivateFeedSync: Complete - synced: 0, up-to-date: 1, failed: 0
+```
+
+**Key Details:**
+- Runs silently in background without blocking UI
+- Only syncs if local keys are stale (epoch mismatch)
+- Reports results but doesn't show user-visible notifications
+- Enables seamless decryption by pre-caching keys
+
+**Lesson:** Background sync services should be silent unless there's an actionable error. The user doesn't need to know their keys are being synced - they just need decryption to work.
+
+### Best Practices Updates
+
+16. **Performance is more important than visible feedback** - For operations that should complete in < 100ms, don't optimize for showing loading states. The goal is instant completion.
+
+17. **Code review supplements manual testing** - When testing loading states, review the implementation code alongside manual testing to verify behavior exists even if not visually apparent.
+
+18. **Background sync should be invisible** - Services like PrivateFeedSync should run silently. Only surface errors that require user action.
