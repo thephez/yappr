@@ -699,13 +699,16 @@ export function ComposeModal() {
 
         if (result.success) {
           // Get the post ID for threading
-          const postId =
-            result.data?.postId || // Private post result format
-            result.data?.documentId ||
-            result.data?.document?.$id ||
-            result.data?.document?.id ||
-            result.data?.$id ||
-            result.data?.id
+          // Type assertion needed due to different result formats from public/private posts
+          const data = result.data as Record<string, unknown> | undefined
+          const postId = (
+            data?.postId || // Private post result format
+            data?.documentId ||
+            (data?.document as Record<string, unknown> | undefined)?.$id ||
+            (data?.document as Record<string, unknown> | undefined)?.id ||
+            data?.$id ||
+            data?.id
+          ) as string | undefined
 
           if (postId) {
             // Track successful post with its original threadPost ID

@@ -1,6 +1,7 @@
 import { getEvoSdk } from './evo-sdk-service';
 import { identityService } from './identity-service';
 import { postService } from './post-service';
+import { signerService } from './signer-service';
 import { wallet } from '@dashevo/evo-sdk';
 import { TipInfo } from '../types';
 
@@ -134,36 +135,35 @@ class TipService {
         console.log('Could not fetch identity for debugging:', e);
       }
 
-      // Execute credit transfer
-      const transferArgs: {
-        senderId: string;
-        recipientId: string;
-        amount: bigint;
-        privateKeyWif: string;
-        keyId?: number;
-      } = {
+      // Fetch sender identity WASM object
+      const identity = await sdk.identities.fetch(senderId);
+      if (!identity) {
+        return {
+          success: false,
+          error: 'Sender identity not found',
+          errorCode: 'NETWORK_ERROR'
+        };
+      }
+
+      // Create signer from transfer key
+      const signer = await signerService.createSigner(transferKeyWif.trim());
+
+      // Log transfer details
+      console.log('Transfer args:', JSON.stringify({
         senderId,
         recipientId,
-        amount: BigInt(amountCredits),
-        privateKeyWif: transferKeyWif.trim()
-      };
-
-      // Add keyId - use provided value or default to 3 (transfer key)
-      const effectiveKeyId = keyId !== undefined ? keyId : 3;
-      transferArgs.keyId = effectiveKeyId;
-      console.log(`Using key ID: ${effectiveKeyId}${keyId === undefined ? ' (defaulting to transfer key)' : ''}`);
-
-      // Log the exact args being sent
-      console.log('Transfer args:', JSON.stringify({
-        senderId: transferArgs.senderId,
-        recipientId: transferArgs.recipientId,
-        amount: transferArgs.amount.toString(),
-        keyId: transferArgs.keyId,
-        privateKeyWifLength: transferArgs.privateKeyWif.length
+        amount: amountCredits.toString(),
+        keyId: keyId ?? 'auto-select transfer key'
       }, null, 2));
 
-      console.log('Calling sdk.identities.creditTransfer...');
-      const result = await sdk.identities.creditTransfer(transferArgs);
+      console.log('Calling sdk.identities.creditTransfer with dev.11+ typed API...');
+      const result = await sdk.identities.creditTransfer({
+        identity,
+        recipientId,
+        amount: BigInt(amountCredits),
+        signer
+        // signingKey is optional - SDK will auto-select transfer key if not provided
+      });
 
       // Clear sender's balance cache so it refreshes
       identityService.clearCache(senderId);

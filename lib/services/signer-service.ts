@@ -3,22 +3,25 @@
  *
  * This service provides utilities for creating signers and identity public keys
  * for use with the new typed state transition APIs in @dashevo/evo-sdk@^3.0.0-dev.11
+ *
+ * IMPORTANT: We import WASM types from @dashevo/evo-sdk which re-exports them from
+ * @dashevo/wasm-sdk. By calling getEvoSdk() first, we ensure the shared WASM module
+ * is initialized before creating any WASM objects.
  */
-import initWasm, * as wasmSdk from '@dashevo/wasm-sdk/compressed';
+import { getEvoSdk } from './evo-sdk-service';
+import {
+  IdentitySigner,
+  PrivateKey,
+  IdentityPublicKey,
+} from '@dashevo/evo-sdk';
 import type { IdentityPublicKey as IdentityPublicKeyType } from './identity-service';
 
-// Track WASM initialization
-let wasmInitialized = false;
-
 /**
- * Ensure WASM module is initialized
+ * Ensure WASM module is initialized by connecting SDK
+ * This guarantees the shared WASM module is ready before creating objects
  */
-async function ensureWasmInitialized(): Promise<typeof wasmSdk> {
-  if (!wasmInitialized) {
-    await initWasm();
-    wasmInitialized = true;
-  }
-  return wasmSdk;
+async function ensureWasmReady(): Promise<void> {
+  await getEvoSdk();
 }
 
 /**
@@ -67,11 +70,12 @@ class SignerService {
   async createSigner(
     privateKeyWif: string,
     _network: 'testnet' | 'mainnet' = 'testnet'
-  ): Promise<wasmSdk.IdentitySigner> {
-    const wasm = await ensureWasmInitialized();
+  ): Promise<InstanceType<typeof IdentitySigner>> {
+    // Ensure WASM is initialized before creating objects
+    await ensureWasmReady();
 
-    // Create a new signer instance
-    const signer = new wasm.IdentitySigner();
+    // Create a new signer instance using imported class
+    const signer = new IdentitySigner();
 
     // Add key directly from WIF (the signer has a convenience method for this)
     signer.addKeyFromWif(privateKeyWif);
@@ -89,15 +93,16 @@ class SignerService {
   async createSignerFromHex(
     privateKeyHex: string,
     network: 'testnet' | 'mainnet' = 'testnet'
-  ): Promise<wasmSdk.IdentitySigner> {
-    const wasm = await ensureWasmInitialized();
+  ): Promise<InstanceType<typeof IdentitySigner>> {
+    // Ensure WASM is initialized before creating objects
+    await ensureWasmReady();
 
-    // Create a new signer instance
-    const signer = new wasm.IdentitySigner();
+    // Create a new signer instance using imported class
+    const signer = new IdentitySigner();
 
     // Create PrivateKey from hex and add to signer
     // Note: fromHex requires network parameter
-    const privateKey = wasm.PrivateKey.fromHex(privateKeyHex, network);
+    const privateKey = PrivateKey.fromHex(privateKeyHex, network);
     signer.addKey(privateKey);
 
     return signer;
@@ -114,8 +119,9 @@ class SignerService {
    */
   async createIdentityPublicKey(
     keyData: IdentityPublicKeyType
-  ): Promise<wasmSdk.IdentityPublicKey> {
-    const wasm = await ensureWasmInitialized();
+  ): Promise<InstanceType<typeof IdentityPublicKey>> {
+    // Ensure WASM is initialized before creating objects
+    await ensureWasmReady();
 
     // Normalize the key data to match the expected JSON format
     // The fromJSON method expects camelCase fields
@@ -131,7 +137,7 @@ class SignerService {
     };
 
     // Use the fromJSON method which handles proper deserialization
-    const identityKey = wasm.IdentityPublicKey.fromJSON(normalizedKeyData);
+    const identityKey = IdentityPublicKey.fromJSON(normalizedKeyData);
 
     return identityKey;
   }
@@ -205,8 +211,8 @@ class SignerService {
     keyData: IdentityPublicKeyType,
     network: 'testnet' | 'mainnet' = 'testnet'
   ): Promise<{
-    signer: wasmSdk.IdentitySigner;
-    identityKey: wasmSdk.IdentityPublicKey;
+    signer: InstanceType<typeof IdentitySigner>;
+    identityKey: InstanceType<typeof IdentityPublicKey>;
   }> {
     const [signer, identityKey] = await Promise.all([
       this.createSigner(privateKeyWif, network),
