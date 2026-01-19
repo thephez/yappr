@@ -217,3 +217,51 @@
    - Types: `FollowRequestDocument`, `PrivateFeedGrantDocument`, `DecryptResult`, `EncryptedPostFields`
 
 **Screenshot:** `screenshots/private-feed-follower-service.png`
+
+## 2026-01-19: Enable Private Feed UI (Phase 3 Feed Integration - UI)
+
+**Task:** Create settings UI for enabling private feeds (PRD §4.1)
+
+**Changes made:**
+1. Created `components/settings/private-feed-settings.tsx` implementing the Enable Private Feed UI:
+
+   **Not Enabled State:**
+   - Explanation card with feature benefits:
+     - "You control who can see your private posts"
+     - "Up to 1,024 private followers"
+     - "Revoke access at any time"
+   - "Enable Private Feed" button
+   - "How it works" section explaining encryption
+
+   **Key Input State (after clicking Enable):**
+   - Warning banner explaining encryption key requirement
+   - Hex input field for 32-byte encryption private key
+   - Input validation (64 hex characters, valid secp256k1 key)
+   - Cancel and Enable buttons with loading state
+
+   **Enabled State:**
+   - Success indicator with enabled date
+   - Stats dashboard: Followers count, Current epoch, Available slots
+   - Epoch usage warning when > 90% (approaching revocation limit)
+   - Capacity information display
+
+2. Updated `app/settings/page.tsx`:
+   - Added 'privateFeed' to SettingsSection type and valid sections array
+   - Imported LockClosedIcon from Heroicons
+   - Added Private Feed to settingsSections navigation array
+   - Created renderPrivateFeedSettings() function
+   - Added case for 'privateFeed' in renderSection switch
+
+3. Imported PrivateFeedSettings component and integrated with settings page
+
+**Key features:**
+- Responsive design following existing settings patterns
+- Loading states with skeleton placeholders
+- Proper error handling with user-friendly messages
+- Toast notifications for success/failure
+- Validates encryption key format before attempting enable
+
+**Screenshots:**
+- `screenshots/private-feed-enable-ui.png` (not enabled state)
+- `screenshots/private-feed-key-input.png` (key input state)
+- `screenshots/settings-private-feed-nav.png` (settings navigation with Private Feed)

@@ -77,3 +77,24 @@
 
 **No blockers encountered** - the service implementation builds on the patterns established in the previous private feed services.
 
+## 2026-01-19: Enable Private Feed UI Implementation
+
+**Key observations:**
+
+1. **Settings page uses URL query params for section navigation**: The settings page uses `?section=privateFeed` pattern for navigation rather than separate routes. This makes it easy to add new sections without creating new pages - just add to the `SettingsSection` type, `VALID_SECTIONS` array, and `settingsSections` navigation array.
+
+2. **Component structure follows existing patterns**: The `PrivateFeedSettings` component follows the pattern established by `KeyBackupSettings` - using `Card`, `CardHeader`, `CardTitle`, `CardDescription`, `CardContent` from the UI library, with loading states using skeleton placeholders and state-based conditional rendering.
+
+3. **Services must be dynamically imported in components**: To avoid SSR issues and ensure proper code splitting, services like `privateFeedService` must be dynamically imported using `await import('@/lib/services')` rather than top-level imports. This pattern is used throughout the settings components.
+
+4. **Encryption key input requires careful validation**: The hex key input needs to validate:
+   - Correct length (64 hex characters = 32 bytes)
+   - Valid hex characters only
+   - Valid secp256k1 private key (by attempting to derive public key)
+
+5. **Stats display depends on both chain and local state**: The enabled state shows follower count and available slots, which requires checking both the on-chain `PrivateFeedState` document (for enabled status, created date) and local storage via `privateFeedKeyStore` (for recipient map, available leaves).
+
+6. **Faucet identity creation during testing**: Used https://faucet.thepasta.org to create a fresh test identity. The faucet generates keys in the browser and registers the identity on Dash Platform. The identity ID and WIF private key are needed for login testing.
+
+**No blockers encountered** - the UI follows established patterns and integrates cleanly with the existing private feed services.
+

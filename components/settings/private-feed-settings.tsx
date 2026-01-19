@@ -1,0 +1,385 @@
+'use client'
+
+import { useState, useEffect, useCallback } from 'react'
+import { useAuth } from '@/contexts/auth-context'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { Loader2 } from 'lucide-react'
+import toast from 'react-hot-toast'
+import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
+
+/**
+ * PrivateFeedSettings Component
+ *
+ * Settings section for managing private feeds.
+ * Implements PRD §4.1 - Enable Private Feed UI
+ */
+export function PrivateFeedSettings() {
+  const { user } = useAuth()
+  const [isEnabled, setIsEnabled] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isEnabling, setIsEnabling] = useState(false)
+  const [enabledDate, setEnabledDate] = useState<Date | null>(null)
+  const [followerCount, setFollowerCount] = useState(0)
+  const [currentEpoch, setCurrentEpoch] = useState(1)
+
+  // Encryption key input state
+  const [showKeyInput, setShowKeyInput] = useState(false)
+  const [encryptionKeyHex, setEncryptionKeyHex] = useState('')
+  const [keyError, setKeyError] = useState<string | null>(null)
+
+  const checkPrivateFeedStatus = useCallback(async () => {
+    if (!user) {
+      setIsLoading(false)
+      return
+    }
+
+    try {
+      const { privateFeedService, privateFeedKeyStore } = await import('@/lib/services')
+
+      // Check if user has private feed on chain
+      const hasPrivateFeed = await privateFeedService.hasPrivateFeed(user.identityId)
+      setIsEnabled(hasPrivateFeed)
+
+      if (hasPrivateFeed) {
+        // Get state document for created date
+        const state = await privateFeedService.getPrivateFeedState(user.identityId)
+        if (state?.$createdAt) {
+          setEnabledDate(new Date(state.$createdAt))
+        }
+
+        // Get current epoch
+        const epoch = await privateFeedService.getLatestEpoch(user.identityId)
+        setCurrentEpoch(epoch)
+
+        // Check local initialization for follower count
+        if (privateFeedKeyStore.hasFeedSeed()) {
+          const recipientMap = privateFeedKeyStore.getRecipientMap()
+          setFollowerCount(Object.keys(recipientMap || {}).length)
+        }
+      }
+    } catch (error) {
+      console.error('Error checking private feed status:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [user])
+
+  useEffect(() => {
+    checkPrivateFeedStatus().catch(err => console.error('Failed to check private feed status:', err))
+  }, [checkPrivateFeedStatus])
+
+  const handleStartEnable = () => {
+    setShowKeyInput(true)
+    setKeyError(null)
+  }
+
+  const handleCancelEnable = () => {
+    setShowKeyInput(false)
+    setEncryptionKeyHex('')
+    setKeyError(null)
+  }
+
+  const validateAndParseKey = (hexKey: string): Uint8Array | null => {
+    // Remove 0x prefix if present
+    let cleanHex = hexKey.trim()
+    if (cleanHex.startsWith('0x')) {
+      cleanHex = cleanHex.slice(2)
+    }
+
+    // Check length (32 bytes = 64 hex chars)
+    if (cleanHex.length !== 64) {
+      setKeyError(`Key must be 64 hex characters (32 bytes), got ${cleanHex.length}`)
+      return null
+    }
+
+    // Check valid hex
+    if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
+      setKeyError('Key must contain only hexadecimal characters (0-9, a-f)')
+      return null
+    }
+
+    // Parse to Uint8Array
+    const bytes = new Uint8Array(32)
+    for (let i = 0; i < 32; i++) {
+      bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16)
+    }
+
+    return bytes
+  }
+
+  const handleEnablePrivateFeed = async () => {
+    if (!user) return
+
+    const encryptionKey = validateAndParseKey(encryptionKeyHex)
+    if (!encryptionKey) return
+
+    setIsEnabling(true)
+    setKeyError(null)
+
+    try {
+      const { privateFeedService, privateFeedCryptoService } = await import('@/lib/services')
+
+      // Verify the key by deriving its public key
+      try {
+        privateFeedCryptoService.getPublicKey(encryptionKey)
+      } catch {
+        setKeyError('Invalid private key format')
+        setIsEnabling(false)
+        return
+      }
+
+      // Enable private feed
+      const result = await privateFeedService.enablePrivateFeed(user.identityId, encryptionKey)
+
+      if (result.success) {
+        toast.success('Private feed enabled successfully!')
+        setIsEnabled(true)
+        setEnabledDate(new Date())
+        setShowKeyInput(false)
+        setEncryptionKeyHex('')
+      } else {
+        setKeyError(result.error || 'Failed to enable private feed')
+        toast.error(result.error || 'Failed to enable private feed')
+      }
+    } catch (error) {
+      console.error('Error enabling private feed:', error)
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred'
+      setKeyError(errorMessage)
+      toast.error('Failed to enable private feed')
+    } finally {
+      setIsEnabling(false)
+    }
+  }
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="pt-6">
+          <div className="animate-pulse space-y-2">
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
+            <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="flex items-center gap-2">
+          <LockClosedIcon className="h-5 w-5" />
+          Private Feed
+        </CardTitle>
+        <CardDescription>
+          Create encrypted posts visible only to approved followers
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {isEnabled ? (
+          <>
+            <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+              <div className="flex gap-3">
+                <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <p className="text-sm font-medium text-green-900 dark:text-green-100">
+                    Private feed is enabled
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    You can create encrypted posts that only approved followers can see.
+                    {enabledDate && (
+                      <span className="block mt-1 text-xs">
+                        Enabled: {enabledDate.toLocaleDateString()}
+                      </span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Stats */}
+            <div className="grid grid-cols-3 gap-4">
+              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg text-center">
+                <div className="flex items-center justify-center gap-1 mb-1">
+                  <UserGroupIcon className="h-4 w-4 text-gray-500" />
+                </div>
+                <p className="text-lg font-semibold">{followerCount}</p>
+                <p className="text-xs text-gray-500">/ {TREE_CAPACITY}</p>
+                <p className="text-xs text-gray-500">Followers</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg text-center">
+                <p className="text-lg font-semibold">{currentEpoch}</p>
+                <p className="text-xs text-gray-500">/ {MAX_EPOCH}</p>
+                <p className="text-xs text-gray-500">Epoch</p>
+              </div>
+              <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg text-center">
+                <p className="text-lg font-semibold">{TREE_CAPACITY - followerCount}</p>
+                <p className="text-xs text-gray-500">Available</p>
+                <p className="text-xs text-gray-500">Slots</p>
+              </div>
+            </div>
+
+            {/* Epoch usage warning */}
+            {currentEpoch > MAX_EPOCH * 0.9 && (
+              <div className="bg-amber-50 dark:bg-amber-950 p-4 rounded-lg">
+                <div className="flex gap-3">
+                  <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                      Approaching revocation limit
+                    </p>
+                    <p className="text-sm text-amber-700 dark:text-amber-300">
+                      Your private feed is approaching its maximum revocation limit.
+                      Contact support for migration options.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-2 text-sm">Capacity:</h4>
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <li className="flex gap-2">
+                  <span className="text-yappr-500">•</span>
+                  Up to {TREE_CAPACITY.toLocaleString()} private followers
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-yappr-500">•</span>
+                  Up to {(MAX_EPOCH - 1).toLocaleString()} revocations before migration needed
+                </li>
+              </ul>
+            </div>
+          </>
+        ) : (
+          <>
+            {!showKeyInput ? (
+              <>
+                <div className="bg-gray-50 dark:bg-gray-900 p-4 rounded-lg">
+                  <div className="space-y-3">
+                    <p className="text-sm text-gray-700 dark:text-gray-300">
+                      Create a private feed visible only to approved followers
+                    </p>
+                    <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                      <li className="flex gap-2">
+                        <span className="text-yappr-500">•</span>
+                        You control who can see your private posts
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="text-yappr-500">•</span>
+                        Up to {TREE_CAPACITY.toLocaleString()} private followers
+                      </li>
+                      <li className="flex gap-2">
+                        <span className="text-yappr-500">•</span>
+                        Revoke access at any time
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <Button
+                  className="w-full"
+                  onClick={handleStartEnable}
+                >
+                  <LockClosedIcon className="h-4 w-4 mr-2" />
+                  Enable Private Feed
+                </Button>
+              </>
+            ) : (
+              <>
+                <div className="bg-amber-50 dark:bg-amber-950 p-4 rounded-lg">
+                  <div className="flex gap-3">
+                    <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                        Encryption key required
+                      </p>
+                      <p className="text-sm text-amber-700 dark:text-amber-300">
+                        Enter your identity encryption private key (32 bytes in hex format).
+                        This key is used to encrypt and decrypt your private feed data.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">
+                    Encryption Private Key (hex)
+                  </label>
+                  <Input
+                    type="password"
+                    placeholder="Enter 64 hex characters (e.g., 0xabc123...)"
+                    value={encryptionKeyHex}
+                    onChange={(e) => {
+                      setEncryptionKeyHex(e.target.value)
+                      setKeyError(null)
+                    }}
+                    className="font-mono text-sm"
+                  />
+                  {keyError && (
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      {keyError}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    className="flex-1"
+                    onClick={handleCancelEnable}
+                    disabled={isEnabling}
+                  >
+                    Cancel
+                  </Button>
+                  <Button
+                    className="flex-1"
+                    onClick={handleEnablePrivateFeed}
+                    disabled={isEnabling || !encryptionKeyHex.trim()}
+                  >
+                    {isEnabling ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Enabling...
+                      </>
+                    ) : (
+                      <>
+                        <LockClosedIcon className="h-4 w-4 mr-2" />
+                        Enable
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </>
+            )}
+
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-2 text-sm">How it works:</h4>
+              <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+                <li className="flex gap-2">
+                  <span className="text-yappr-500">•</span>
+                  Your private posts are encrypted with a unique feed key
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-yappr-500">•</span>
+                  Only approved followers can decrypt and view your private posts
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-yappr-500">•</span>
+                  Revoked followers lose access to new private posts
+                </li>
+                <li className="flex gap-2">
+                  <span className="text-yappr-500">•</span>
+                  Your encryption key is needed to manage your private feed
+                </li>
+              </ul>
+            </div>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
