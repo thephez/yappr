@@ -5,10 +5,11 @@ import { useAuth } from '@/contexts/auth-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon } from '@heroicons/react/24/outline'
+import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/react/24/outline'
 import { Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
+import { useEncryptionKeyModal } from '@/hooks/use-encryption-key-modal'
 
 /**
  * PrivateFeedSettings Component
@@ -18,12 +19,14 @@ import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
  */
 export function PrivateFeedSettings() {
   const { user } = useAuth()
+  const { open: openEncryptionKeyModal } = useEncryptionKeyModal()
   const [isEnabled, setIsEnabled] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [isEnabling, setIsEnabling] = useState(false)
   const [enabledDate, setEnabledDate] = useState<Date | null>(null)
   const [followerCount, setFollowerCount] = useState(0)
   const [currentEpoch, setCurrentEpoch] = useState(1)
+  const [hasEncryptionKeyStored, setHasEncryptionKeyStored] = useState(false)
 
   // Encryption key input state
   const [showKeyInput, setShowKeyInput] = useState(false)
@@ -38,10 +41,14 @@ export function PrivateFeedSettings() {
 
     try {
       const { privateFeedService, privateFeedKeyStore } = await import('@/lib/services')
+      const { hasEncryptionKey } = await import('@/lib/secure-storage')
 
       // Check if user has private feed on chain
       const hasPrivateFeed = await privateFeedService.hasPrivateFeed(user.identityId)
       setIsEnabled(hasPrivateFeed)
+
+      // Check if encryption key is stored in session
+      setHasEncryptionKeyStored(hasEncryptionKey(user.identityId))
 
       if (hasPrivateFeed) {
         // Get state document for created date
@@ -239,6 +246,49 @@ export function PrivateFeedSettings() {
                 </div>
               </div>
             )}
+
+            {/* Encryption Key Status */}
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-3 text-sm flex items-center gap-2">
+                <KeyIcon className="h-4 w-4" />
+                Encryption Key
+              </h4>
+              {hasEncryptionKeyStored ? (
+                <div className="bg-green-50 dark:bg-green-950 p-3 rounded-lg">
+                  <div className="flex items-center gap-2">
+                    <CheckCircleIcon className="h-4 w-4 text-green-600 dark:text-green-400" />
+                    <span className="text-sm text-green-700 dark:text-green-300">
+                      Key stored for this session
+                    </span>
+                  </div>
+                  <p className="text-xs text-green-600 dark:text-green-400 mt-1 ml-6">
+                    You can create and view private posts
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg">
+                    <div className="flex items-center gap-2">
+                      <ExclamationTriangleIcon className="h-4 w-4 text-amber-600 dark:text-amber-400" />
+                      <span className="text-sm text-amber-700 dark:text-amber-300">
+                        Key not entered for this session
+                      </span>
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 mt-1 ml-6">
+                      Enter your encryption key to manage your private feed
+                    </p>
+                  </div>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => openEncryptionKeyModal('manage_private_feed', checkPrivateFeedStatus)}
+                  >
+                    <KeyIcon className="h-4 w-4 mr-2" />
+                    Enter Encryption Key
+                  </Button>
+                </div>
+              )}
+            </div>
 
             <div className="pt-4 border-t">
               <h4 className="font-medium mb-2 text-sm">Capacity:</h4>

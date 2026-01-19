@@ -582,3 +582,55 @@
 - Clear user feedback via toast notification
 
 **Screenshot:** `screenshots/auto-revoke-block-settings.png`
+
+## 2026-01-19: Encryption Key Entry on Login (PRD §6.3)
+
+**Task:** Add encryption key entry modal and session storage for private feed operations after login
+
+**Changes made:**
+1. Updated `lib/secure-storage.ts` with encryption key storage functions:
+   - `storeEncryptionKey(identityId, encryptionKey)` - Store key in session
+   - `getEncryptionKey(identityId)` - Retrieve key from session
+   - `hasEncryptionKey(identityId)` - Check if key exists in session
+   - `clearEncryptionKey(identityId)` - Remove key from session
+
+2. Created `hooks/use-encryption-key-modal.ts`:
+   - Zustand store for modal state management
+   - `EncryptionKeyAction` type for context-specific prompts: `view_private_posts`, `create_private_post`, `manage_private_feed`, `decrypt_grant`, `generic`
+   - `getEncryptionKeyActionDescription()` for human-readable action descriptions
+   - `open(action, onSuccess)` and `close()` methods
+
+3. Created `hooks/use-require-encryption-key.ts`:
+   - `useRequireEncryptionKey()` hook for components needing encryption key
+   - `hasEncryptionKey()` - Check if key is stored
+   - `getEncryptionKeyBytes()` - Get key as Uint8Array
+   - `requireEncryptionKey(action, onSuccess)` - Show modal if key missing, else proceed
+   - `requireEncryptionKeyAsync(action)` - Promise-based version
+
+4. Created `components/auth/encryption-key-modal.tsx`:
+   - Modal UI for entering encryption private key (64 hex chars)
+   - Validates key format and length
+   - Verifies key matches identity's on-chain encryption public key
+   - Shows context-aware message based on action type
+   - Info box explaining session storage behavior
+   - "Skip for now" option for deferring key entry
+   - Link to key recovery documentation
+
+5. Updated `components/providers.tsx`:
+   - Added `EncryptionKeyModal` import and component to providers tree
+
+6. Updated `components/settings/private-feed-settings.tsx`:
+   - Added encryption key status section when private feed is enabled
+   - Shows green "Key stored for this session" when key is present
+   - Shows amber warning "Key not entered for this session" when missing
+   - "Enter Encryption Key" button opens modal with callback to refresh status
+   - Uses `useEncryptionKeyModal` hook for modal control
+
+**Key features per PRD §6.3:**
+- Users can enter encryption key after logging in to enable private feed operations
+- Key is stored in session storage (cleared on logout/tab close if not "remember me")
+- Modal validates key against identity's on-chain encryption public key
+- Settings page shows clear status of whether key is stored for current session
+- Contextual prompts explain why key is needed based on the action
+
+**Screenshot:** `screenshots/encryption-key-entry-enable.png`

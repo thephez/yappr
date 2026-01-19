@@ -10,6 +10,7 @@ import { TipModal } from '@/components/post/tip-modal'
 import { HashtagRecoveryModal } from '@/components/post/hashtag-recovery-modal'
 import { MentionRecoveryModal } from '@/components/post/mention-recovery-modal'
 import { DashPayContactsModal } from '@/components/contacts/dashpay-contacts-modal'
+import { EncryptionKeyModal } from '@/components/auth/encryption-key-modal'
 
 export function Providers({ children }: { children: React.ReactNode }) {
   return (
@@ -29,6 +30,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
           <HashtagRecoveryModal />
           <MentionRecoveryModal />
           <DashPayContactsModal />
+          <EncryptionKeyModal />
         </AuthProvider>
       </SdkProvider>
     </ThemeProvider>

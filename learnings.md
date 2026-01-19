@@ -243,3 +243,23 @@
 5. **TypeScript type narrowing with 'in' operator**: To safely check for the `autoRevoked` field which only exists on block responses (not unblock), used the `'autoRevoked' in result` check before accessing `result.autoRevoked`. This provides proper type narrowing.
 
 **No blockers encountered** - the implementation follows established patterns and integrates cleanly with existing private feed revocation logic.
+
+## 2026-01-19: Encryption Key Entry on Login Implementation
+
+**Key observations:**
+
+1. **Encryption key validation against on-chain identity**: The modal validates the entered private key by deriving its public key and comparing against the identity's encryption public key stored on-chain. This ensures users don't accidentally enter the wrong key. The encryption key has `purpose === 1` (ENCRYPTION) and `type === 0` (ECDSA_SECP256K1).
+
+2. **Public key data format variations from SDK**: The identity's encryption public key can come as `Uint8Array`, hex string, or base64 string depending on how the SDK returns it. Added format detection logic to normalize to `Uint8Array` before comparison with the derived public key.
+
+3. **Session storage respects "remember me" setting**: The encryption key is stored using the same `SecureStorage` class as the authentication private key, which checks the `rememberMe` flag to decide between `localStorage` (persistent) and `sessionStorage` (tab-scoped). This provides consistent behavior across all sensitive keys.
+
+4. **Zustand store for modal with callback support**: The encryption key modal store includes an optional `onSuccess` callback that's invoked after the key is successfully stored. This allows components to refresh their state (like the settings page checking if the key is now available) without tight coupling.
+
+5. **Faucet-generated identities may lack encryption keys**: When testing with identities created via the faucet, they may not have an encryption key (purpose=1) by default. The modal handles this gracefully by showing an appropriate error message: "No encryption key found on your identity. You may need to add one first."
+
+6. **Login page validation state can be tricky**: During Playwright testing, encountered issues with the login form's "Sign In" button remaining disabled after filling fields. This appeared to be related to how React handles state updates from programmatic fills vs user input. Using `pressSequentially()` (slow typing) helped trigger proper state updates.
+
+7. **Private feed requires both chain state and local key**: The settings page shows different UI based on two conditions: (a) whether private feed is enabled on-chain, and (b) whether the encryption key is stored locally. A user can have a private feed enabled but no local key (logged in on new device), which is the primary use case for the key entry modal.
+
+**No blockers encountered** - the implementation follows established modal patterns and integrates with existing secure storage infrastructure.

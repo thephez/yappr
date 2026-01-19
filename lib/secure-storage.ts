@@ -186,3 +186,21 @@ export const setRememberMe = (remember: boolean): void => {
 export const isRememberMe = (): boolean => {
   return secureStorage.isRememberMe()
 }
+
+// Encryption key storage for private feed operations
+export const storeEncryptionKey = (identityId: string, encryptionKey: string) => {
+  secureStorage.set(`ek_${identityId}`, encryptionKey)
+}
+
+export const getEncryptionKey = (identityId: string): string | null => {
+  const value = secureStorage.get(`ek_${identityId}`)
+  return typeof value === 'string' ? value : null
+}
+
+export const hasEncryptionKey = (identityId: string): boolean => {
+  return secureStorage.has(`ek_${identityId}`)
+}
+
+export const clearEncryptionKey = (identityId: string): boolean => {
+  return secureStorage.delete(`ek_${identityId}`)
+}
