@@ -1,8 +1,12 @@
 'use client'
 
+import { useState, useEffect, useCallback } from 'react'
 import type { Post } from '@/lib/types'
 import { Avatar, AvatarImage, AvatarFallback } from '@/components/ui/avatar'
 import { getInitials, formatTime } from '@/lib/utils'
+import { LockClosedIcon, LockOpenIcon } from '@heroicons/react/24/outline'
+import { LockClosedIcon as LockClosedIconSolid } from '@heroicons/react/24/solid'
+import { useAuth } from '@/contexts/auth-context'
 
 // Icons as simple SVG components
 function RetryIcon({ className }: { className?: string }) {
@@ -215,9 +219,201 @@ interface QuotedPostPreviewProps {
 }
 
 /**
+ * Check if a post is private
+ */
+function isPrivatePost(post: Post): boolean {
+  return !!(post.encryptedContent && post.epoch !== undefined && post.nonce)
+}
+
+type DecryptionState =
+  | { status: 'idle' }
+  | { status: 'loading' }
+  | { status: 'decrypted'; content: string }
+  | { status: 'locked' }
+  | { status: 'error' }
+
+/**
  * Shows a preview of the post being quoted.
+ * PRD §5.3: Handles both public and private quoted posts.
+ * For private posts, attempts decryption and shows locked state if unable.
  */
 export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
+  const { user } = useAuth()
+  const [state, setState] = useState<DecryptionState>({ status: 'idle' })
+
+  const isPrivate = isPrivatePost(post)
+  const isOwner = user?.identityId === post.author.id
+  const hasTeaser = post.content && post.content.length > 0
+
+  // Attempt decryption for private posts
+  const attemptDecryption = useCallback(async () => {
+    if (!isPrivate) return
+
+    if (!post.encryptedContent || !post.epoch || !post.nonce) {
+      setState({ status: 'error' })
+      return
+    }
+
+    if (!user) {
+      setState({ status: 'locked' })
+      return
+    }
+
+    setState({ status: 'loading' })
+
+    try {
+      const { privateFeedFollowerService, privateFeedKeyStore, privateFeedCryptoService, MAX_EPOCH } = await import('@/lib/services')
+
+      if (isOwner) {
+        const feedSeed = privateFeedKeyStore.getFeedSeed()
+        if (!feedSeed) {
+          setState({ status: 'locked' })
+          return
+        }
+
+        const cached = privateFeedKeyStore.getCachedCEK(post.author.id)
+        let cek: Uint8Array
+
+        if (cached && cached.epoch === post.epoch) {
+          cek = cached.cek
+        } else if (cached && cached.epoch > post.epoch) {
+          cek = privateFeedCryptoService.deriveCEK(cached.cek, cached.epoch, post.epoch)
+        } else {
+          const chain = privateFeedCryptoService.generateEpochChain(feedSeed, MAX_EPOCH)
+          cek = chain[post.epoch]
+        }
+
+        const ownerIdBytes = identifierToBytes(post.author.id)
+        const decryptedContent = privateFeedCryptoService.decryptPostContent(
+          cek,
+          { ciphertext: post.encryptedContent, nonce: post.nonce, epoch: post.epoch },
+          ownerIdBytes
+        )
+
+        setState({ status: 'decrypted', content: decryptedContent })
+        return
+      }
+
+      const canDecrypt = await privateFeedFollowerService.canDecrypt(post.author.id)
+      if (!canDecrypt) {
+        setState({ status: 'locked' })
+        return
+      }
+
+      const result = await privateFeedFollowerService.decryptPost({
+        encryptedContent: post.encryptedContent,
+        epoch: post.epoch,
+        nonce: post.nonce,
+        $ownerId: post.author.id,
+      })
+
+      if (result.success && result.content) {
+        setState({ status: 'decrypted', content: result.content })
+      } else {
+        setState({ status: 'locked' })
+      }
+    } catch (error) {
+      console.error('Error decrypting quoted post preview:', error)
+      setState({ status: 'error' })
+    }
+  }, [isPrivate, post, user, isOwner])
+
+  useEffect(() => {
+    if (isPrivate && state.status === 'idle') {
+      void attemptDecryption()
+    }
+  }, [isPrivate, state.status, attemptDecryption])
+
+  // Get author display
+  const authorDisplay = post.author.username && !post.author.username.startsWith('user_')
+    ? `@${post.author.username}`
+    : post.author.displayName !== 'Unknown User' && !post.author.displayName?.startsWith('User ')
+      ? post.author.displayName
+      : `${post.author.id.slice(0, 8)}...`
+
+  // Public post - simple display
+  if (!isPrivate) {
+    return (
+      <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-neutral-950">
+        <div className="flex items-center gap-2 text-sm">
+          <Avatar className="h-5 w-5">
+            <AvatarImage src={post.author.avatar} />
+            <AvatarFallback>{getInitials(post.author.displayName)}</AvatarFallback>
+          </Avatar>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">
+            {post.author.displayName}
+          </span>
+          <span className="text-gray-500">@{post.author.username}</span>
+          <span className="text-gray-500">·</span>
+          <span className="text-gray-500">{formatTime(post.createdAt)}</span>
+        </div>
+        <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+          {post.content}
+        </p>
+      </div>
+    )
+  }
+
+  // Private post - loading state
+  if (state.status === 'idle' || state.status === 'loading') {
+    return (
+      <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-neutral-950">
+        <div className="flex items-center gap-2 text-sm">
+          <Avatar className="h-5 w-5">
+            <AvatarImage src={post.author.avatar} />
+            <AvatarFallback>{getInitials(post.author.displayName)}</AvatarFallback>
+          </Avatar>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">
+            {post.author.displayName}
+          </span>
+          <span className="text-gray-500">{authorDisplay.startsWith('@') ? authorDisplay : ''}</span>
+          <span className="text-gray-500">·</span>
+          <span className="text-gray-500">{formatTime(post.createdAt)}</span>
+          <LockClosedIcon className="h-3.5 w-3.5 text-gray-500" />
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-gray-500">
+          <LockOpenIcon className="h-4 w-4 animate-pulse" />
+          <span className="text-sm">Decrypting...</span>
+        </div>
+        {hasTeaser && (
+          <p className="mt-1 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+            {post.content}
+          </p>
+        )}
+      </div>
+    )
+  }
+
+  // Private post - decrypted state
+  if (state.status === 'decrypted') {
+    return (
+      <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-neutral-950">
+        <div className="flex items-center gap-2 text-sm">
+          <Avatar className="h-5 w-5">
+            <AvatarImage src={post.author.avatar} />
+            <AvatarFallback>{getInitials(post.author.displayName)}</AvatarFallback>
+          </Avatar>
+          <span className="font-semibold text-gray-900 dark:text-gray-100">
+            {post.author.displayName}
+          </span>
+          <span className="text-gray-500">{authorDisplay.startsWith('@') ? authorDisplay : ''}</span>
+          <span className="text-gray-500">·</span>
+          <span className="text-gray-500">{formatTime(post.createdAt)}</span>
+          <LockClosedIcon className="h-3.5 w-3.5 text-gray-500" />
+        </div>
+        {hasTeaser && (
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400 line-clamp-1">
+            {post.content}
+          </p>
+        )}
+        <p className="mt-1 text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
+          {state.content}
+        </p>
+      </div>
+    )
+  }
+
+  // Private post - locked/error state
   return (
     <div className="mt-4 border border-gray-200 dark:border-gray-700 rounded-xl p-3 bg-gray-50 dark:bg-neutral-950">
       <div className="flex items-center gap-2 text-sm">
@@ -228,15 +424,52 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
         <span className="font-semibold text-gray-900 dark:text-gray-100">
           {post.author.displayName}
         </span>
-        <span className="text-gray-500">@{post.author.username}</span>
+        <span className="text-gray-500">{authorDisplay.startsWith('@') ? authorDisplay : ''}</span>
         <span className="text-gray-500">·</span>
         <span className="text-gray-500">{formatTime(post.createdAt)}</span>
+        <LockClosedIcon className="h-3.5 w-3.5 text-gray-500" />
       </div>
-      <p className="mt-2 text-sm text-gray-700 dark:text-gray-300 line-clamp-3">
-        {post.content}
-      </p>
+      {hasTeaser && (
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400 line-clamp-2">
+          {post.content}
+        </p>
+      )}
+      <div className="mt-2 flex items-center gap-2 p-2 bg-gray-100 dark:bg-gray-800 rounded-lg">
+        <LockClosedIconSolid className="h-4 w-4 text-gray-500" />
+        <span className="text-sm text-gray-600 dark:text-gray-400">
+          Private post from {authorDisplay}
+        </span>
+      </div>
     </div>
   )
+}
+
+/**
+ * Convert identifier to 32-byte Uint8Array for cryptographic operations
+ */
+function identifierToBytes(identifier: string): Uint8Array {
+  const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz'
+  const ALPHABET_MAP = new Map<string, number>()
+  for (let i = 0; i < ALPHABET.length; i++) {
+    ALPHABET_MAP.set(ALPHABET[i], i)
+  }
+
+  let num = BigInt(0)
+  for (const char of identifier) {
+    const value = ALPHABET_MAP.get(char)
+    if (value === undefined) {
+      throw new Error(`Invalid base58 character: ${char}`)
+    }
+    num = num * BigInt(58) + BigInt(value)
+  }
+
+  const bytes = new Uint8Array(32)
+  for (let i = 31; i >= 0; i--) {
+    bytes[i] = Number(num & BigInt(0xff))
+    num = num >> BigInt(8)
+  }
+
+  return bytes
 }
 
 interface ReplyContextProps {

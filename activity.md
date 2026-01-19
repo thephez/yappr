@@ -1018,3 +1018,46 @@
 - Clear visual indicators when composing an inherited-encryption reply
 
 **Screenshot:** `screenshots/private-reply-inherited-encryption.png`
+
+## 2026-01-19: Quoting Private Posts (PRD §5.3)
+
+**Task:** Implement private post quoting with separate decryption (no encryption inheritance)
+
+**Changes made:**
+1. Created `components/post/private-quoted-post-content.tsx`:
+   - `PrivateQuotedPostContent` component for rendering quoted private posts
+   - Handles all decryption states: loading, decrypted, locked, error
+   - Shows teaser content when available
+   - Non-followers see "[Private post from @user]" locked state per PRD §5.3
+   - Owner path uses local feed seed and CEK cache
+   - Follower path uses `privateFeedFollowerService.decryptPost()`
+   - Lock icon in header indicates private post
+   - `isQuotedPostPrivate()` helper function exported
+
+2. Updated `components/post/post-card.tsx`:
+   - Imported `PrivateQuotedPostContent` and `isQuotedPostPrivate`
+   - Modified quoted post rendering to check if quoted post is private
+   - Uses `PrivateQuotedPostContent` for private quoted posts
+   - Falls back to standard quoted post rendering for public posts
+
+3. Updated `components/compose/compose-sub-components.tsx`:
+   - Extended `QuotedPostPreview` to handle private posts
+   - Added `isPrivatePost()` helper function
+   - Added `DecryptionState` type for state management
+   - Added `identifierToBytes()` for AAD construction
+   - Shows lock icon in header for private posts
+   - Loading state shows "Decrypting..." with teaser
+   - Decrypted state shows full content with teaser
+   - Locked state shows "[Private post from @user]" indicator
+   - Imports `LockClosedIcon`, `LockOpenIcon`, `useAuth`, React hooks
+
+**Key features per PRD §5.3:**
+- Quotes do NOT inherit encryption - quoted content is decrypted separately
+- Quoter chooses their own encryption for the quote (public or using their own CEK)
+- Non-followers see locked state with "[Private post from @user]" message
+- Teaser content (if available) shown in all states
+- Lock icon in header distinguishes private quoted posts
+
+**Screenshots:**
+- `screenshots/quote-private-posts-compose-modal.png` (compose modal with visibility selector)
+- `screenshots/quote-private-posts-settings.png` (private feed settings page)

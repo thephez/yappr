@@ -443,3 +443,23 @@
 8. **Test identity lacked encryption key**: The testing identities from `testing-identity-1.json` and `testing-identity-2.json` don't have encryption keys on their identities, preventing private feed enablement. Full E2E testing of the private reply feature would require identities with encryption keys and an established private follower relationship.
 
 **No blockers for the implementation itself** - the code follows PRD §5.5 precisely and integrates with existing private feed infrastructure.
+
+## 2026-01-19: Quoting Private Posts Implementation (PRD §5.3)
+
+**Key observations:**
+
+1. **Quotes vs replies have fundamentally different encryption semantics**: Per PRD §5.3, replies inherit encryption from the parent thread (using thread owner's CEK), while quotes do NOT inherit - they live in the quoter's feed and use the quoter's own encryption choice. This is a critical distinction that affects the entire implementation.
+
+2. **Separate decryption path for quoted posts**: The `PrivateQuotedPostContent` component implements its own decryption logic, independent of the parent post. This allows non-followers to see the quote but shows "[Private post from @user]" for the quoted content they can't decrypt.
+
+3. **identifierToBytes helper duplicated across components**: The base58-to-bytes conversion function is duplicated in `private-post-content.tsx`, `private-quoted-post-content.tsx`, and `compose-sub-components.tsx`. This could be refactored into a shared utility, but was kept local to avoid coupling components to a shared dependency.
+
+4. **State machine pattern reused for decryption states**: The same `DecryptionState` discriminated union pattern (`idle | loading | decrypted | locked | error`) was reused from `PrivatePostContent` in both the quoted post component and the compose preview. This provides consistent behavior across all private post rendering contexts.
+
+5. **Promise handling in useEffect requires void operator**: The linter flagged the async `attemptDecryption()` call in useEffect as a floating promise. Fixed by adding `void attemptDecryption()` to explicitly mark the promise as intentionally not awaited.
+
+6. **Empty platform state during testing**: The current contract (`FNDUsTkqMQ1Wv4qhvg25VqHRnLLfCwwvw1YFMUL9iQ7e`) had no posts to test quoting with. This is expected for a fresh contract deployment. The implementation was verified via build/lint instead of full E2E testing.
+
+7. **Multi-identity E2E testing remains challenging**: Testing the full quote flow would require: (a) two identities with encryption keys, (b) one to create a private post, (c) the other to have private follower access, (d) create a quote. This complex setup wasn't feasible in the current test environment.
+
+**No blockers for the implementation itself** - the code follows PRD §5.3 precisely and integrates with existing private feed infrastructure.

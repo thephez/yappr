@@ -31,6 +31,7 @@ import { UserAvatar } from '@/components/ui/avatar-image'
 import { LikesModal } from './likes-modal'
 import { PostContent } from './post-content'
 import { PrivatePostContent, PrivatePostBadge, isPrivatePost } from './private-post-content'
+import { PrivateQuotedPostContent, isQuotedPostPrivate } from './private-quoted-post-content'
 import { useTipModal } from '@/hooks/use-tip-modal'
 import { useBlock } from '@/hooks/use-block'
 import { useFollow } from '@/hooks/use-follow'
@@ -678,28 +679,33 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
           )}
 
           {post.quotedPost && (
-            <Link
-              href={`/post?id=${post.quotedPost.id}`}
-              onClick={(e) => e.stopPropagation()}
-              className="mt-3 block border border-gray-200 dark:border-gray-700 rounded-xl p-3 hover:bg-gray-50 dark:hover:bg-gray-900/50 hover:border-gray-400 dark:hover:border-gray-500 transition-all cursor-pointer"
-            >
-              <div className="flex items-center gap-2 text-sm text-gray-500">
-                <UserAvatar userId={post.quotedPost.author.id} size="sm" alt={post.quotedPost.author.displayName} />
-                <span className="font-semibold text-gray-900 dark:text-gray-100">
-                  {post.quotedPost.author.displayName}
-                </span>
-                {post.quotedPost.author.username && !post.quotedPost.author.username.startsWith('user_') ? (
-                  <span className="text-gray-500">@{post.quotedPost.author.username}</span>
-                ) : (
-                  <span className="text-gray-500 font-mono text-xs">
-                    {post.quotedPost.author.id.slice(0, 8)}...
+            isQuotedPostPrivate(post.quotedPost) ? (
+              // PRD §5.3: Private quoted posts are decrypted separately
+              <PrivateQuotedPostContent quotedPost={post.quotedPost} />
+            ) : (
+              <Link
+                href={`/post?id=${post.quotedPost.id}`}
+                onClick={(e) => e.stopPropagation()}
+                className="mt-3 block border border-gray-200 dark:border-gray-700 rounded-xl p-3 hover:bg-gray-50 dark:hover:bg-gray-900/50 hover:border-gray-400 dark:hover:border-gray-500 transition-all cursor-pointer"
+              >
+                <div className="flex items-center gap-2 text-sm text-gray-500">
+                  <UserAvatar userId={post.quotedPost.author.id} size="sm" alt={post.quotedPost.author.displayName} />
+                  <span className="font-semibold text-gray-900 dark:text-gray-100">
+                    {post.quotedPost.author.displayName}
                   </span>
-                )}
-                <span>·</span>
-                <span>{formatTime(post.quotedPost.createdAt)}</span>
-              </div>
-              <PostContent content={post.quotedPost.content} className="mt-1 text-sm" />
-            </Link>
+                  {post.quotedPost.author.username && !post.quotedPost.author.username.startsWith('user_') ? (
+                    <span className="text-gray-500">@{post.quotedPost.author.username}</span>
+                  ) : (
+                    <span className="text-gray-500 font-mono text-xs">
+                      {post.quotedPost.author.id.slice(0, 8)}...
+                    </span>
+                  )}
+                  <span>·</span>
+                  <span>{formatTime(post.quotedPost.createdAt)}</span>
+                </div>
+                <PostContent content={post.quotedPost.content} className="mt-1 text-sm" />
+              </Link>
+            )
           )}
 
           {post.media && post.media.length > 0 && (
