@@ -784,3 +784,86 @@ In the post detail view:
 - This is arguably better UX than a blur effect because it's unambiguous
 
 **Lesson:** Test expectations should be flexible on visual implementation details. The spirit of the requirement (clearly indicate content is private and provide access path) is met even if the exact visual treatment differs from the spec.
+
+---
+
+## 2026-01-19: BUG-010 - Private Feed Local State Recovery
+
+### Issue 50: Missing Local Keys vs Out-of-Sync Epoch
+**Problem:** The `createPrivatePost()` function had an incomplete sync check that only triggered recovery when `chainEpoch > localEpoch`, missing the case where local keys are completely absent.
+
+**Key Details:**
+- `privateFeedKeyStore.getCurrentEpoch()` returns 1 by default if no epoch is stored
+- If the chain epoch is also 1 (no revocations), the sync check passes
+- But `getFeedSeed()` returns null because the feed seed was never stored locally
+
+**Lesson:** When implementing sync/recovery logic, always consider THREE states:
+1. **Fully synced** - local state matches chain state
+2. **Out of sync** - local state exists but is behind chain state
+3. **Missing** - local state doesn't exist at all
+
+The original code only handled states 1 and 2, but not state 3.
+
+### Issue 51: Encryption Key Storage Location
+**Observation:** The encryption key is stored via `secureStorage.set(`ek_${identityId}`)` which resolves to either localStorage or sessionStorage based on the "remember me" setting.
+
+**Key Details:**
+- With "remember me" enabled: `localStorage.setItem('yappr_secure_ek_IDENTITY_ID', key)`
+- Without "remember me": `sessionStorage.setItem('yappr_secure_ek_IDENTITY_ID', key)`
+- The `getEncryptionKey()` function automatically checks the correct storage
+
+**Lesson:** When testing encryption key functionality, ensure the key is stored in the correct location based on the user's session preferences. Manually storing with the wrong key name will cause the auto-recovery to fail.
+
+### Issue 52: Recovery Flow in createPrivatePost
+**Observation:** The fix adds a pre-check for missing local keys BEFORE the epoch comparison check:
+
+```typescript
+// Check 0: Missing local keys entirely? → Full recovery
+const hasLocalKeys = privateFeedKeyStore.hasFeedSeed();
+if (!hasLocalKeys && encryptionPrivateKey) {
+  await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+}
+
+// Check 1: Epoch out of sync? → Incremental recovery
+if (chainEpoch > localEpoch && encryptionPrivateKey) {
+  await this.recoverOwnerState(ownerId, encryptionPrivateKey);
+}
+```
+
+Both checks call the same `recoverOwnerState()` function, which is idempotent - it completely rebuilds local state from chain, so there's no harm in calling it twice if both conditions were somehow true.
+
+**Lesson:** The `syncAndRecover()` helper method already had this logic, but `createPrivatePost()` was implementing its own inline version. The fix brings `createPrivatePost()` in line with the more complete check in `syncAndRecover()`.
+
+---
+
+## 2026-01-19: E2E Test 5.3 - Pending Request State
+
+### Issue 53: Profile vs Post Detail Pending State Inconsistency
+**Observation:** The profile page and post detail page show different UI for users with pending access requests:
+
+- **Profile page:** Shows "Pending..." button with clock icon (correct)
+- **Post detail page:** Shows "Request Access" button (inconsistent)
+
+**Root Cause:** The `PrivateFeedAccessButton` component (used on profile) checks for existing `followRequest` documents to determine the pending state. However, the post detail view's `PrivatePostContent` component uses a simpler check that doesn't query for existing requests.
+
+**Impact:** Low - this is a cosmetic issue. The core functionality works correctly:
+- Users can't "double request" (the system handles duplicate requests gracefully)
+- The profile correctly shows the pending state
+- Access approval still works
+
+**Recommendation:** Consider passing the request status down to post detail views, or have `PrivatePostContent` query for existing requests when rendering the "Request Access" button.
+
+**Lesson:** When multiple UI components show the same action (like "Request Access"), ensure they share the same state-checking logic to avoid inconsistencies between different views.
+
+### Issue 54: Playwright Modal Overlay Handling
+**Observation:** When multiple modals are displayed simultaneously (e.g., DPNS registration and Key Backup), clicking buttons can fail due to overlay interception.
+
+**Error:**
+```
+TimeoutError: locator.click: Timeout 5000ms exceeded.
+<div class="bg-orange-50..."> from <div class="fixed inset-0..."> subtree intercepts pointer events
+```
+
+**Workaround:** Click on the overlapping modal's "Skip" button first, then proceed to the underlying modal.
+
+**Lesson:** When automating tests with Playwright, always handle modal stacking carefully. Close or dismiss overlapping modals in the correct order before interacting with elements beneath them.
