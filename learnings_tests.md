@@ -123,3 +123,7 @@ if (!validation.isValid) {
 5. **Try constructors when fromObject/fromJSON fail** - The WASM SDK's `fromObject()` and `fromJSON()` methods often have undocumented validation. Constructors are more predictable.
 
 6. **Check security level requirements** - Different Dash Platform operations require different security level keys. Identity updates may need CRITICAL or MASTER keys.
+
+
+## Developer extra learnings
+**IMPORTANT** I was able register a new key to my identity via the evo-sdk on dev.11. I've confirmed on v2 of the sdk, it was borked. It seems likely that we will need to update to dev.11 of the sdk.

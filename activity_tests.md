@@ -54,7 +54,7 @@ Console logs now show:
 ```
 Creating IdentityPublicKeyInCreation: id=4, purpose=ENCRYPTION, securityLevel=MEDIUM, keyType=ECDSA_SECP256K1
 Public key bytes length: 33
-IdentityPublicKeyInCreation created successfully  ← BUG-001 FIXED
+IdentityPublicKeyInCreation created successfully  <- BUG-001 FIXED
 ```
 
 ### New Bug Discovered (BUG-002)
@@ -78,7 +78,7 @@ After BUG-001 fix, a new error occurs in `sdk.identities.update()`:
 ## 2026-01-19: E2E Test 1.1 - Enable Private Feed (BLOCKED)
 
 ### Task
-Test E2E 1.1: Enable Private Feed - Happy Path (PRD §4.1)
+Test E2E 1.1: Enable Private Feed - Happy Path (PRD $4.1)
 
 ### Status
 **BLOCKED** - Bug BUG-002 prevents completion (BUG-001 was fixed)
@@ -172,15 +172,15 @@ The original BUG-002 was caused by a security level mismatch:
 
 ### Modal Flow Changes
 **Before (BUG-002):**
-1. Intro → Generate → Confirm → Adding (fails with WasmSdkError)
+1. Intro -> Generate -> Confirm -> Adding (fails with WasmSdkError)
 
 **After (Fixed):**
-1. Intro (shows CRITICAL key notice) → Generate → Confirm → **Critical Key Entry** → Adding
+1. Intro (shows CRITICAL key notice) -> Generate -> Confirm -> **Critical Key Entry** -> Adding
 
 ### Verification
 Console logs now show:
 ```
-Signing key validated: keyId=2, securityLevel=1   ← BUG-002 FIXED
+Signing key validated: keyId=2, securityLevel=1   <- BUG-002 FIXED
 Adding encryption key (id=4) to identity 9qRC7aPC...
 ```
 
