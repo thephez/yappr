@@ -5,7 +5,7 @@ import { Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { usePostDetail } from '@/hooks/use-post-detail'
 import { useSdk } from '@/contexts/sdk-context'
-import { ReplyThread } from '@/lib/types'
+import { Post, ReplyThread } from '@/lib/types'
 
 function formatRelativeTime(date: Date): string {
   const now = Date.now()
@@ -17,6 +17,18 @@ function formatRelativeTime(date: Date): string {
   if (hours < 24) return `${hours}h ago`
   const days = Math.floor(hours / 24)
   return `${days}d ago`
+}
+
+function getAuthorDisplayName(author: Post['author']): string {
+  if (author.username?.trim()) {
+    return author.username
+  }
+  if (author.displayName &&
+      author.displayName !== 'Unknown User' &&
+      !author.displayName.startsWith('User ')) {
+    return author.displayName
+  }
+  return `${author.id.slice(0, 8)}...${author.id.slice(-6)}`
 }
 
 function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyThread; depth?: number; onAuthorClick: (authorId: string) => void }) {
@@ -41,7 +53,7 @@ function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyTh
             }}
             className={`hover:underline cursor-pointer ${isAuthorThread ? 'text-blue-600 dark:text-blue-400' : ''}`}
           >
-            {post.author.username}
+            {getAuthorDisplayName(post.author)}
           </span>
           <span className="mx-2">•</span>
           <span>{formatRelativeTime(post.createdAt)}</span>
@@ -139,7 +151,7 @@ function PostDetailContent() {
             }}
             className="hover:underline cursor-pointer"
           >
-            {post.author.username}
+            {getAuthorDisplayName(post.author)}
           </span>
           <span className="mx-2">•</span>
           <span>{formatRelativeTime(post.createdAt)}</span>

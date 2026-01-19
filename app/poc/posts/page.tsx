@@ -26,6 +26,18 @@ function formatRelativeTime(date: Date): string {
   return `${days}d ago`
 }
 
+function getAuthorDisplayName(author: Post['author']): string {
+  if (author.username?.trim()) {
+    return author.username
+  }
+  if (author.displayName &&
+      author.displayName !== 'Unknown User' &&
+      !author.displayName.startsWith('User ')) {
+    return author.displayName
+  }
+  return `${author.id.slice(0, 8)}...${author.id.slice(-6)}`
+}
+
 export default function PocPostsPage() {
   const router = useRouter()
   const { isReady } = useSdk()
@@ -109,7 +121,7 @@ export default function PocPostsPage() {
                     }}
                     className="hover:underline cursor-pointer"
                   >
-                    {post.author.username}
+                    {getAuthorDisplayName(post.author)}
                   </span>
                   <span className="mx-2">•</span>
                   <span title="Replies">💬 {post.replies}</span>
