@@ -230,3 +230,51 @@ yappr_secure_ek_<identityId>
 - The dropdown is a custom component, not a native HTML select
 
 **Lesson:** The visibility options are properly gated based on whether the user has private feed enabled. For users without private feed, only "Public" would be available (not tested in this scenario since our test identity has private feed enabled).
+
+---
+
+## 2026-01-19: E2E Test 2.2 - Private Post Creation Bug
+
+### Issue 14: Data Contract Constraint on Empty Content (BUG-004)
+**Problem:** Private posts without teaser fail with JsonSchemaError because the implementation sets `content` to empty string, but the contract requires `minLength: 1`.
+
+**Error:**
+```
+WasmSdkError: Failed to broadcast transition: Protocol error: JsonSchemaError: "" is shorter than 1 character, path: /content
+```
+
+**Root Cause:** In `lib/services/private-feed-service.ts`, line 407:
+```typescript
+content: teaser || '', // Teaser or empty string for private-only posts
+```
+
+The contract (`contracts/yappr-social-contract-actual.json`) defines:
+```json
+"content": {
+  "type": "string",
+  "minLength": 1,  // <-- Rejects empty string
+  ...
+}
+```
+
+**Impact:** The "Private" visibility option (without teaser) is completely broken. Users can only create private posts if they provide a teaser.
+
+**Suggested Fix:** Use a placeholder like `"🔒"` or `"[Private]"` for the `content` field when no teaser is provided. This maintains contract compatibility while preserving the intended functionality.
+
+**Lesson:** When building features that interact with on-chain data contracts, always verify the schema constraints. The `minLength` constraint isn't optional validation - it's enforced at the protocol level and will reject state transitions that violate it.
+
+### Issue 15: Error Handling in Compose Modal
+**Observation:** When the private post creation failed, the error was logged to console but no visible error message appeared in the UI (the toast may have been briefly shown or suppressed).
+
+**User Experience Impact:** Users see the post button re-enable but may not understand why their post failed.
+
+**Lesson:** Error handling for post creation should show clear, user-friendly error messages. Consider showing "Could not create private post: [reason]" in a persistent toast or inline error message.
+
+### Issue 16: Multiple Affected Code Paths
+**Observation:** Both `createPrivatePost()` and `createInheritedPrivateReply()` in private-feed-service.ts use empty string for content when no teaser is provided. Any fix needs to address both methods.
+
+**Affected Methods:**
+- `createPrivatePost()` - line 407: `content: teaser || ''`
+- `createInheritedPrivateReply()` - line 508: `content: ''`
+
+**Lesson:** When fixing a bug, search the codebase for similar patterns that may have the same issue.

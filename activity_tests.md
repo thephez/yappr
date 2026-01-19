@@ -385,3 +385,76 @@ Test E2E 2.1: Visibility Selector Default State (PRD §4.2, §4.11)
 
 ### Test Result
 **PASSED** - E2E Test 2.1 completed successfully
+
+---
+
+## 2026-01-19: E2E Test 2.2 - Create Private Post - No Teaser (BUG FOUND)
+
+### Task
+Test E2E 2.2: Create Private Post - No Teaser (PRD §4.2)
+
+### Status
+**FAILED** - BUG-004 discovered: Private posts without teaser fail due to data contract constraint
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 logged in
+- Private feed enabled (from Test 1.1)
+
+### Test Steps Executed
+1. **Open compose modal** - ✅
+   - Clicked compose button in navigation bar
+   - Modal opened with visibility selector
+
+2. **Select "Private" visibility** - ✅
+   - Clicked visibility dropdown
+   - Selected "Private" option (not "Private with Teaser")
+   - Visibility changed to show lock icon with "Private" text
+   - Visual indicator appeared: "This post will be encrypted and only visible to your private followers"
+   - Warning shown: "Only visible to you (no followers yet)"
+
+3. **Enter private content** - ✅
+   - Typed test content: "This is private content for E2E Test 2.2 - testing encrypted posts without teaser. Only private followers can see this!" (117 characters)
+   - Post button became enabled
+   - Content area showed proper formatting toolbar
+
+4. **Click Post button** - ❌ **FAILED**
+   - Clicked Post button
+   - Console showed error: `WasmSdkError: Failed to broadcast transition: Protocol error: JsonSchemaError: "" is shorter than 1 character, path: /content`
+   - Post was not created
+
+### Bug Found
+**BUG-004: Private posts without teaser fail with JsonSchemaError**
+
+Root cause: In `lib/services/private-feed-service.ts`, the `createPrivatePost()` method (line 407) sets:
+```typescript
+content: teaser || '', // Teaser or empty string for private-only posts
+```
+
+When no teaser is provided, `content` becomes empty string `''`. However, the data contract requires `content` to have `minLength: 1`.
+
+See `bugs.md` for full bug report.
+
+### Visual Indicators Verified
+| UI Element | Present | Status |
+|------------|---------|--------|
+| Lock icon with "Private" text | Yes | ✅ |
+| Encryption warning banner | Yes | ✅ |
+| "Only visible to you" warning | Yes | ✅ |
+| Post button enabled | Yes | ✅ |
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Post created with encryptedContent | JsonSchemaError - content too short | ❌ |
+| Toast success message | Error toast shown | ❌ |
+| Modal closes | Modal stays open | ❌ |
+
+### Screenshots
+- `screenshots/e2e-test2.2-private-post-compose.png` - Compose modal with Private visibility selected and content entered
+- `screenshots/e2e-test2.2-private-post-error-state.png` - Modal after post attempt failed
+
+### Test Result
+**FAILED** - BUG-004 blocks private posts without teaser. Bug report filed in bugs.md.
+
+### Re-test Required
+- [ ] E2E Test 2.2: Create Private Post - No Teaser (after BUG-004 is fixed)
