@@ -1315,3 +1315,68 @@ const response = await sdk.documents.query({
 ### Re-test Note
 This fix should be re-verified during the next full E2E testing run. Specifically:
 - E2E Test 11.1: Notification on Follow Request should now pass
+
+---
+
+## 2026-01-19: E2E Test 5.1 - View as Non-Follower - No Teaser (COMPLETED)
+
+### Task
+Test E2E 5.1: View as Non-Follower - No Teaser (PRD §4.3, §4.4)
+
+### Status
+**PASSED** - Private posts correctly display locked content for non-followers
+
+### Prerequisites Met
+- Test identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (non-follower) logged in
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (owner) has private feed enabled with private posts
+
+### Test Steps Executed
+1. **Logged in as non-follower identity** - ✅
+   - Used identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA
+   - Skipped DPNS and key backup prompts
+
+2. **Navigate to owner's profile** - ✅
+   - URL: `/user/?id=9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+   - Profile shows "Test User 1" with 7 posts
+
+3. **Verify "Private Feed" badge on profile** - ✅
+   - Badge visible next to identity ID: "🔒 Private Feed"
+
+4. **Verify "Follow" button visible (not following)** - ✅
+   - "Follow" button displayed in profile header
+
+5. **Verify private posts without teaser display correctly** - ✅
+   - Posts show only 🔒 emoji as content
+   - No actual encrypted content visible
+   - Multiple private posts (48 min ago, 1 hour ago) show locked state
+
+6. **Verify private posts with teaser display correctly** - ✅
+   - Teaser text visible: "Check out this exclusive behind-the-scenes content! 🎬 Only my private followers can see the full story..."
+   - Full encrypted content hidden
+
+7. **Click on private post to view detail page** - ✅
+   - Navigated to `/post/?id=5h13by6zgqokABaxhUrazt3vcFMRQtoLbmhJS2cZ8PDs`
+   - Shows:
+     - 🔒 Lock icon badge
+     - "Private Content" heading
+     - "Only approved followers can see this content" text
+     - [Request Access] button prominently displayed
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Lock icon badge (🔒) | Lock emoji shown on private posts | ✅ |
+| "Private Feed" badge on profile | Badge visible next to identity ID | ✅ |
+| Blurred/dimmed placeholder for content | Shows 🔒 only (no content visible) | ✅ |
+| [Request Access] button | Button visible on post detail view | ✅ |
+| No content text visible | Only 🔒 placeholder, actual content hidden | ✅ |
+| Teaser visible for posts with teaser | Teaser text displayed normally | ✅ |
+
+### Screenshots
+- `screenshots/e2e-test5.1-non-follower-view-profile.png` - Profile header with Follow button
+- `screenshots/e2e-test5.1-non-follower-view-posts.png` - Feed showing locked private posts
+- `screenshots/e2e-test5.1-non-follower-private-post-detail.png` - Post detail with "Request Access" button
+- `screenshots/e2e-test5.1-non-follower-profile-full.png` - Full page screenshot of profile
+
+### Test Result
+**PASSED** - E2E Test 5.1 completed successfully

@@ -716,3 +716,45 @@ await sdk.documents.query({
 ```
 
 **Lesson:** Before implementing a new notification type, check how existing notification types are implemented. The follower notification pattern (querying the source document directly) was already working and could be applied to private feed requests.
+
+---
+
+## 2026-01-19: E2E Test 5.1 - Multi-Identity Testing
+
+### Issue 45: Session Management for Multi-Identity Testing
+**Observation:** To test the non-follower view, needed to clear session and log in as a different identity. Used browser's `localStorage.clear()` and `sessionStorage.clear()` to fully log out before logging in as the test identity.
+
+**Key Steps:**
+1. Navigate to login page
+2. Execute `localStorage.clear(); sessionStorage.clear(); window.location.reload()`
+3. Log in with new identity credentials
+4. Skip DPNS and key backup prompts to proceed with testing
+
+**Lesson:** For multi-identity E2E testing, the cleanest approach is to clear all storage rather than trying to find and use a logout button. This ensures no session state persists between identity switches.
+
+### Issue 46: Private Post Display States
+**Observation:** Private posts have different display states depending on the viewer:
+
+1. **Non-follower viewing post list (profile/feed):**
+   - Shows only 🔒 emoji as content placeholder
+   - No "Request Access" button inline (would clutter the feed)
+
+2. **Non-follower viewing post detail:**
+   - Shows 🔒 lock icon
+   - Shows "Private Content" heading
+   - Shows "Only approved followers can see this content" message
+   - Shows [Request Access] button prominently
+
+3. **Posts with teaser:**
+   - Teaser text is always visible to everyone
+   - Only the encrypted content is hidden
+
+**Lesson:** The UI provides progressive disclosure - minimal indication in feed view, full explanation and action button in detail view. This keeps the feed clean while still guiding non-followers to request access.
+
+### Issue 47: Testing Identity Organization
+**Observation:** The test identities serve different purposes:
+- Identity 1 (9qRC7aPC...) - "Test User 1" - Owner with private feed enabled
+- Identity 2 (6DkmgQWv...) - "Test Follower User" - Follower who has requested access
+- Identity 3 (4GPK6iuj...) - "Test Owner PF" - Non-follower for testing locked views
+
+**Lesson:** Maintain clear documentation of test identity roles. Identity 3 was named "Test Owner PF" from prior testing but served as the non-follower in this test - the naming could be improved for clarity.
