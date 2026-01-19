@@ -10,6 +10,8 @@ export { repostService } from './repost-service';
 export { bookmarkService } from './bookmark-service';
 export { blockService } from './block-service';
 export { stateTransitionService } from './state-transition-service';
+export { signerService, KeyPurpose, SecurityLevel, KeyType } from './signer-service';
+export { documentBuilderService } from './document-builder-service';
 export { directMessageService } from './direct-message-service';
 export { hashtagService } from './hashtag-service';
 export { notificationService } from './notification-service';
