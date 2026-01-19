@@ -604,3 +604,84 @@ The actual post content remains encrypted in `encryptedContent` - the `content` 
 
 ### Test Result
 **PASSED** - E2E Test 2.2: Create Private Post - No Teaser now works correctly
+
+---
+
+## 2026-01-19: E2E Test 2.3 - Create Private Post - With Teaser (COMPLETED)
+
+### Task
+Test E2E 2.3: Create Private Post - With Teaser (PRD §4.2)
+
+### Status
+**PASSED** - Private post with teaser created successfully
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 logged in
+- Private feed already enabled (from Test 1.1)
+
+### Test Steps Executed
+1. **Open compose modal** - ✅
+   - Clicked compose button in navigation bar
+   - Modal opened with visibility selector
+
+2. **Select "Private with Teaser" visibility** - ✅
+   - Clicked visibility dropdown
+   - Selected "Private with Teaser" option
+   - Visibility changed to show lock icon with "Private with Teaser" text
+
+3. **Verify two text areas appear** - ✅
+   - "Public Teaser (visible to everyone)" section appeared with character counter (0/280)
+   - "Private Content (encrypted)" section appeared below
+   - Info banner: "The main content will be encrypted. Teaser will be visible to everyone."
+   - Warning: "Only visible to you (no followers yet)"
+
+4. **Enter teaser content** - ✅
+   - Entered: "Check out this exclusive behind-the-scenes content! 🎬 Only my private followers can see the full story..."
+   - Character counter updated to 106/280
+
+5. **Enter private content** - ✅
+   - Entered: "E2E Test 2.3 - Private Post with Teaser! 🔐 This is the FULL private content that only approved private followers can decrypt and read. The teaser above is visible to everyone, but this secret message requires encryption keys to view. Testing the complete private feed workflow!"
+   - Post button became enabled
+
+6. **Click Post button** - ✅
+   - Clicked Post button
+   - Modal showed "Encrypting and creating private post 1..."
+   - Console logged: `Creating private post: {hasTeaser: true, encryptedContentLength: 297, epoch: 1, nonceLength: 24}`
+   - Console logged: `Document creation submitted successfully`
+   - Console logged: `Private post created successfully: BfS4vNF7SRCycwxEBpBNH9mQFBdD4A717KtYLGSSi9of`
+   - Modal closed after success
+
+7. **Verify post in feed** - ✅
+   - Refreshed profile page
+   - Post count increased from 4 to 5
+   - New post appears at top of feed showing teaser: "Check out this exclusive behind-the-scenes content! 🎬 Only my private followers can see the full story..."
+   - Previous private post (no teaser) shows 🔒 placeholder
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Two text areas appear (teaser + private) | Both areas displayed correctly | ✅ |
+| Teaser max 280 chars | Character counter shows 0/280 | ✅ |
+| Post created with content = teaser text | Teaser visible in feed | ✅ |
+| encryptedContent = encrypted private content | 297 bytes encrypted | ✅ |
+| epoch and nonce fields populated | epoch: 1, nonce: 24 bytes | ✅ |
+| Post visible in owner's feed | Post appears with teaser text | ✅ |
+
+### Document Fields Verified (from console logs)
+```javascript
+{
+  content: "Check out this exclusive behind-the-scenes content! 🎬 Only my private followers can see the full story...",
+  encryptedContent: Array(297),  // encrypted private content
+  epoch: 1,
+  nonce: Array(24)
+}
+```
+
+### Screenshots
+- `screenshots/e2e-test2.3-teaser-mode-selected.png` - Compose modal with "Private with Teaser" selected
+- `screenshots/e2e-test2.3-both-fields-filled.png` - Both teaser and private content entered
+- `screenshots/e2e-test2.3-private-post-with-teaser-created.png` - Profile header after post created
+- `screenshots/e2e-test2.3-teaser-post-in-feed.png` - Feed showing new post with teaser visible
+
+### Test Result
+**PASSED** - E2E Test 2.3 completed successfully

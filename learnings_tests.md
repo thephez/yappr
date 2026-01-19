@@ -366,3 +366,54 @@ The contract (`contracts/yappr-social-contract-actual.json`) defines:
 4. Confirm post count increased
 
 **Lesson:** When fixing bugs related to on-chain operations, verify the fix by checking both console logs (for the data being sent) and the UI (for the result after refresh).
+
+---
+
+## 2026-01-19: E2E Test 2.3 - Private Post with Teaser
+
+### Issue 22: Dev Server Corruption on Navigation
+**Problem:** After posting a private post, navigating (page refresh) caused the dev server to enter a corrupted state with multiple 404 errors for chunk files.
+
+**Symptoms:**
+- `ChunkLoadError: Loading chunk vendors-_app-pages-browser...`
+- Multiple 404 errors for `_next/static/chunks/*.js` files
+- Page fails to render
+
+**Workaround:** Kill the dev server, clear `.next` cache, and restart:
+```bash
+pkill -f "next dev"; rm -rf .next && npm run dev
+```
+
+**Lesson:** When running E2E tests, be prepared for dev server corruption especially after state transitions. Always have the restart command ready and clear the `.next` cache if issues persist.
+
+### Issue 23: Two-Field Compose UI for Private with Teaser
+**Observation:** When selecting "Private with Teaser" visibility, the compose modal transforms to show two distinct content areas:
+1. **Teaser section**: "Public Teaser (visible to everyone)" with character limit 280
+2. **Private section**: "Private Content (encrypted)" with the standard content editor
+
+**Key Details:**
+- The teaser field has its own character counter (e.g., "106/280")
+- Visual info banner explains encryption: "The main content will be encrypted. Teaser will be visible to everyone."
+- Warning shows follower count: "Only visible to you (no followers yet)"
+- Both fields must have content for the Post button to enable
+
+**Lesson:** The UI clearly separates teaser (public) from encrypted content, making it easy for users to understand what will be visible to everyone vs. private followers only.
+
+### Issue 24: Private Post Document Structure Verification
+**Observation:** The console logs provide clear verification of the document structure:
+```javascript
+{
+  content: "teaser text here...",  // Public teaser (visible to all)
+  encryptedContent: Array(297),     // Encrypted private content
+  epoch: 1,                         // Current epoch
+  nonce: Array(24)                  // 24-byte nonce for decryption
+}
+```
+
+**Key Details:**
+- `content` field contains the plaintext teaser (satisfies minLength constraint)
+- `encryptedContent` contains the encrypted full content
+- `hasTeaser: true` is logged during creation
+- Post ID is logged on success: `Private post created successfully: <postId>`
+
+**Lesson:** Console logs are essential for E2E test verification. Check for `hasTeaser: true` to confirm the correct code path was taken, and verify `encryptedContent` array has expected length.
