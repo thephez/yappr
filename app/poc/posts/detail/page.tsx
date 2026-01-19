@@ -1,12 +1,44 @@
 // POC: Post detail with threaded replies. Safe to delete.
 'use client'
 
-import { Suspense } from 'react'
+import { Suspense, Fragment, ReactNode } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { usePostDetail } from '@/hooks/use-post-detail'
 import { useSdk } from '@/contexts/sdk-context'
 import { Post, ReplyThread } from '@/lib/types'
 import { UserAvatar } from '@/components/ui/avatar-image'
+import { stripTrailingPunctuation } from '@/hooks/use-link-preview'
+
+function linkifyContent(text: string): ReactNode {
+  const urlPattern = /(https?:\/\/[^\s<>"']+|www\.[^\s<>"']+)/gi
+  const parts = text.split(urlPattern)
+
+  return parts.map((part, index) => {
+    if (urlPattern.test(part)) {
+      urlPattern.lastIndex = 0
+      const href = part.startsWith('www.') ? `https://${part}` : part
+      const cleanHref = stripTrailingPunctuation(href)
+      const cleanDisplay = part.replace(/[.,;:!?)]+$/, '')
+      const trailing = part.slice(cleanDisplay.length)
+
+      return (
+        <Fragment key={index}>
+          <a
+            href={cleanHref}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="text-blue-600 dark:text-blue-400 hover:underline break-all"
+          >
+            {cleanDisplay}
+          </a>
+          {trailing}
+        </Fragment>
+      )
+    }
+    return <Fragment key={index}>{part}</Fragment>
+  })
+}
 
 function formatRelativeTime(date: Date): string {
   const now = Date.now()
@@ -91,7 +123,7 @@ function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyTh
               )}
             </div>
             <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
-              {post.content}
+              {linkifyContent(post.content)}
             </div>
           </div>
         </div>
@@ -208,7 +240,7 @@ function PostDetailContent() {
               )
             })()}
             <div className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
-              {post.content}
+              {linkifyContent(post.content)}
             </div>
           </div>
         </div>
