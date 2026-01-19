@@ -160,3 +160,60 @@
    - Types: `PrivateFeedStateDocument`, `PrivateFeedRekeyDocument`, `PrivatePostResult`
 
 **Screenshot:** `screenshots/private-feed-service.png`
+
+## 2026-01-18: PrivateFeedFollowerService Implementation
+
+**Task:** Create follower-side service for private feed operations (Phase 2 Follower Management)
+
+**Changes made:**
+1. Created `lib/services/private-feed-follower-service.ts` implementing PRD §3.3 interface:
+
+   **Access Request Operations (SPEC §8.3):**
+   - `requestAccess(ownerId, myId, publicKey?)` - Create FollowRequest document:
+     - Validates owner has private feed enabled
+     - Checks for existing grant or pending request
+     - Creates FollowRequest document with targetId
+     - Optionally includes public key if not available on-chain
+   - `cancelRequest(ownerId, myId)` - Delete pending FollowRequest
+   - `getPendingRequests(myId)` - Get all pending requests for current user
+
+   **Grant Query Operations:**
+   - `getFollowRequest(ownerId, requesterId)` - Get specific follow request
+   - `getGrant(ownerId, recipientId)` - Get grant document for a recipient
+   - `getAccessStatus(ownerId, myId)` - Get access status: 'none' | 'pending' | 'approved' | 'revoked'
+
+   **Decryption Capability (SPEC §8.6):**
+   - `canDecrypt(ownerId)` - Check if we have cached keys for a feed
+   - `getCachedEpoch(ownerId)` - Get cached epoch for a feed owner
+   - `decryptPost(post)` - Decrypt private post:
+     - Verify we have keys for the feed owner
+     - Auto catch-up if post epoch > cached epoch
+     - Derive CEK for post's epoch (backwards via hash chain if needed)
+     - Decrypt using XChaCha20-Poly1305
+
+   **Key Catch-up (SPEC §8.7):**
+   - `catchUp(ownerId)` - Apply rekey documents to update keys:
+     - Fetch rekey documents after cached epoch
+     - Verify epoch continuity
+     - Apply each rekey iteratively
+   - `applyRekey()` - Process single rekey document:
+     - Parse and validate rekey packets
+     - Iteratively decrypt packets using current keys
+     - Derive new root key and CEK
+     - Update stored path keys
+
+   **Follower Recovery (SPEC §8.9):**
+   - `recoverFollowerKeys(ownerId, myId, encryptionPrivateKey)` - Recover from grant:
+     - Fetch grant document
+     - Decrypt payload using ECIES
+     - Validate and store path keys and CEK
+     - Auto catch-up on any pending rekeys
+
+   **Cleanup:**
+   - `clearFeedKeys(ownerId)` - Clear local keys for a feed (e.g., after revocation)
+
+2. Updated `lib/services/index.ts` exports:
+   - `privateFeedFollowerService` singleton
+   - Types: `FollowRequestDocument`, `PrivateFeedGrantDocument`, `DecryptResult`, `EncryptedPostFields`
+
+**Screenshot:** `screenshots/private-feed-follower-service.png`

@@ -92,3 +92,12 @@ export type {
   PrivateFeedRekeyDocument,
   PrivatePostResult,
 } from './private-feed-service';
+
+// Private feed follower service (follower operations)
+export { privateFeedFollowerService } from './private-feed-follower-service';
+export type {
+  FollowRequestDocument,
+  PrivateFeedGrantDocument,
+  DecryptResult,
+  EncryptedPostFields,
+} from './private-feed-follower-service';

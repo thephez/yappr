@@ -61,3 +61,19 @@
 
 **No blockers encountered** - the service follows the existing patterns in post-service.ts and state-transition-service.ts.
 
+## 2026-01-18: PrivateFeedFollowerService Implementation
+
+**Key observations:**
+
+1. **Import statements require `.js` extension**: Consistent with the crypto service, imports from `@noble/hashes` require the `.js` extension. Using `require()` statements inside functions triggers ESLint errors (`@typescript-eslint/no-var-requires`), so all imports must be at the top level using ES6 import syntax.
+
+2. **stateTransitionService.deleteDocument requires 4 arguments**: Unlike some other delete patterns, `stateTransitionService.deleteDocument()` requires the `ownerId` as the 4th parameter. The follow request owner is the requester (not the feed owner), so `myId` must be passed for deletion.
+
+3. **Rekey nonce derivation challenge for followers**: The SPEC defines nonce derivation using `wrapNonceSalt` derived from `feedSeed`, which followers don't have. The solution is either: (a) include wrapNonceSalt in the grant payload, (b) derive it from the root key (which followers receive), or (c) use a fixed/deterministic derivation. Current implementation uses approach (c) with empty salt, matching what owner should use. This may need revision when testing end-to-end.
+
+4. **Iterative packet decryption for rekeys**: Rekey packets form a dependency graph - some packets are encrypted under keys that are themselves wrapped in other packets in the same rekey. The solution is iterative processing: keep attempting to decrypt remaining packets until no progress is made. If the new root key can't be derived after all iterations, the user was revoked.
+
+5. **Access status requires both chain and local state**: Determining a user's access status combines platform queries (grants, requests) with local key state. A user with a grant document but no local keys is in a "revoked" state - the orphaned grant exists but keys are no longer derivable due to revocations.
+
+**No blockers encountered** - the service implementation builds on the patterns established in the previous private feed services.
+
