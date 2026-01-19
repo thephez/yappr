@@ -307,3 +307,53 @@
 - `screenshots/compose-visibility-dropdown.png` (expanded dropdown)
 - `screenshots/compose-private-mode.png` (private mode with banner)
 - `screenshots/compose-private-with-teaser.png` (teaser input visible)
+
+## 2026-01-19: Manage Follow Requests UI (Phase 2 Follower Management)
+
+**Task:** Create UI for feed owners to manage pending follow requests (PRD §4.5)
+
+**Changes made:**
+1. Extended `lib/services/private-feed-follower-service.ts` with owner-side query:
+   - `getFollowRequestsForOwner(ownerId)` - Query all FollowRequest documents targeting the owner
+   - Filters out stale requests where a grant already exists
+   - Returns requests sorted by creation date (newest first)
+
+2. Extended `lib/services/private-feed-service.ts` with follower approval:
+   - `approveFollower(ownerId, requesterId, requesterPublicKey)` - Full grant creation flow:
+     - Sync check: compares chain epoch vs local epoch
+     - Allocates next available leaf index
+     - Computes path keys from leaf to root with correct versions
+     - Retrieves current CEK for the epoch
+     - Builds and encodes grant payload (version, epoch, leafIndex, pathKeys, CEK)
+     - Encrypts payload using ECIES to requester's public key
+     - Creates PrivateFeedGrant document on platform
+     - Updates local state (removes leaf from available, adds to recipient map)
+   - `getPrivateFollowers(ownerId)` - Query all grant documents for the owner
+
+3. Created `components/settings/private-feed-follow-requests.tsx`:
+   - Card-based UI with header showing request count badge
+   - Loading skeleton state matching existing patterns
+   - "Not enabled" state with lock icon prompting user to enable private feed
+   - Empty state when no pending requests
+   - Request list with:
+     - User avatar via `UserAvatar` component
+     - Display name and DPNS username (if available)
+     - "Requested X ago" timestamp using relative time formatting
+     - "Approve" button (green) with loading spinner during processing
+     - "Ignore" button (outline) to dismiss request from UI
+   - Resolves user details via `dpnsService` and `unifiedProfileService`
+   - Fetches requester's encryption public key from identity for grant creation
+   - Toast notifications for success/error states
+
+4. Updated `app/settings/page.tsx`:
+   - Imported `PrivateFeedFollowRequests` component
+   - Added component below `PrivateFeedSettings` in the privateFeed section
+
+**Key features per PRD §4.5:**
+- Shows pending requests targeting the feed owner
+- Approve action creates PrivateFeedGrant with all cryptographic keys
+- Ignore action hides request from UI (request remains on-chain, can approve later)
+- Request count badge in header for quick visibility
+- Proper handling of encryption key lookup from identity
+
+**Screenshot:** `screenshots/private-feed-follow-requests-ui.png`

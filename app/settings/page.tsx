@@ -32,6 +32,7 @@ import toast from 'react-hot-toast'
 import { KeyBackupSettings } from '@/components/settings/key-backup-settings'
 import { BlockedUsersSettings } from '@/components/settings/blocked-users'
 import { PrivateFeedSettings } from '@/components/settings/private-feed-settings'
+import { PrivateFeedFollowRequests } from '@/components/settings/private-feed-follow-requests'
 import { BlockListSettings } from '@/components/settings/block-list-settings'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useSettingsStore } from '@/lib/store'
@@ -515,6 +516,7 @@ function SettingsPage() {
   const renderPrivateFeedSettings = () => (
     <div className="p-6 space-y-6">
       <PrivateFeedSettings />
+      <PrivateFeedFollowRequests />
     </div>
   )
 

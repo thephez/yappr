@@ -116,3 +116,22 @@
 
 **No blockers encountered** - the implementation follows established modal patterns and integrates with existing private feed services.
 
+## 2026-01-19: Manage Follow Requests UI Implementation
+
+**Key observations:**
+
+1. **Owner-side vs follower-side queries**: The existing `getPendingRequests(myId)` queries by `$ownerId` (requests I made). For the owner's management UI, we need `getFollowRequestsForOwner(ownerId)` which queries by `targetId` (requests targeting me). Two different query patterns for the same document type.
+
+2. **Stale request filtering**: When querying follow requests for an owner, we need to filter out requests where a grant already exists. This prevents showing users who were already approved but whose `FollowRequest` document wasn't deleted. The filter is done client-side by checking for grants in a loop.
+
+3. **Encryption key lookup from identity**: When approving a follower, we need their encryption public key to ECIES-encrypt the grant payload. The key may come from: (a) the FollowRequest document if the requester included it, or (b) the requester's identity public keys. The identity lookup requires finding the key with `purpose === 1` (ENCRYPTION) and `type === 0` (secp256k1).
+
+4. **Public key data format normalization**: Identity public key data can come in different formats: string (base64 or hex), Uint8Array, or regular array. Added format detection and conversion logic to ensure we always have a proper Uint8Array for cryptographic operations.
+
+5. **Grant creation is the most complex operation**: The `approveFollower` method performs many steps: sync check, leaf allocation, path key derivation, CEK retrieval, payload construction, ECIES encryption, document creation, and local state update. Each step can fail, so proper error handling and atomic rollback patterns are important.
+
+6. **Session persistence across page navigation**: The Playwright test revealed that an existing session (from previous testing) persisted in the browser's localStorage. The app restored the session automatically without needing to log in again. This demonstrated the `withAuth` HOC working correctly.
+
+7. **DPNS registration redirect**: Users without a DPNS username are redirected to `/dpns/register` with a "Skip for now" option. This affects test flows that need to navigate to authenticated pages directly.
+
+**No blockers encountered** - the implementation follows established patterns from `BlockedUsersSettings` and integrates with existing private feed services.

@@ -256,6 +256,46 @@ class PrivateFeedFollowerService {
     }
   }
 
+  /**
+   * Get all follow requests targeting a feed owner (for owner to review)
+   *
+   * @param ownerId - The feed owner's identity ID
+   */
+  async getFollowRequestsForOwner(ownerId: string): Promise<FollowRequestDocument[]> {
+    try {
+      const sdk = await getEvoSdk();
+
+      const documents = await queryDocuments(sdk, {
+        dataContractId: this.contractId,
+        documentTypeName: DOCUMENT_TYPES.FOLLOW_REQUEST,
+        where: [['targetId', '==', ownerId]],
+        orderBy: [['$createdAt', 'desc']],
+        limit: 100,
+      });
+
+      // Filter out requests where a grant already exists (stale requests)
+      const requests: FollowRequestDocument[] = [];
+      for (const doc of documents) {
+        const requesterId = doc.$ownerId as string;
+        const existingGrant = await this.getGrant(ownerId, requesterId);
+        if (!existingGrant) {
+          requests.push({
+            $id: doc.$id as string,
+            $ownerId: requesterId,
+            $createdAt: doc.$createdAt as number,
+            targetId: doc.targetId as string,
+            publicKey: doc.publicKey ? this.normalizeBytes(doc.publicKey) : undefined,
+          });
+        }
+      }
+
+      return requests;
+    } catch (error) {
+      console.error('Error fetching follow requests for owner:', error);
+      return [];
+    }
+  }
+
   // ============================================================
   // Grant Query Operations
   // ============================================================

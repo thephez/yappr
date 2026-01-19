@@ -426,6 +426,177 @@ class PrivateFeedService {
   }
 
   // ============================================================
+  // Follower Management (SPEC §8.4 - Approve Follow Request)
+  // ============================================================
+
+  /**
+   * Approve a follower and grant them access to the private feed
+   *
+   * @param ownerId - The identity ID of the feed owner
+   * @param requesterId - The identity ID of the requester
+   * @param requesterPublicKey - The requester's encryption public key
+   * @returns Promise<{success: boolean, error?: string}>
+   */
+  async approveFollower(
+    ownerId: string,
+    requesterId: string,
+    requesterPublicKey: Uint8Array
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 1. Get feed seed
+      const feedSeed = privateFeedKeyStore.getFeedSeed();
+      if (!feedSeed) {
+        return { success: false, error: 'Private feed not initialized locally' };
+      }
+
+      // 2. SYNC CHECK: Compare chain epoch vs local epoch
+      const chainEpoch = await this.getLatestEpoch(ownerId);
+      const localEpoch = privateFeedKeyStore.getCurrentEpoch();
+
+      if (chainEpoch > localEpoch) {
+        return {
+          success: false,
+          error: 'Local state out of sync. Please refresh and try again.',
+        };
+      }
+
+      // 3. Get an available leaf index
+      const availableLeaves = privateFeedKeyStore.getAvailableLeaves();
+      if (!availableLeaves || availableLeaves.length === 0) {
+        return { success: false, error: 'No available leaf slots (feed at capacity)' };
+      }
+
+      const leafIndex = availableLeaves[0];
+
+      // 4. Get revoked leaves to compute node versions
+      const revokedLeaves = privateFeedKeyStore.getRevokedLeaves();
+
+      // 5. Compute path from leaf to root and derive keys
+      const path = privateFeedCryptoService.computePath(leafIndex);
+      const pathKeys: Array<{ nodeId: number; version: number; key: Uint8Array }> = [];
+
+      for (const nodeId of path) {
+        const version = privateFeedCryptoService.computeNodeVersion(nodeId, revokedLeaves);
+        const key = privateFeedCryptoService.deriveNodeKey(feedSeed, nodeId, version);
+        pathKeys.push({ nodeId, version, key });
+      }
+
+      // 6. Get current CEK
+      let cek: Uint8Array;
+      const cached = privateFeedKeyStore.getCachedCEK(ownerId);
+
+      if (cached && cached.epoch === localEpoch) {
+        cek = cached.cek;
+      } else if (cached && cached.epoch > localEpoch) {
+        cek = privateFeedCryptoService.deriveCEK(cached.cek, cached.epoch, localEpoch);
+      } else {
+        const chain = privateFeedCryptoService.generateEpochChain(feedSeed, MAX_EPOCH);
+        cek = chain[localEpoch];
+      }
+
+      // 7. Build grant payload
+      const grantPayload = {
+        version: PROTOCOL_VERSION,
+        grantEpoch: localEpoch,
+        leafIndex,
+        pathKeys,
+        currentCEK: cek,
+      };
+
+      // 8. Encode grant payload
+      const encodedPayload = privateFeedCryptoService.encodeGrantPayload(grantPayload);
+
+      // 9. Build AAD for ECIES encryption
+      const ownerIdBytes = identifierToBytes(ownerId);
+      const requesterIdBytes = identifierToBytes(requesterId);
+      const aad = privateFeedCryptoService.buildGrantAAD(
+        ownerIdBytes,
+        requesterIdBytes,
+        leafIndex,
+        localEpoch
+      );
+
+      // 10. Encrypt payload using ECIES to requester's public key
+      const encryptedPayload = await privateFeedCryptoService.eciesEncrypt(
+        requesterPublicKey,
+        encodedPayload,
+        aad
+      );
+
+      // 11. Create PrivateFeedGrant document
+      const documentData = {
+        recipientId: requesterId,
+        leafIndex,
+        epoch: localEpoch,
+        encryptedPayload: Array.from(encryptedPayload),
+      };
+
+      console.log('Creating PrivateFeedGrant document:', {
+        recipientId: requesterId,
+        leafIndex,
+        epoch: localEpoch,
+        encryptedPayloadLength: encryptedPayload.length,
+      });
+
+      const result = await stateTransitionService.createDocument(
+        this.contractId,
+        DOCUMENT_TYPES.PRIVATE_FEED_GRANT,
+        ownerId,
+        documentData
+      );
+
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to create grant' };
+      }
+
+      // 12. Update local state - remove leaf from available and add to recipient map
+      const newAvailable = availableLeaves.filter((l) => l !== leafIndex);
+      privateFeedKeyStore.storeAvailableLeaves(newAvailable);
+
+      const recipientMap = privateFeedKeyStore.getRecipientMap() || {};
+      recipientMap[requesterId] = leafIndex;
+      privateFeedKeyStore.storeRecipientMap(recipientMap);
+
+      console.log(`Approved follower ${requesterId} with leaf index ${leafIndex}`);
+      return { success: true };
+    } catch (error) {
+      console.error('Error approving follower:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Get all private followers (from grants)
+   *
+   * @param ownerId - The identity ID of the feed owner
+   */
+  async getPrivateFollowers(ownerId: string): Promise<Array<{ recipientId: string; leafIndex: number; grantedAt: number }>> {
+    try {
+      const sdk = await getEvoSdk();
+
+      const documents = await queryDocuments(sdk, {
+        dataContractId: this.contractId,
+        documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_GRANT,
+        where: [['$ownerId', '==', ownerId]],
+        orderBy: [['$createdAt', 'desc']],
+        limit: 100,
+      });
+
+      return documents.map((doc) => ({
+        recipientId: doc.recipientId as string,
+        leafIndex: doc.leafIndex as number,
+        grantedAt: doc.$createdAt as number,
+      }));
+    } catch (error) {
+      console.error('Error fetching private followers:', error);
+      return [];
+    }
+  }
+
+  // ============================================================
   // Owner State Accessors
   // ============================================================
 
