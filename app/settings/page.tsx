@@ -33,6 +33,7 @@ import { KeyBackupSettings } from '@/components/settings/key-backup-settings'
 import { BlockedUsersSettings } from '@/components/settings/blocked-users'
 import { PrivateFeedSettings } from '@/components/settings/private-feed-settings'
 import { PrivateFeedFollowRequests } from '@/components/settings/private-feed-follow-requests'
+import { PrivateFeedFollowers } from '@/components/settings/private-feed-followers'
 import { BlockListSettings } from '@/components/settings/block-list-settings'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useSettingsStore } from '@/lib/store'
@@ -517,6 +518,7 @@ function SettingsPage() {
     <div className="p-6 space-y-6">
       <PrivateFeedSettings />
       <PrivateFeedFollowRequests />
+      <PrivateFeedFollowers />
     </div>
   )
 

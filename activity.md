@@ -440,3 +440,56 @@
 - Profile shows "Private Feed" badge indicator for users with private feeds
 
 **Screenshot:** `screenshots/profile-following-no-private-feed.png`
+
+## 2026-01-19: Manage Private Followers UI (Phase 2 Follower Management)
+
+**Task:** Create UI for feed owners to view and manage their private followers with revocation capability (PRD §4.6)
+
+**Changes made:**
+1. Extended `lib/services/private-feed-service.ts` with revocation functionality:
+   - `revokeFollower(ownerId, followerId)` - Full LKH revocation implementation per SPEC §8.5:
+     - Sync check: compares chain epoch vs local epoch
+     - Finds follower's leaf index from their grant
+     - Advances epoch (newEpoch = currentEpoch + 1)
+     - Computes revoked path from leaf to root
+     - Computes new node versions and keys for all nodes on the path
+     - Creates rekey packets (bottom-up per SPEC §8.5 step 7):
+       - Packet A: encrypts new key under sibling's current version key
+       - Packet B: encrypts new key under updated child's new key (for chain decryption)
+     - Encrypts new CEK using the new root key
+     - Creates PrivateFeedRekey document on platform
+     - Updates local state (epoch, revoked leaves, recipient map)
+     - Deletes PrivateFeedGrant document
+     - Adds leaf back to available leaves
+   - Fixed non-null assertion lint warnings with explicit checks
+
+2. Created `components/settings/private-feed-followers.tsx`:
+   - Card-based UI with header showing follower count (X/1024)
+   - Loading skeleton state matching existing patterns
+   - "Not enabled" state with lock icon prompting user to enable private feed
+   - Empty state when no private followers ("No private followers yet")
+   - Search input for filtering followers by name/username
+   - Follower list with:
+     - User avatar via `UserAvatar` component
+     - Display name and DPNS username (if available)
+     - "Following since [date]" timestamp
+     - "Revoke" button (red outline) with warning icon
+   - Two-step revoke confirmation:
+     - First click shows "Confirm" and "Cancel" buttons
+     - Second click executes revocation
+   - Resolves user details via `dpnsService` and `unifiedProfileService`
+   - Toast notifications for success/error states
+   - Footer explaining revocation behavior
+
+3. Updated `app/settings/page.tsx`:
+   - Imported `PrivateFeedFollowers` component
+   - Added component to `renderPrivateFeedSettings()` after PrivateFeedFollowRequests
+
+**Key features per PRD §4.6:**
+- Shows all private followers with follower count badge (X/1024)
+- Search functionality to find specific followers
+- Two-step revoke confirmation to prevent accidental revocations
+- Clear explanation of revocation behavior in footer
+- Proper handling of all states (loading, not enabled, empty, with followers)
+
+**Screenshot:** `screenshots/manage-private-followers-ui.png`

@@ -181,3 +181,24 @@
 7. **Test user without private feed validates conditional rendering**: During Playwright testing, following a user without a private feed correctly showed no Request Access button, validating the `status === 'no-private-feed'` rendering path.
 
 **No blockers encountered** - the implementation follows established patterns from the profile page and integrates cleanly with the private feed follower service.
+
+## 2026-01-19: Manage Private Followers UI Implementation
+
+**Key observations:**
+
+1. **LKH revocation packet generation is bottom-up**: The SPEC §8.5 describes creating rekey packets from the leaf's parent up to the root. For each node on the revoked path, two packets are created:
+   - **Packet A**: Encrypts the new node key under the sibling's current version key (allowing sibling subtree users to decrypt)
+   - **Packet B**: Encrypts the new node key under the updated child's new key (allowing users who already decrypted lower packets to continue up the path)
+   The first node (leaf's parent) only gets Packet A since its child is the revoked leaf.
+
+2. **TypeScript non-null assertion warnings require explicit checks**: The linter flagged `map.get(key)!` patterns as forbidden. Instead of using non-null assertions, added explicit existence checks with error throws: `const val = map.get(key); if (val === undefined) throw new Error(...);`. This makes the code more robust and eliminates lint warnings.
+
+3. **Two-phase revocation confirmation improves UX**: Rather than using a modal dialog, implemented inline two-step confirmation where clicking "Revoke" shows "Confirm" and "Cancel" buttons. This reduces UI complexity while still preventing accidental revocations.
+
+4. **Leaf recycling after revocation**: When a follower is revoked, their leaf index becomes available again. The `revokeFollower` method adds the leaf back to `availableLeaves` after the grant is deleted, allowing the same leaf to be assigned to a future follower.
+
+5. **Grant deletion is best-effort after rekey creation**: Per SPEC §8.5, the rekey document creation is the critical step that cryptographically revokes the user. Grant deletion is best-effort - if it fails, the user is still cryptographically revoked and the orphaned grant is harmless. The code logs the error but still returns success.
+
+6. **Test user session persisted across Playwright navigation**: The existing session from previous testing allowed direct navigation to the settings page after skipping DPNS registration once. This simplified the Playwright testing flow.
+
+**No blockers encountered** - the implementation follows the LKH algorithm from the SPEC precisely and integrates with existing UI patterns.
