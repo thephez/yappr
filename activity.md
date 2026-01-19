@@ -634,3 +634,50 @@
 - Contextual prompts explain why key is needed based on the action
 
 **Screenshot:** `screenshots/encryption-key-entry-enable.png`
+
+## 2026-01-19: Private Feed Owner Dashboard (PRD §4.10)
+
+**Task:** Create dashboard UI for private feed owners showing stats, epoch usage, and recent activity
+
+**Changes made:**
+1. Created `components/settings/private-feed-dashboard.tsx`:
+   - New component implementing the PRD §4.10 dashboard layout
+   - Only renders when private feed is enabled (returns null otherwise)
+   - Includes loading skeleton state while fetching data
+
+   **Stats Grid (3 columns):**
+   - **Followers**: Count with gradient blue styling, shows X/1024 capacity
+   - **Pending Requests**: Count with gradient amber styling
+   - **Private Posts**: Count with gradient purple styling
+
+   **Epoch Usage Section:**
+   - Progress bar showing revocation usage (currentEpoch-1 / MAX_EPOCH-1)
+   - Color-coded: green (<50%), amber (50-90%), red (>90%)
+   - Warning message when usage exceeds 90%
+   - Shows remaining capacity percentage when 50-90%
+
+   **Quick Actions:**
+   - "View Requests" button with pending count badge
+   - "Manage Followers" button
+   - Buttons scroll to respective sections using element IDs
+
+   **Recent Activity Section:**
+   - Shows last 5 activities combining approvals and revocations
+   - Approvals show user avatar/name with green checkmark
+   - Revocations show leaf number with red X (user info unavailable after revocation)
+   - Relative timestamps (e.g., "2h ago", "3d ago")
+
+2. Updated `app/settings/page.tsx`:
+   - Imported `PrivateFeedDashboard` component
+   - Added dashboard between `PrivateFeedSettings` and `PrivateFeedFollowRequests`
+   - Added `id="private-feed-requests"` and `id="private-feed-followers"` wrapper divs for scroll targeting
+
+**Key features per PRD §4.10:**
+- Dashboard only visible when private feed is enabled
+- Stats show followers, pending requests, and private post counts
+- Epoch usage progress bar with color-coded visual feedback
+- Warning banner when approaching revocation limit (>90%)
+- Quick action buttons for common tasks
+- Recent activity feed showing approvals and revocations
+
+**Screenshot:** `screenshots/private-feed-owner-dashboard.png`

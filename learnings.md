@@ -263,3 +263,21 @@
 7. **Private feed requires both chain state and local key**: The settings page shows different UI based on two conditions: (a) whether private feed is enabled on-chain, and (b) whether the encryption key is stored locally. A user can have a private feed enabled but no local key (logged in on new device), which is the primary use case for the key entry modal.
 
 **No blockers encountered** - the implementation follows established modal patterns and integrates with existing secure storage infrastructure.
+
+## 2026-01-19: Private Feed Owner Dashboard Implementation
+
+**Key observations:**
+
+1. **Post service method naming**: The `postService` has `getUserPosts()` (returns `DocumentResult<Post>`) not `getPostsByUser()`. The result object contains a `documents` array, so accessing posts requires `result.documents.filter(...)` rather than filtering the result directly.
+
+2. **Conditional dashboard rendering pattern**: The dashboard component checks `hasPrivateFeed()` internally and returns `null` if not enabled. This keeps the parent component (settings page) simple - it just renders the dashboard unconditionally and lets the dashboard decide whether to show itself.
+
+3. **Activity tracking limitations for revocations**: When a follower is revoked, their grant document is deleted, so we lose the mapping between leaf index and user identity. The Recent Activity section can only show "Leaf X revoked" for revocations, not the user's name. This is a fundamental limitation of the LKH revocation model where grants are deleted.
+
+4. **Epoch usage calculation**: The epoch starts at 1, not 0. So epoch usage is `(currentEpoch - 1) / (MAX_EPOCH - 1)` to show the percentage of revocations used. At epoch 1, usage is 0%. At epoch MAX_EPOCH (2000), usage would be 100%.
+
+5. **Smooth scrolling to sections**: Used `element.scrollIntoView({ behavior: 'smooth' })` with `id` attributes on wrapper divs to enable the quick action buttons to scroll to the requests/followers sections. This avoids needing React refs or complex state management.
+
+6. **Gradient background styling for stats cards**: Used Tailwind's `bg-gradient-to-br from-{color}-50 to-{color}-100` pattern for light mode and `dark:from-{color}-950/50 dark:to-{color}-900/30` for dark mode to create visually distinct stat cards that work well in both themes.
+
+**No blockers encountered** - the implementation follows established patterns from other settings components and integrates with existing private feed services.

@@ -34,6 +34,7 @@ import { BlockedUsersSettings } from '@/components/settings/blocked-users'
 import { PrivateFeedSettings } from '@/components/settings/private-feed-settings'
 import { PrivateFeedFollowRequests } from '@/components/settings/private-feed-follow-requests'
 import { PrivateFeedFollowers } from '@/components/settings/private-feed-followers'
+import { PrivateFeedDashboard } from '@/components/settings/private-feed-dashboard'
 import { BlockListSettings } from '@/components/settings/block-list-settings'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useSettingsStore } from '@/lib/store'
@@ -517,8 +518,13 @@ function SettingsPage() {
   const renderPrivateFeedSettings = () => (
     <div className="p-6 space-y-6">
       <PrivateFeedSettings />
-      <PrivateFeedFollowRequests />
-      <PrivateFeedFollowers />
+      <PrivateFeedDashboard />
+      <div id="private-feed-requests">
+        <PrivateFeedFollowRequests />
+      </div>
+      <div id="private-feed-followers">
+        <PrivateFeedFollowers />
+      </div>
     </div>
   )
 
