@@ -1581,3 +1581,100 @@ The post detail page shows "Request Access" button for users who already have a 
 
 ### Test Result
 **PASSED** - E2E Test 5.3 completed successfully. Main functionality verified (pending state on profile, content locked). Minor UI inconsistency noted for post detail view but does not affect core functionality.
+
+---
+
+## 2026-01-19: E2E Test 5.4 - View as Approved Follower - Decryption Success
+
+### Task
+Test E2E 5.4: Verify approved followers can decrypt private posts (PRD §4.3, §4.4, §4.8)
+
+### Status
+**PASSED** ✅
+
+### Preconditions
+- Feed owner (Identity 1: 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2) has private feed enabled
+- Follower (Identity 2: 6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n) had pending request
+- Owner has private posts (both with and without teasers)
+- Both identities have encryption keys configured
+
+### Test Steps Executed
+
+#### Part 1: Approve the Pending Follower Request (Setup for Test 5.4)
+1. **Logged in as feed owner (Identity 1)** - ✅
+   - Stored encryption key via localStorage
+   - Navigated to Settings → Private Feed
+
+2. **Verified pending request state** - ✅
+   - Dashboard showed: 1/1024 Followers, 1 Pending
+   - "Test Follower User" visible in pending requests
+
+3. **Approved the follower request** - ✅
+   - Clicked "Approve" button
+   - Console: "Creating PrivateFeedGrant document"
+   - Console: "Approved follower 6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n with leaf index 1"
+   - Toast: "Approved Test Follower User"
+
+4. **Verified approval succeeded** - ✅
+   - Dashboard now shows: 2/1024 Followers, 0 Pending, 1022 Available Slots
+   - Recent Activity: "User 96QK0= approved just now"
+   - Private Followers list shows both users
+
+#### Part 2: Verify Follower Can Decrypt Private Posts
+1. **Logged in as approved follower (Identity 2)** - ✅
+   - Cleared session, logged in fresh
+   - Stored encryption key via localStorage
+
+2. **Navigated to owner's profile** - ✅
+   - URL: `/user/?id=9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+   - Profile shows: "Private Feed" badge, **"Private Follower" badge** ← Confirms approval
+   - Console: "PrivateFeedSync: Syncing 1 followed private feed(s)"
+
+3. **Verified decryption of private post WITHOUT teaser** - ✅
+   - Clicked on post showing only 🔒
+   - Console: "Recovered follower keys for owner 9qRC7aPC... at epoch 1"
+   - **Post decrypted successfully!**
+   - Content visible: "BUG-010 fix test: Private post with auto-recovery from encryption key"
+   - Screenshot: `e2e-test5.4-follower-decryption-success.png`
+
+4. **Verified decryption of private post WITH teaser** - ✅
+   - Clicked on post with teaser: "Check out this exclusive behind-the-scenes content! 🎬..."
+   - **Full private content decrypted!**
+   - Teaser visible: "Check out this exclusive behind-the-scenes content! 🎬 Only my private followers can see the full story..."
+   - Decrypted content visible: "E2E Test 2.3 - Private Post with Teaser! 🔐 This is the FULL private content that only approved private followers can decrypt and read..."
+   - Screenshot: `e2e-test5.4-follower-full-decryption.png`
+
+5. **Auto-cleanup of stale FollowRequest** - ✅
+   - Console: "Cleaning up stale FollowRequest for approved user"
+   - Console: "Successfully cleaned up stale FollowRequest"
+   - System automatically cleans up the pending request document after approval
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Content decrypts and displays normally | Private content fully visible | ✅ |
+| Subtle lock icon indicates post is private | Lock icon shown | ✅ |
+| No teaser/locked UI shown for approved followers | Full decrypted content visible | ✅ |
+| No "Request Access" button | Not shown (already approved) | ✅ |
+| "Private Follower" badge on profile | Badge visible | ✅ |
+
+### Key Console Logs
+```
+Recovered follower keys for owner 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 at epoch 1
+PrivateFeedSync: Complete - synced: 0, up-to-date: 1, failed: 0
+Cleaning up stale FollowRequest for approved user
+```
+
+### Screenshots
+- `screenshots/e2e-test5.4-owner-approved-follower.png` - Owner's settings showing 2 followers
+- `screenshots/e2e-test5.4-follower-decryption-success.png` - Post without teaser fully decrypted
+- `screenshots/e2e-test5.4-follower-full-decryption.png` - Post with teaser and full private content decrypted
+
+### Test Result
+**PASSED** - E2E Test 5.4 completed successfully. Approved follower can:
+1. See "Private Follower" badge on owner's profile
+2. Decrypt private posts without teaser (show full encrypted content)
+3. Decrypt private posts with teaser (show both teaser and full encrypted content)
+4. Automatic stale FollowRequest cleanup works correctly
+
+This test also implicitly verified **Test 4.2 (Approve Request - Happy Path)** as part of the setup.
