@@ -629,3 +629,36 @@ Neither supports ordering by `$createdAt`.
 **Cause:** Different UI components may fetch data from different sources (local state vs API calls), leading to inconsistency when queries fail or return partial data.
 
 **Lesson:** When UI components show different values for the same metric, investigate whether they're using the same data source and whether all queries are succeeding.
+
+---
+
+## 2026-01-19: BUG-009 Fix - Data Source Consistency
+
+### Issue 42: Local Storage vs On-Chain Data Inconsistency (BUG-009 - FIXED)
+**Problem:** After accepting a private follower and reloading, the settings card showed "1/1024 Followers" but the Private Followers list showed no one.
+
+**Root Cause:**
+1. `private-feed-settings.tsx` got follower count from local `recipientMap` in localStorage
+2. `private-feed-dashboard.tsx` and `private-feed-followers.tsx` queried on-chain `privateFeedGrant` documents
+3. When local state was stale/empty or on-chain queries succeeded, counts diverged
+
+**Code Pattern (Before):**
+```typescript
+// private-feed-settings.tsx - uses LOCAL storage
+if (privateFeedKeyStore.hasFeedSeed()) {
+  const recipientMap = privateFeedKeyStore.getRecipientMap()
+  setFollowerCount(Object.keys(recipientMap || {}).length)
+}
+
+// private-feed-dashboard.tsx - uses ON-CHAIN query
+const followers = await privateFeedService.getPrivateFollowers(user.identityId)
+setFollowerCount(followers.length)
+```
+
+**Solution:** Changed `private-feed-settings.tsx` to query on-chain data with fallback to local storage for consistency.
+
+**Lesson:** When multiple UI components display the same data:
+1. All components should use the same authoritative data source
+2. On-chain data is the source of truth for blockchain-backed features
+3. Local storage should only be used as a fallback/cache, not primary source
+4. Add fallback with clear logging to help debug query failures

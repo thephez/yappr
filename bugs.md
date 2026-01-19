@@ -1,6 +1,9 @@
 # Bug Reports
 
 ## Active Bugs
+### BUG-008: private feed notifications do not work
+
+as a user, I submitted a private feed follow request. The person I was trying to follow should've gotten a notification, but didn't
 
 ### BUG-007: getPrivateFollowers query fails with WasmSdkError (RESOLVED)
 
@@ -38,6 +41,21 @@ After the fix:
 **Date Resolved:** 2026-01-19
 
 ## Resolved Bugs
+
+### BUG-009: private follower not showing after acceptance (RESOLVED)
+
+**Resolution:** Modified `private-feed-settings.tsx` to query on-chain grants (`privateFeedService.getPrivateFollowers()`) instead of using local storage (`recipientMap`) for the follower count. This ensures consistency with the dashboard and followers list components which also use on-chain queries.
+
+**Root Cause:** The Private Feed Settings card was getting follower count from local `recipientMap` in localStorage, while the Dashboard and Private Followers list were querying on-chain `privateFeedGrant` documents. If the local state was stale or empty, the counts would be inconsistent.
+
+**Files Modified:**
+- `components/settings/private-feed-settings.tsx` - Changed `checkPrivateFeedStatus()` to call `getPrivateFollowers()` with fallback to local storage
+
+**Verification:**
+- All three UI sections (Settings card, Dashboard, Followers list) now show consistent "1/1024" follower count
+- Private Followers section correctly lists "User clx6Y=" as follower
+
+**Date Resolved:** 2026-01-19
 
 ### BUG-006: Encrypted replies fail to decrypt (RESOLVED)
 

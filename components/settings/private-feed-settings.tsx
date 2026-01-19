@@ -82,10 +82,18 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
         const epoch = await privateFeedService.getLatestEpoch(user.identityId)
         setCurrentEpoch(epoch)
 
-        // Check local initialization for follower count
-        if (privateFeedKeyStore.hasFeedSeed()) {
-          const recipientMap = privateFeedKeyStore.getRecipientMap()
-          setFollowerCount(Object.keys(recipientMap || {}).length)
+        // Get follower count from on-chain grants (authoritative source)
+        // Falls back to local recipientMap if on-chain query fails
+        try {
+          const followers = await privateFeedService.getPrivateFollowers(user.identityId)
+          setFollowerCount(followers.length)
+        } catch (err) {
+          console.error('Failed to get followers from chain, using local state:', err)
+          // Fallback to local storage if on-chain query fails
+          if (privateFeedKeyStore.hasFeedSeed()) {
+            const recipientMap = privateFeedKeyStore.getRecipientMap()
+            setFollowerCount(Object.keys(recipientMap || {}).length)
+          }
         }
       }
     } catch (error) {
