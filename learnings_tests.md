@@ -445,3 +445,27 @@ pkill -f "next dev"; rm -rf .next && npm run dev
 - Page navigation, modal interactions, and post creation all worked smoothly
 
 **Lesson:** Starting with a clean `.next` cache helps prevent dev server corruption issues seen in earlier test sessions.
+
+---
+
+## 2026-01-19: E2E Test 2.5 - Character Limit Validation
+
+### Issue 27: Different Character Counter Display Formats
+**Observation:** The teaser and private content fields use different formats for displaying character limits:
+- **Teaser field**: Shows "X/280" format (e.g., "330/280" when over limit)
+- **Private content field**: Shows remaining characters or negative value when over (e.g., "-77" for 77 over)
+
+**Key Details:**
+- Both formats effectively communicate the limit status
+- Red styling applied when limits are exceeded
+- Post button correctly disables when either field exceeds its limit
+- Both fields must be valid for Post button to enable
+
+**Lesson:** UI implementations may vary from spec expectations, but the key functionality (preventing posts that exceed limits) works correctly. The different formats are both valid UX approaches.
+
+### Issue 28: Teaser vs Private Content Limits
+**Observation:** The character limits are:
+- Teaser: 280 characters max (same as Twitter/X post limit)
+- Private content: 500 characters max (matches the post contract's content maxLength)
+
+**Lesson:** These limits match the data contract constraints, ensuring posts won't fail at the protocol level due to content length.

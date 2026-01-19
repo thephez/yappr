@@ -751,3 +751,74 @@ Test E2E 2.4: Compose Validation - No Followers Warning (PRD §4.2)
 
 ### Test Result
 **PASSED** - E2E Test 2.4 completed successfully
+
+---
+
+## 2026-01-19: E2E Test 2.5 - Compose Validation - Character Limits (COMPLETED)
+
+### Task
+Test E2E 2.5: Compose Validation - Character Limits (PRD §4.2)
+
+### Status
+**PASSED** - Character limit validation working correctly for both teaser and private content
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 logged in
+- Private feed already enabled (from Test 1.1)
+
+### Test Steps Executed
+1. **Open compose modal** - ✅
+   - Clicked compose button in navigation bar
+   - Modal opened with visibility selector
+
+2. **Select "Private with Teaser" visibility** - ✅
+   - Clicked visibility dropdown
+   - Selected "Private with Teaser" option
+   - Two text areas appeared: Teaser (0/280) and Private Content
+
+3. **Enter teaser exceeding 280 characters** - ✅
+   - Entered 330 characters of test text
+   - Character counter showed "330/280" in red
+   - Post button remained disabled
+
+4. **Verify teaser character counter shows red** - ✅
+   - Counter displayed in red/error styling when over limit
+
+5. **Reduce teaser to valid length** - ✅
+   - Changed teaser to 44 characters
+   - Counter showed "44/280" in normal styling
+
+6. **Enter private content exceeding 500 characters** - ✅
+   - Entered 577 characters of test text
+   - Character counter showed "-77" (77 over limit)
+   - Post button remained disabled
+
+7. **Verify private content character counter shows error** - ✅
+   - Counter displayed negative value indicating characters over limit
+
+8. **Reduce private content to valid length** - ✅
+   - Changed content to 51 characters
+   - Counter showed checkmark (valid)
+   - Post button became ENABLED (blue)
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Teaser max 280 chars enforced | Counter shows "X/280", turns red when exceeded | ✅ |
+| Post button disabled when teaser exceeds limit | Button disabled with 330 chars | ✅ |
+| Private content max 500 chars enforced | Counter shows negative value when exceeded (-77) | ✅ |
+| Post button disabled when private content exceeds limit | Button disabled with 577 chars | ✅ |
+| Post button enabled when both fields valid | Button enabled with 44 and 51 chars | ✅ |
+
+### Character Limit Implementation Details
+- **Teaser field**: Shows "X/280" format, text turns red when X > 280
+- **Private content field**: Shows remaining characters or negative when over, displays "-77" format for 77 over
+
+### Screenshots
+- `screenshots/e2e-test2.5-initial-teaser-mode.png` - Compose modal with "Private with Teaser" selected, showing 0/280 counter
+- `screenshots/e2e-test2.5-teaser-exceeds-limit.png` - Teaser showing "330/280" in red, Post button disabled
+- `screenshots/e2e-test2.5-private-content-exceeds-limit.png` - Private content exceeding 500 chars, counter showing negative
+- `screenshots/e2e-test2.5-valid-state-post-enabled.png` - Both fields valid, Post button enabled (blue)
+
+### Test Result
+**PASSED** - E2E Test 2.5 completed successfully
