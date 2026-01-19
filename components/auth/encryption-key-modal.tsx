@@ -2,13 +2,14 @@
 
 import { useState, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { XMarkIcon, LockClosedIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, LockClosedIcon, ExclamationTriangleIcon, KeyIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useEncryptionKeyModal, getEncryptionKeyActionDescription } from '@/hooks/use-encryption-key-modal'
 import { useAuth } from '@/contexts/auth-context'
+import { AddEncryptionKeyModal } from './add-encryption-key-modal'
 import toast from 'react-hot-toast'
 
 /**
@@ -23,6 +24,8 @@ export function EncryptionKeyModal() {
   const [encryptionKeyHex, setEncryptionKeyHex] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showAddKeyModal, setShowAddKeyModal] = useState(false)
+  const [noKeyOnIdentity, setNoKeyOnIdentity] = useState(false)
 
   const actionDescription = getEncryptionKeyActionDescription(action)
 
@@ -85,7 +88,8 @@ export function EncryptionKeyModal() {
       )
 
       if (!encryptionPubKey) {
-        setError('No encryption key found on your identity. You may need to add one first.')
+        setError('No encryption key found on your identity.')
+        setNoKeyOnIdentity(true)
         setIsValidating(false)
         return
       }
@@ -150,8 +154,23 @@ export function EncryptionKeyModal() {
   const handleClose = useCallback(() => {
     setEncryptionKeyHex('')
     setError(null)
+    setNoKeyOnIdentity(false)
     close()
   }, [close])
+
+  const handleAddKeySuccess = useCallback(() => {
+    setShowAddKeyModal(false)
+    setNoKeyOnIdentity(false)
+    setError(null)
+    // After adding the key, we still need the user to enter it
+    // (unless they just generated it, in which case it was stored)
+    // Call onSuccess since the key was added and stored
+    toast.success('You can now use private feed features!')
+    close()
+    if (onSuccess) {
+      onSuccess()
+    }
+  }, [close, onSuccess])
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleClose}>
@@ -216,9 +235,26 @@ export function EncryptionKeyModal() {
                           autoFocus
                         />
                         {error && (
-                          <p className="text-sm text-red-600 dark:text-red-400">
-                            {error}
-                          </p>
+                          <div className="space-y-2">
+                            <p className="text-sm text-red-600 dark:text-red-400">
+                              {error}
+                            </p>
+                            {noKeyOnIdentity && (
+                              <div className="p-3 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                                <p className="text-sm text-blue-700 dark:text-blue-300 mb-2">
+                                  You need to add an encryption key to your identity first.
+                                </p>
+                                <Button
+                                  size="sm"
+                                  onClick={() => setShowAddKeyModal(true)}
+                                  className="w-full"
+                                >
+                                  <PlusIcon className="h-4 w-4 mr-2" />
+                                  Add Encryption Key
+                                </Button>
+                              </div>
+                            )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -247,15 +283,13 @@ export function EncryptionKeyModal() {
                     </div>
 
                     <p className="mt-4 text-center text-xs text-gray-500">
-                      Don&apos;t have your encryption key?{' '}
-                      <a
-                        href="https://docs.yappr.social/private-feeds/lost-key"
-                        target="_blank"
-                        rel="noopener noreferrer"
+                      Don&apos;t have an encryption key?{' '}
+                      <button
+                        onClick={() => setShowAddKeyModal(true)}
                         className="text-yappr-500 hover:underline"
                       >
-                        Learn about recovery options
-                      </a>
+                        Add one to your identity
+                      </button>
                     </p>
                   </motion.div>
                 </Dialog.Content>
@@ -264,6 +298,13 @@ export function EncryptionKeyModal() {
           </Dialog.Portal>
         )}
       </AnimatePresence>
+
+      {/* Add Encryption Key Modal */}
+      <AddEncryptionKeyModal
+        isOpen={showAddKeyModal}
+        onClose={() => setShowAddKeyModal(false)}
+        onSuccess={handleAddKeySuccess}
+      />
     </Dialog.Root>
   )
 }

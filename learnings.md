@@ -315,3 +315,23 @@
 5. **Async service import inside async callback**: When fetching follower count inside the `attemptDecryption` callback, used dynamic import (`await import('@/lib/services')`) to access `privateFeedService`. This is consistent with the existing pattern for service access in components.
 
 **No blockers encountered** - the implementation is a minimal, focused change that adds the visibility indicator without affecting existing functionality.
+
+## 2026-01-19: Add Encryption Key to Identity Implementation
+
+**Key observations:**
+
+1. **WASM SDK class imports require direct package import**: The `IdentityPublicKeyInCreation` and `IdentitySigner` classes must be imported directly from `@dashevo/wasm-sdk`, not accessed via `sdk.wasm`. Initially tried `sdk.wasm.IdentityPublicKeyInCreation.fromObject()` which resulted in "Cannot read properties of undefined (reading 'fromObject')". The `sdk.wasm` property returns the `WasmSdk` instance, not the module with class constructors.
+
+2. **IdentityPublicKeyInCreation.fromObject() format**: The `fromObject()` method expects a specific structure including `$version`, `id`, `purpose`, `securityLevel`, `type`, `readOnly`, and `data` (as number array). For contract-bound keys, the `contractBounds` field needs `type: 0` (singleContract) and `id` (contract ID string).
+
+3. **Purpose and security level numeric values**: The SDK uses numeric values: purpose=1 for ENCRYPTION, securityLevel=2 for MEDIUM, type=0 for ECDSA_SECP256K1. These match what's documented in the wasm-sdk types.
+
+4. **Authentication key must be in WIF format**: The `IdentitySigner.addKeyFromWif()` method expects the private key in WIF (Wallet Import Format), not raw hex or bytes. The auth key from session storage is already in WIF format, so this works directly.
+
+5. **Multi-step modal flow improves UX for key management**: Breaking the key addition into discrete steps (intro → generate → confirm → adding → success/error) helps users understand what's happening and provides clear points to save their key before proceeding. The checkbox confirmation before continuing ensures users have actually saved their key.
+
+6. **Test identity already had encryption key**: During testing, the existing test identity already had private feed enabled (and thus an encryption key), so the full "add to identity" flow couldn't complete. The UI components were verified through the modal opening and generation steps, and the code was verified via build/lint.
+
+7. **Identity cache clearing after update**: After successfully adding the encryption key to an identity, must call `this.clearCache(identityId)` to ensure subsequent identity fetches reflect the new key. Otherwise, the cached identity would be stale.
+
+**No blockers encountered** - the implementation integrates with the existing EvoSDK infrastructure and follows patterns established in other identity operations.

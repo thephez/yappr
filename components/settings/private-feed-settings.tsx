@@ -5,12 +5,13 @@ import { useAuth } from '@/contexts/auth-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon, KeyIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon, KeyIcon, ArrowPathIcon, PlusIcon } from '@heroicons/react/24/outline'
 import { Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
 import { useEncryptionKeyModal } from '@/hooks/use-encryption-key-modal'
 import { ResetPrivateFeedDialog } from './reset-private-feed-dialog'
+import { AddEncryptionKeyModal } from '@/components/auth/add-encryption-key-modal'
 
 /**
  * PrivateFeedSettings Component
@@ -37,6 +38,10 @@ export function PrivateFeedSettings() {
   // Reset dialog state
   const [showResetDialog, setShowResetDialog] = useState(false)
 
+  // Add encryption key modal state
+  const [showAddKeyModal, setShowAddKeyModal] = useState(false)
+  const [hasEncryptionKeyOnIdentity, setHasEncryptionKeyOnIdentity] = useState<boolean | null>(null)
+
   const checkPrivateFeedStatus = useCallback(async () => {
     if (!user) {
       setIsLoading(false)
@@ -46,6 +51,7 @@ export function PrivateFeedSettings() {
     try {
       const { privateFeedService, privateFeedKeyStore } = await import('@/lib/services')
       const { hasEncryptionKey } = await import('@/lib/secure-storage')
+      const { identityService } = await import('@/lib/services/identity-service')
 
       // Check if user has private feed on chain
       const hasPrivateFeed = await privateFeedService.hasPrivateFeed(user.identityId)
@@ -53,6 +59,12 @@ export function PrivateFeedSettings() {
 
       // Check if encryption key is stored in session
       setHasEncryptionKeyStored(hasEncryptionKey(user.identityId))
+
+      // Check if user has encryption key on identity (only if not already enabled)
+      if (!hasPrivateFeed) {
+        const hasKeyOnIdentity = await identityService.hasEncryptionKey(user.identityId)
+        setHasEncryptionKeyOnIdentity(hasKeyOnIdentity)
+      }
 
       if (hasPrivateFeed) {
         // Get state document for created date
@@ -368,13 +380,39 @@ export function PrivateFeedSettings() {
                   </div>
                 </div>
 
-                <Button
-                  className="w-full"
-                  onClick={handleStartEnable}
-                >
-                  <LockClosedIcon className="h-4 w-4 mr-2" />
-                  Enable Private Feed
-                </Button>
+                {/* Show different UI based on whether user has encryption key on identity */}
+                {hasEncryptionKeyOnIdentity === false ? (
+                  <div className="space-y-3">
+                    <div className="bg-amber-50 dark:bg-amber-950 p-4 rounded-lg">
+                      <div className="flex gap-3">
+                        <ExclamationTriangleIcon className="h-5 w-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                          <p className="text-sm font-medium text-amber-900 dark:text-amber-100">
+                            Encryption key required
+                          </p>
+                          <p className="text-sm text-amber-700 dark:text-amber-300">
+                            To use private feeds, you need to add an encryption key to your identity first.
+                          </p>
+                        </div>
+                      </div>
+                    </div>
+                    <Button
+                      className="w-full"
+                      onClick={() => setShowAddKeyModal(true)}
+                    >
+                      <PlusIcon className="h-4 w-4 mr-2" />
+                      Add Encryption Key to Identity
+                    </Button>
+                  </div>
+                ) : (
+                  <Button
+                    className="w-full"
+                    onClick={handleStartEnable}
+                  >
+                    <LockClosedIcon className="h-4 w-4 mr-2" />
+                    Enable Private Feed
+                  </Button>
+                )}
               </>
             ) : (
               <>
@@ -467,6 +505,17 @@ export function PrivateFeedSettings() {
             </div>
           </>
         )}
+
+        {/* Add Encryption Key Modal */}
+        <AddEncryptionKeyModal
+          isOpen={showAddKeyModal}
+          onClose={() => setShowAddKeyModal(false)}
+          onSuccess={() => {
+            setShowAddKeyModal(false)
+            setHasEncryptionKeyOnIdentity(true)
+            checkPrivateFeedStatus().catch(err => console.error('Failed to recheck status:', err))
+          }}
+        />
       </CardContent>
     </Card>
   )

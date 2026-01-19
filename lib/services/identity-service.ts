@@ -1,4 +1,8 @@
 import { getEvoSdk } from './evo-sdk-service';
+import {
+  IdentityPublicKeyInCreation,
+  IdentitySigner,
+} from '@dashevo/wasm-sdk';
 
 export interface IdentityPublicKey {
   id: number;
@@ -173,6 +177,114 @@ class IdentityService {
       if (now - value.timestamp > this.CACHE_TTL) {
         this.balanceCache.delete(key);
       }
+    }
+  }
+
+  /**
+   * Check if identity has an encryption key (purpose=1, type=0)
+   */
+  async hasEncryptionKey(identityId: string): Promise<boolean> {
+    try {
+      const identity = await this.getIdentity(identityId);
+      if (!identity) return false;
+      return identity.publicKeys.some(
+        key => key.purpose === 1 && key.type === 0
+      );
+    } catch (error) {
+      console.error('Error checking encryption key:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Add an encryption public key to an identity
+   * This creates an identity update state transition
+   *
+   * @param identityId - The identity to update
+   * @param encryptionPrivateKey - The private key bytes (32 bytes)
+   * @param authPrivateKeyWif - The authentication key for signing (in WIF format)
+   * @param contractId - Optional contract ID to bind the key to
+   * @returns Result with success status and the new key ID
+   */
+  async addEncryptionKey(
+    identityId: string,
+    encryptionPrivateKey: Uint8Array,
+    authPrivateKeyWif: string,
+    contractId?: string
+  ): Promise<{ success: boolean; keyId?: number; error?: string }> {
+    try {
+      const sdk = await getEvoSdk();
+
+      // Fetch current identity
+      const identity = await sdk.identities.fetch(identityId);
+      if (!identity) {
+        return { success: false, error: 'Identity not found' };
+      }
+
+      // Check if encryption key already exists
+      const existingKey = identity.getPublicKeys().find(
+        (key) => key.purpose === 'ENCRYPTION' && key.keyType === 'ECDSA_SECP256K1'
+      );
+      if (existingKey) {
+        return { success: false, error: 'Identity already has an encryption key' };
+      }
+
+      // Get the next available key ID
+      const currentKeys = identity.getPublicKeys();
+      const maxKeyId = currentKeys.reduce((max, key) => Math.max(max, key.keyId), 0);
+      const newKeyId = maxKeyId + 1;
+
+      // Derive public key from private key
+      const { privateFeedCryptoService } = await import('./index');
+      const publicKeyBytes = privateFeedCryptoService.getPublicKey(encryptionPrivateKey);
+
+      // Create the new key object for IdentityPublicKeyInCreation.fromObject()
+      const newKeyObj: Record<string, unknown> = {
+        $version: 0,
+        id: newKeyId,
+        purpose: 1,          // ENCRYPTION
+        securityLevel: 2,    // MEDIUM
+        type: 0,             // ECDSA_SECP256K1
+        readOnly: false,
+        data: Array.from(publicKeyBytes),
+      };
+
+      // Add contract bounds if specified
+      if (contractId) {
+        newKeyObj.contractBounds = {
+          type: 0,  // singleContract
+          id: contractId
+        };
+      }
+
+      // Create IdentityPublicKeyInCreation from object
+      const newKey = IdentityPublicKeyInCreation.fromObject(newKeyObj);
+
+      // Create signer and add the auth key
+      const signer = new IdentitySigner();
+      signer.addKeyFromWif(authPrivateKeyWif);
+
+      console.log(`Adding encryption key (id=${newKeyId}) to identity ${identityId}...`);
+
+      // Update the identity
+      await sdk.identities.update({
+        identity,
+        addPublicKeys: [newKey],
+        signer,
+      });
+
+      console.log('Encryption key added successfully');
+
+      // Clear cache to reflect the update
+      this.clearCache(identityId);
+
+      return { success: true, keyId: newKeyId };
+    } catch (error) {
+      console.error('Error adding encryption key:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     }
   }
 }

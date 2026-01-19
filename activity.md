@@ -751,3 +751,61 @@
 - Graceful handling if follower count fetch fails (indicator simply not shown)
 
 **Screenshot:** `screenshots/owner-visibility-settings.png` (private feed settings showing follower count integration)
+
+## 2026-01-19: Add Encryption Key to Identity (PRD §6.2)
+
+**Task:** Implement Key Addition Flow for users who don't have an encryption key on their identity
+
+**Changes made:**
+1. Extended `lib/services/identity-service.ts` with key management methods:
+   - `hasEncryptionKey(identityId)` - Check if identity has encryption key (purpose=1, type=0)
+   - `addEncryptionKey(identityId, encryptionPrivateKey, authPrivateKeyWif, contractId?)` - Full identity update flow:
+     - Fetches current identity from platform
+     - Verifies no existing encryption key
+     - Derives public key from provided private key bytes
+     - Creates `IdentityPublicKeyInCreation` with proper WASM SDK classes
+     - Creates `IdentitySigner` and adds auth key for signing
+     - Broadcasts identity update state transition
+     - Clears identity cache to reflect update
+   - Imported `IdentityPublicKeyInCreation` and `IdentitySigner` from `@dashevo/wasm-sdk`
+
+2. Created `components/auth/add-encryption-key-modal.tsx`:
+   - Multi-step modal implementing PRD §6.2 Key Addition Flow
+   - **Intro step**: Explains what encryption keys are used for and why they're needed
+   - **Generate step**:
+     - Generates cryptographically secure 32-byte private key
+     - Displays private key (masked by default, with show/hide toggle)
+     - Displays public key for verification
+     - Copy to clipboard functionality
+     - Requires checkbox confirmation that key was saved
+   - **Confirm step**: Shows what will happen (transaction broadcast, local storage, enables private feed)
+   - **Adding step**: Loading spinner during identity update transaction
+   - **Success step**: Confirmation with next steps (enable private feed, etc.)
+   - **Error step**: Error message with retry option, note about saved key being usable later
+
+3. Updated `components/auth/encryption-key-modal.tsx`:
+   - Added "Add one to your identity" link at bottom of modal
+   - Integrated `AddEncryptionKeyModal` component
+   - Added `noKeyOnIdentity` state tracking
+   - When user enters invalid key because no encryption key exists on identity, shows inline prompt to add one
+   - Success callback properly closes both modals and triggers success action
+
+4. Updated `components/settings/private-feed-settings.tsx`:
+   - Added check for encryption key on identity during status load
+   - New state `hasEncryptionKeyOnIdentity` to track whether user can enable private feed
+   - When user lacks encryption key on identity, shows warning and "Add Encryption Key to Identity" button
+   - Button opens `AddEncryptionKeyModal` directly
+   - Success callback refreshes status to show Enable Private Feed button
+
+**Key features per PRD §6.2:**
+- Generates new secp256k1 keypair with cryptographically secure random bytes
+- Displays private key (hex) for user to save securely
+- Requires explicit confirmation that key was saved before proceeding
+- Creates identity update state transition to add key on-chain
+- Stores private key in session storage after successful addition
+- Clear step-by-step flow with appropriate warnings and explanations
+- Error handling with retry capability
+
+**Screenshots:**
+- `screenshots/add-encryption-key-modal.png` (key generation step with save warning)
+- `screenshots/encryption-key-modal-with-add-option.png` (enter key modal with add link)
