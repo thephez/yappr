@@ -181,3 +181,28 @@ yappr_secure_ek_<identityId>
 8. **Use MASTER key for identity updates on SDK dev.11** - CRITICAL key is no longer sufficient for identity modifications on the newer SDK version.
 
 9. **Update test identity files after successful tests** - Add encryption keys and private feed status to test identity JSON files for reuse in subsequent tests.
+
+---
+
+## 2026-01-19: E2E Test 1.3 - Straightforward Test
+
+### Issue 9: Settings Page URL Structure
+**Observation:** The private feed settings are accessed via query parameter, not a separate route:
+- Correct URL: `/settings?section=privateFeed`
+- NOT: `/settings/private-feed` (returns 404)
+
+**Lesson:** Check the settings page implementation for the correct URL structure. The app uses a single settings page with query params to switch between sections.
+
+### Issue 10: DPNS Username Not Required for Testing
+**Observation:** The test identity doesn't have a DPNS username registered, causing the app to redirect to `/dpns/register/`. However, clicking "Skip for now" allows access to the rest of the app.
+
+**Lesson:** For testing purposes, DPNS username registration can be skipped. The "Skip for now" button allows full app functionality without a registered username.
+
+### Issue 11: Console Errors for Private Followers Query
+**Observation:** Console shows "Error fetching private followers: WasmSdkError" but the page still loads correctly and shows "No private followers yet".
+
+**Possible Cause:** The PrivateFeedGrant query may have different requirements or the document type may not be properly configured on testnet.
+
+**Impact:** Non-blocking - the UI gracefully handles the error and shows empty state.
+
+**Lesson:** Some console errors are non-blocking and the UI handles them gracefully. Focus on visual/functional testing rather than expecting zero console errors.

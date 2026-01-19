@@ -282,3 +282,58 @@ Test E2E 1.1: Enable Private Feed - Happy Path (PRD §4.1)
 
 ### Test Result
 **PASSED** - E2E Test 1.1 completed successfully
+
+---
+
+## 2026-01-19: E2E Test 1.3 - Enable Private Feed - Already Enabled (COMPLETED)
+
+### Task
+Test E2E 1.3: Enable Private Feed - Already Enabled (PRD §4.1)
+
+### Status
+**PASSED** - Dashboard correctly displayed for user with private feed already enabled
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 logged in
+- Private feed already enabled (from Test 1.1)
+
+### Test Steps Executed
+1. **Navigate to Settings > Private Feed** - ✅
+   - URL: `/settings?section=privateFeed`
+   - Page loaded successfully
+
+2. **Verify Dashboard is Shown (not enable button)** - ✅
+   - "Private feed is enabled" status message displayed with green checkmark
+   - "Enabled: 1/19/2026" date shown
+   - No "Enable Private Feed" button visible
+
+3. **Verify Stats Display Current State** - ✅
+   - Followers: 0/1024
+   - Epoch: 1/2000
+   - Available Slots: 1024
+   - Epoch Usage: 0/1999 revocations
+
+4. **Verify Management Options Available** - ✅
+   - "View Requests" button present
+   - "Manage Followers" button present
+   - "Reset Private Feed" button in Danger Zone
+   - "Encryption Key" section showing "Key stored for this session"
+
+5. **Verify Additional Dashboard Elements** - ✅
+   - "Your Private Feed" overview section with stats cards (0 Followers, 0 Pending, 0 Private Posts)
+   - "Private Feed Requests" section showing "No pending requests"
+   - "Private Followers" section showing "No private followers yet" with 0/1024 count
+   - Capacity information displayed (Up to 1,024 private followers, Up to 1,999 revocations)
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Dashboard shown (not enable button) | Dashboard displayed with enabled status | ✅ |
+| Stats display current state | All stats visible and correct | ✅ |
+| Management options available | View Requests, Manage Followers, Reset buttons present | ✅ |
+
+### Screenshots
+- `screenshots/e2e-test1.3-private-feed-already-enabled.png` - Full page screenshot of private feed dashboard
+
+### Test Result
+**PASSED** - E2E Test 1.3 completed successfully
