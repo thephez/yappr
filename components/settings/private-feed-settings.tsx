@@ -5,11 +5,12 @@ import { useAuth } from '@/contexts/auth-context'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { LockClosedIcon, CheckCircleIcon, UserGroupIcon, ExclamationTriangleIcon, KeyIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
 import { useEncryptionKeyModal } from '@/hooks/use-encryption-key-modal'
+import { ResetPrivateFeedDialog } from './reset-private-feed-dialog'
 
 /**
  * PrivateFeedSettings Component
@@ -32,6 +33,9 @@ export function PrivateFeedSettings() {
   const [showKeyInput, setShowKeyInput] = useState(false)
   const [encryptionKeyHex, setEncryptionKeyHex] = useState('')
   const [keyError, setKeyError] = useState<string | null>(null)
+
+  // Reset dialog state
+  const [showResetDialog, setShowResetDialog] = useState(false)
 
   const checkPrivateFeedStatus = useCallback(async () => {
     if (!user) {
@@ -303,6 +307,40 @@ export function PrivateFeedSettings() {
                 </li>
               </ul>
             </div>
+
+            {/* Reset Private Feed Section */}
+            <div className="pt-4 border-t">
+              <h4 className="font-medium mb-2 text-sm flex items-center gap-2 text-red-600 dark:text-red-400">
+                <ExclamationTriangleIcon className="h-4 w-4" />
+                Danger Zone
+              </h4>
+              <div className="bg-red-50 dark:bg-red-950 border border-red-200 dark:border-red-800 p-4 rounded-lg">
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-red-900 dark:text-red-100">
+                    Reset Private Feed
+                  </p>
+                  <p className="text-sm text-red-700 dark:text-red-300">
+                    If you have lost your encryption key or want to start fresh, you can reset your private feed.
+                    This will remove all current followers and make existing private posts unreadable.
+                  </p>
+                  <Button
+                    variant="outline"
+                    className="mt-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
+                    onClick={() => setShowResetDialog(true)}
+                  >
+                    <ArrowPathIcon className="h-4 w-4 mr-2" />
+                    Reset Private Feed
+                  </Button>
+                </div>
+              </div>
+            </div>
+
+            {/* Reset Dialog */}
+            <ResetPrivateFeedDialog
+              open={showResetDialog}
+              onOpenChange={setShowResetDialog}
+              onSuccess={checkPrivateFeedStatus}
+            />
           </>
         ) : (
           <>

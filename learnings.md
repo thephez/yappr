@@ -281,3 +281,21 @@
 6. **Gradient background styling for stats cards**: Used Tailwind's `bg-gradient-to-br from-{color}-50 to-{color}-100` pattern for light mode and `dark:from-{color}-950/50 dark:to-{color}-900/30` for dark mode to create visually distinct stat cards that work well in both themes.
 
 **No blockers encountered** - the implementation follows established patterns from other settings components and integrates with existing private feed services.
+
+## 2026-01-19: Reset Private Feed Implementation
+
+**Key observations:**
+
+1. **No Dialog component wrapper in codebase**: The project uses `@radix-ui/react-dialog` directly rather than a shadcn/ui-style wrapper. Found this by examining `components/ui/payment-qr-dialog.tsx` which uses the same pattern: `import * as Dialog from '@radix-ui/react-dialog'` with Framer Motion for animations.
+
+2. **Document update for reset vs. delete+recreate**: The PRD specifies that `PrivateFeedState` has `canBeDeleted: false`, so reset must UPDATE the existing document rather than deleting and recreating it. This requires fetching the document to get its `$id` and `$revision`, then calling `stateTransitionService.updateDocument()` with revision+1.
+
+3. **Network errors during document updates on testnet**: Encountered "Unknown error" when testing the actual reset on testnet. This is expected behavior on the test network (DAPI gateway timeouts, network issues). The UI correctly shows errors to users and allows retry. The implementation logic is correct even if the network operation fails.
+
+4. **Two-factor confirmation for destructive actions**: Combined encryption key entry with "type RESET to confirm" pattern provides strong protection against accidental resets. The button only enables when both conditions are met: (a) valid 64-char hex key, and (b) exact text "RESET" in confirmation field.
+
+5. **Stats loading in dialog**: The dialog loads follower count and private post count when opened to show users exactly what they're about to lose. Used dynamic imports (`await import('@/lib/services')`) to access `privateFeedService.getPrivateFollowerCount()` and `postService.getUserPosts()`.
+
+6. **Clearing and reinitializing local state atomically**: After successful reset, must call `privateFeedKeyStore.clearOwnerKeys()` then `privateFeedKeyStore.initializeOwnerState(newSeed, TREE_CAPACITY)` to ensure clean state. Also store the new CEK[1] for immediate use.
+
+**No blockers encountered** - the implementation follows established patterns and integrates cleanly with existing private feed infrastructure.

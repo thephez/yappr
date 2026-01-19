@@ -918,6 +918,135 @@ class PrivateFeedService {
   }
 
   // ============================================================
+  // Reset Operations (PRD §9)
+  // ============================================================
+
+  /**
+   * Reset private feed - creates new seed, invalidating all existing followers
+   *
+   * This operation:
+   * - Generates a new feed seed and encrypts it to the owner's encryption key
+   * - Updates the existing PrivateFeedState document with the new encrypted seed
+   * - Clears all local state (epoch, revoked leaves, recipient map)
+   * - Orphans all existing PrivateFeedGrant and PrivateFeedRekey documents
+   *
+   * Consequences (per PRD §9.2):
+   * - All existing followers lose access (their grants are encrypted to old keys)
+   * - All existing private posts become unreadable (encrypted with old CEKs)
+   * - Followers must re-request access and be re-approved
+   *
+   * @param ownerId - The identity ID of the feed owner
+   * @param encryptionPrivateKey - The owner's encryption private key (32 bytes)
+   * @returns Promise<{success: boolean, error?: string}>
+   */
+  async resetPrivateFeed(
+    ownerId: string,
+    encryptionPrivateKey: Uint8Array
+  ): Promise<{ success: boolean; error?: string }> {
+    try {
+      // 1. Get existing PrivateFeedState document
+      const existingState = await this.getPrivateFeedState(ownerId);
+      if (!existingState) {
+        return { success: false, error: 'Private feed not enabled' };
+      }
+
+      // 2. Verify user has the encryption key by deriving public key
+      const encryptionPubKey = privateFeedCryptoService.getPublicKey(encryptionPrivateKey);
+
+      // 3. Generate new feed seed (SPEC §8.1 step 1)
+      const newFeedSeed = privateFeedCryptoService.generateFeedSeed();
+
+      // 4. Pre-compute epoch chain and get CEK[1] for immediate use
+      const epochChain = privateFeedCryptoService.generateEpochChain(newFeedSeed, MAX_EPOCH);
+      const cek1 = epochChain[1];
+
+      // 5. Encrypt new feedSeed to owner's public key using ECIES
+      // versionedPayload = 0x01 || feedSeed
+      const versionedPayload = new Uint8Array(1 + newFeedSeed.length);
+      versionedPayload[0] = PROTOCOL_VERSION;
+      versionedPayload.set(newFeedSeed, 1);
+
+      // AAD = "yappr/feed-state/v1" || ownerId
+      const ownerIdBytes = identifierToBytes(ownerId);
+      const aad = privateFeedCryptoService.buildFeedStateAAD(ownerIdBytes);
+
+      const newEncryptedSeed = await privateFeedCryptoService.eciesEncrypt(
+        encryptionPubKey,
+        versionedPayload,
+        aad
+      );
+
+      // 6. Fetch the existing document to get its revision number
+      const sdk = await getEvoSdk();
+      const documents = await queryDocuments(sdk, {
+        dataContractId: this.contractId,
+        documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_STATE,
+        where: [['$ownerId', '==', ownerId]],
+        limit: 1,
+      });
+
+      if (documents.length === 0) {
+        return { success: false, error: 'PrivateFeedState document not found' };
+      }
+
+      const existingDoc = documents[0];
+      const documentId = existingDoc.$id as string;
+      const revision = (existingDoc.$revision as number) || 1;
+
+      // 7. Update the PrivateFeedState document with new encrypted seed
+      // The treeCapacity and maxEpoch remain the same
+      const updateData = {
+        treeCapacity: TREE_CAPACITY,
+        maxEpoch: MAX_EPOCH,
+        encryptedSeed: Array.from(newEncryptedSeed),
+      };
+
+      console.log('Resetting PrivateFeedState document:', {
+        documentId,
+        revision,
+        encryptedSeedLength: newEncryptedSeed.length,
+      });
+
+      const result = await stateTransitionService.updateDocument(
+        this.contractId,
+        DOCUMENT_TYPES.PRIVATE_FEED_STATE,
+        documentId,
+        ownerId,
+        updateData,
+        revision + 1
+      );
+
+      if (!result.success) {
+        return { success: false, error: result.error || 'Failed to update PrivateFeedState' };
+      }
+
+      // 8. Clear all local owner state and reinitialize
+      privateFeedKeyStore.clearOwnerKeys();
+      privateFeedKeyStore.initializeOwnerState(newFeedSeed, TREE_CAPACITY);
+
+      // Store CEK[1] for immediate use
+      privateFeedKeyStore.storeCachedCEK(ownerId, 1, cek1);
+
+      console.log('Private feed reset successfully');
+      return { success: true };
+    } catch (error) {
+      console.error('Error resetting private feed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      };
+    }
+  }
+
+  /**
+   * Get count of private followers (for reset confirmation UI)
+   */
+  async getPrivateFollowerCount(ownerId: string): Promise<number> {
+    const followers = await this.getPrivateFollowers(ownerId);
+    return followers.length;
+  }
+
+  // ============================================================
   // Utility Methods
   // ============================================================
 

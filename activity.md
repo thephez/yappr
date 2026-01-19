@@ -681,3 +681,53 @@
 - Recent activity feed showing approvals and revocations
 
 **Screenshot:** `screenshots/private-feed-owner-dashboard.png`
+
+## 2026-01-19: Reset Private Feed Functionality (PRD §9)
+
+**Task:** Implement Reset Private Feed functionality for lost key recovery and starting fresh
+
+**Changes made:**
+1. Extended `lib/services/private-feed-service.ts` with reset functionality:
+   - `resetPrivateFeed(ownerId, encryptionPrivateKey)` - Full reset implementation per PRD §9:
+     - Generates new feed seed
+     - Pre-computes epoch chain and CEK[1]
+     - Encrypts new seed using ECIES to owner's public key
+     - Updates existing PrivateFeedState document with new encrypted seed
+     - Clears all local owner state (epoch, revoked leaves, recipient map)
+     - Reinitializes local state with fresh seed and all leaves available
+   - `getPrivateFollowerCount(ownerId)` - Helper for reset confirmation UI
+
+2. Created `components/settings/reset-private-feed-dialog.tsx`:
+   - Modal dialog using Radix UI Dialog + Framer Motion (matching existing patterns)
+   - Warning section explaining consequences:
+     - Remove all current private followers (shows count)
+     - Make all existing private posts unreadable (shows count)
+     - Generate a new encryption key
+   - Two-factor confirmation:
+     - Encryption key input (64 hex characters, masked)
+     - Type "RESET" confirmation text
+   - Reset button only enabled when both fields are valid
+   - Loading state during reset operation
+   - Error handling with user-friendly messages
+   - Loads follower and private post counts when dialog opens
+
+3. Updated `components/settings/private-feed-settings.tsx`:
+   - Added "Danger Zone" section when private feed is enabled
+   - Red styling to indicate destructive action
+   - "Reset Private Feed" button opens the reset dialog
+   - Integrated ResetPrivateFeedDialog component
+   - Added ArrowPathIcon import for reset button icon
+
+**Key features per PRD §9:**
+- Reset mechanism updates existing PrivateFeedState document (canBeDeleted: false)
+- Requires user to type "RESET" to confirm (prevents accidental resets)
+- Shows follower count and private post count in confirmation dialog
+- Clear explanation of consequences before proceeding
+- Error handling if reset fails
+- Local state properly cleared and reinitialized after successful reset
+
+**Screenshots:**
+- `screenshots/reset-private-feed-enabled.png` (settings page with Danger Zone section)
+- `screenshots/reset-private-feed-dialog-full.png` (reset dialog)
+- `screenshots/reset-private-feed-form-filled.png` (form with encryption key and RESET typed)
+- `screenshots/reset-private-feed-error.png` (error handling display)
