@@ -1077,3 +1077,92 @@ PrivateFeedSync: Complete - synced: 0, up-to-date: 1, failed: 0
 17. **Code review supplements manual testing** - When testing loading states, review the implementation code alongside manual testing to verify behavior exists even if not visually apparent.
 
 18. **Background sync should be invisible** - Services like PrivateFeedSync should run silently. Only surface errors that require user action.
+
+---
+
+## 2026-01-19: E2E Test 5.7 - Decryption Failure Handling
+
+### Issue 65: Error States Need Retry Capability
+**Problem:** When decryption failed due to corrupted keys or transient errors, the UI showed "Your access has been revoked" instead of a proper error message, and there was no way for users to retry the operation.
+
+**Root Cause:** In `private-post-content.tsx`, when `decryptPost()` returned `{ success: false }`, the code assumed the user was revoked rather than showing an actionable error state:
+```typescript
+// Before (incorrect):
+if (result.success && result.content) {
+  setState({ status: 'decrypted', content: result.content })
+} else {
+  // Decryption failed - likely revoked or key issue
+  setState({ status: 'locked', reason: 'revoked' })  // Wrong!
+}
+```
+
+**Solution:** Changed to show proper error state with Retry button:
+```typescript
+// After (correct):
+if (result.success && result.content) {
+  setState({ status: 'decrypted', content: result.content })
+} else {
+  console.error('Decryption failed:', result.error || 'Unknown error')
+  setState({
+    status: 'error',
+    message: result.error || 'Decryption failed. Keys may be corrupted or invalid.',
+  })
+}
+```
+
+**Lesson:** Don't assume failure reasons. When an operation fails, show the actual error message and provide a way to retry. "Revoked" should only be shown when the system explicitly determines the user has been revoked, not as a catch-all for any failure.
+
+### Issue 66: React Hooks Order Must Be Consistent
+**Problem:** Initially placed `handleRetry` callback definition inside the error state return block, causing "Rendered more hooks than during previous render" error.
+
+**Error:**
+```
+Error: Rendered more hooks than during the previous render.
+    at updateWorkInProgressHook
+```
+
+**Root Cause:** React requires hooks (including `useCallback`) to be called in the same order on every render. Defining a callback inside a conditional return means it's only called for certain renders, violating the hooks rules.
+
+**Solution:** Move all hook definitions to before any conditional returns:
+```typescript
+// All hooks must be defined before conditional returns
+const handleRetry = useCallback(() => {
+  setState({ status: 'idle' })
+}, [])
+
+// Then conditional returns
+if (state.status === 'loading') {
+  return <LoadingState />
+}
+if (state.status === 'error') {
+  return <ErrorStateWithRetry onRetry={handleRetry} />  // OK - using already defined callback
+}
+```
+
+**Lesson:** Always define all hooks at the top of the component, before any conditional logic or early returns. This is a fundamental React hooks rule that's easy to forget when adding new functionality to existing components.
+
+### Issue 67: Simulating Decryption Failures for Testing
+**Observation:** To test decryption failure handling, corrupting the cached CEK in localStorage is an effective method:
+```javascript
+// In Playwright/browser console:
+const corruptedCek = {
+  epoch: 1,
+  cek: "CORRUPTED_KEY_123456789012345678901234567890"
+};
+localStorage.setItem('yappr:pf:cached_cek:OWNER_ID', JSON.stringify(corruptedCek));
+```
+
+**Key Details:**
+- Invalid CEK data causes decryption to fail
+- The error message "No cached CEK for this feed" is shown because the corrupted value can't be parsed as valid base64
+- This simulates real-world scenarios like corrupted storage or migration issues
+
+**Lesson:** When testing error handling, corrupting local storage is an effective way to simulate various failure modes without needing to modify server-side state or wait for specific conditions.
+
+### Best Practices Updates
+
+19. **Error states need Retry buttons** - Users should always have a way to retry failed operations. Don't assume failures are permanent.
+
+20. **Show actual error messages** - Don't use generic messages like "revoked" for all failures. Show the actual error to help users and developers understand what went wrong.
+
+21. **Test error handling explicitly** - Error states are often overlooked in testing. Explicitly corrupt state or simulate failures to verify error handling UI is correct.

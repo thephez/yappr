@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { LockClosedIcon, LockOpenIcon, ExclamationTriangleIcon, KeyIcon } from '@heroicons/react/24/outline'
+import { LockClosedIcon, LockOpenIcon, ExclamationTriangleIcon, KeyIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
 import { LockClosedIcon as LockClosedIconSolid } from '@heroicons/react/24/solid'
 import { Post } from '@/lib/types'
 import { PostContent } from './post-content'
@@ -103,14 +103,20 @@ export function PrivatePostContent({
         if (decryptResult.success && decryptResult.content) {
           setState({ status: 'decrypted', content: decryptResult.content })
         } else {
-          // Decryption failed after recovery - likely truly revoked
-          setState({ status: 'locked', reason: 'revoked' })
+          // Decryption failed after recovery - show error with Retry (Test 5.7)
+          console.error('Decryption failed after recovery:', decryptResult.error)
+          setState({
+            status: 'error',
+            message: decryptResult.error || 'Decryption failed after key recovery',
+          })
         }
       } else {
-        // Recovery failed - this means the user is actually revoked
-        // (the grant exists but keys can't be recovered from it)
-        console.log('Recovery failed:', result.error)
-        setState({ status: 'locked', reason: 'revoked' })
+        // Recovery failed - could be revoked or corrupted grant
+        console.error('Recovery failed:', result.error)
+        setState({
+          status: 'error',
+          message: result.error || 'Failed to recover access keys',
+        })
       }
     } catch (error) {
       console.error('Error recovering follower keys:', error)
@@ -304,8 +310,12 @@ export function PrivatePostContent({
       if (result.success && result.content) {
         setState({ status: 'decrypted', content: result.content })
       } else {
-        // Decryption failed - likely revoked or key issue
-        setState({ status: 'locked', reason: 'revoked' })
+        // Decryption failed - show error state with Retry button (Test 5.7)
+        console.error('Decryption failed:', result.error || 'Unknown error')
+        setState({
+          status: 'error',
+          message: result.error || 'Decryption failed. Keys may be corrupted or invalid.',
+        })
       }
     } catch (error) {
       console.error('Error decrypting private post:', error)
@@ -322,6 +332,11 @@ export function PrivatePostContent({
       attemptDecryption()
     }
   }, [state.status, attemptDecryption])
+
+  // Handle retry for decryption failures (Test 5.7)
+  const handleRetry = useCallback(() => {
+    setState({ status: 'idle' })
+  }, [])
 
   // Loading state
   if (state.status === 'idle' || state.status === 'loading') {
@@ -503,7 +518,7 @@ export function PrivatePostContent({
     )
   }
 
-  // Error state
+  // Error state - with Retry button (PRD §4.12, Test 5.7)
   return (
     <div className={cn('space-y-2', className)}>
       {hasTeaser && (
@@ -515,10 +530,25 @@ export function PrivatePostContent({
           onFailedMentionClick={onFailedMentionClick}
         />
       )}
-      <div className="border border-red-200 dark:border-red-800 rounded-lg p-3 bg-red-50 dark:bg-red-900/20">
-        <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-          <ExclamationTriangleIcon className="h-4 w-4" />
-          <span className="text-sm">Unable to decrypt: {state.message}</span>
+      <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
+        <div className="flex flex-col items-center justify-center text-center gap-2">
+          <div className="w-10 h-10 rounded-full bg-red-200 dark:bg-red-800 flex items-center justify-center">
+            <ExclamationTriangleIcon className="h-5 w-5 text-red-600 dark:text-red-300" />
+          </div>
+          <div>
+            <p className="font-medium text-red-700 dark:text-red-300">Decryption Failed</p>
+            <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
+          </div>
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              handleRetry()
+            }}
+            className="mt-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+          >
+            <ArrowPathIcon className="h-4 w-4" />
+            Retry
+          </button>
         </div>
       </div>
     </div>
