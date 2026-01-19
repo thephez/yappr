@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { postService } from '@/lib/services/post-service'
 import { useSdk } from '@/contexts/sdk-context'
 import { Post } from '@/lib/types'
+import { UserAvatar } from '@/components/ui/avatar-image'
 
 function getTitle(content: string): string {
   const lines = content.split('\n').map(l => l.trim()).filter(Boolean)
@@ -26,16 +27,22 @@ function formatRelativeTime(date: Date): string {
   return `${days}d ago`
 }
 
-function getAuthorDisplayName(author: Post['author']): string {
-  if (author.username?.trim()) {
-    return author.username
+function getAuthorDisplay(author: Post['author']): { name: string; username: string | null } {
+  const hasUsername = author.username?.trim()
+  const hasRealDisplayName = author.displayName &&
+    author.displayName !== 'Unknown User' &&
+    !author.displayName.startsWith('User ')
+
+  if (hasUsername && hasRealDisplayName) {
+    return { name: author.displayName, username: author.username }
   }
-  if (author.displayName &&
-      author.displayName !== 'Unknown User' &&
-      !author.displayName.startsWith('User ')) {
-    return author.displayName
+  if (hasUsername) {
+    return { name: author.username, username: null }
   }
-  return `${author.id.slice(0, 8)}...${author.id.slice(-6)}`
+  if (hasRealDisplayName) {
+    return { name: author.displayName, username: null }
+  }
+  return { name: `${author.id.slice(0, 8)}...${author.id.slice(-6)}`, username: null }
 }
 
 export default function PocPostsPage() {
@@ -96,6 +103,30 @@ export default function PocPostsPage() {
                 {post.likes}
               </div>
 
+              {/* Avatar */}
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  router.push(`/poc/user?id=${post.author.id}`)
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.stopPropagation()
+                    e.preventDefault()
+                    router.push(`/poc/user?id=${post.author.id}`)
+                  }
+                }}
+                className="shrink-0 cursor-pointer"
+              >
+                <UserAvatar
+                  userId={post.author.id}
+                  size="sm"
+                  preloadedUrl={post.author.avatar}
+                />
+              </div>
+
               <div className="min-w-0 flex-1">
                 {/* Title */}
                 <div className="text-gray-900 dark:text-gray-100 font-medium">
@@ -104,25 +135,30 @@ export default function PocPostsPage() {
 
                 {/* Metadata line */}
                 <div className="mt-1 text-xs text-gray-500">
-                  <span>by </span>
-                  <span
-                    role="button"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      router.push(`/poc/user?id=${post.author.id}`)
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.stopPropagation()
-                        e.preventDefault()
-                        router.push(`/poc/user?id=${post.author.id}`)
-                      }
-                    }}
-                    className="hover:underline cursor-pointer"
-                  >
-                    {getAuthorDisplayName(post.author)}
-                  </span>
+                  {(() => {
+                    const { name, username } = getAuthorDisplay(post.author)
+                    return (
+                      <span
+                        role="button"
+                        tabIndex={0}
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          router.push(`/poc/user?id=${post.author.id}`)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.stopPropagation()
+                            e.preventDefault()
+                            router.push(`/poc/user?id=${post.author.id}`)
+                          }
+                        }}
+                        className="hover:underline cursor-pointer"
+                      >
+                        <span className="font-medium">{name}</span>
+                        {username && <span className="text-gray-400 ml-1">@{username}</span>}
+                      </span>
+                    )
+                  })()}
                   <span className="mx-2">•</span>
                   <span title="Replies">💬 {post.replies}</span>
                   <span className="mx-2">•</span>

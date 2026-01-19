@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { usePostDetail } from '@/hooks/use-post-detail'
 import { useSdk } from '@/contexts/sdk-context'
 import { Post, ReplyThread } from '@/lib/types'
+import { UserAvatar } from '@/components/ui/avatar-image'
 
 function formatRelativeTime(date: Date): string {
   const now = Date.now()
@@ -19,29 +20,33 @@ function formatRelativeTime(date: Date): string {
   return `${days}d ago`
 }
 
-function getAuthorDisplayName(author: Post['author']): string {
-  if (author.username?.trim()) {
-    return author.username
+function getAuthorDisplay(author: Post['author']): { name: string; username: string | null } {
+  const hasUsername = author.username?.trim()
+  const hasRealDisplayName = author.displayName &&
+    author.displayName !== 'Unknown User' &&
+    !author.displayName.startsWith('User ')
+
+  if (hasUsername && hasRealDisplayName) {
+    return { name: author.displayName, username: author.username }
   }
-  if (author.displayName &&
-      author.displayName !== 'Unknown User' &&
-      !author.displayName.startsWith('User ')) {
-    return author.displayName
+  if (hasUsername) {
+    return { name: author.username, username: null }
   }
-  return `${author.id.slice(0, 8)}...${author.id.slice(-6)}`
+  if (hasRealDisplayName) {
+    return { name: author.displayName, username: null }
+  }
+  return { name: `${author.id.slice(0, 8)}...${author.id.slice(-6)}`, username: null }
 }
 
 function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyThread; depth?: number; onAuthorClick: (authorId: string) => void }) {
   const { post, isAuthorThread, nestedReplies } = thread
+  const { name, username } = getAuthorDisplay(post.author)
 
   return (
     <div className={depth > 0 ? 'ml-6 border-l-2 border-gray-200 dark:border-gray-800 pl-4' : ''}>
       <div className={`py-3 ${isAuthorThread ? 'bg-blue-50 dark:bg-blue-950/20 -mx-4 px-4 rounded' : ''}`}>
-        <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
-          {post.content}
-        </div>
-        <div className="mt-2 text-xs text-gray-500">
-          <span
+        <div className="flex gap-3">
+          <div
             role="button"
             tabIndex={0}
             onClick={() => onAuthorClick(post.author.id)}
@@ -51,18 +56,44 @@ function ReplyThreadItem({ thread, depth = 0, onAuthorClick }: { thread: ReplyTh
                 onAuthorClick(post.author.id)
               }
             }}
-            className={`hover:underline cursor-pointer ${isAuthorThread ? 'text-blue-600 dark:text-blue-400' : ''}`}
+            className="shrink-0 cursor-pointer"
           >
-            {getAuthorDisplayName(post.author)}
-          </span>
-          <span className="mx-2">•</span>
-          <span>{formatRelativeTime(post.createdAt)}</span>
-          {post.likes > 0 && (
-            <>
+            <UserAvatar
+              userId={post.author.id}
+              size="sm"
+              preloadedUrl={post.author.avatar}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="text-xs text-gray-500 mb-1">
+              <span
+                role="button"
+                tabIndex={0}
+                onClick={() => onAuthorClick(post.author.id)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault()
+                    onAuthorClick(post.author.id)
+                  }
+                }}
+                className={`hover:underline cursor-pointer ${isAuthorThread ? 'text-blue-600 dark:text-blue-400' : ''}`}
+              >
+                <span className="font-medium">{name}</span>
+                {username && <span className="text-gray-400 ml-1">@{username}</span>}
+              </span>
               <span className="mx-2">•</span>
-              <span>👍 {post.likes}</span>
-            </>
-          )}
+              <span>{formatRelativeTime(post.createdAt)}</span>
+              {post.likes > 0 && (
+                <>
+                  <span className="mx-2">•</span>
+                  <span>👍 {post.likes}</span>
+                </>
+              )}
+            </div>
+            <div className="text-sm text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
+              {post.content}
+            </div>
+          </div>
         </div>
       </div>
       {nestedReplies.length > 0 && (
@@ -134,12 +165,8 @@ function PostDetailContent() {
 
       {/* Main post */}
       <div className="border border-gray-200 dark:border-gray-800 rounded-lg bg-white dark:bg-black p-4 mb-6 overflow-hidden">
-        <div className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
-          {post.content}
-        </div>
-        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500">
-          <span>by </span>
-          <span
+        <div className="flex gap-4">
+          <div
             role="button"
             tabIndex={0}
             onClick={() => router.push(`/poc/user?id=${post.author.id}`)}
@@ -149,11 +176,43 @@ function PostDetailContent() {
                 router.push(`/poc/user?id=${post.author.id}`)
               }
             }}
-            className="hover:underline cursor-pointer"
+            className="shrink-0 cursor-pointer"
           >
-            {getAuthorDisplayName(post.author)}
-          </span>
-          <span className="mx-2">•</span>
+            <UserAvatar
+              userId={post.author.id}
+              size="md"
+              preloadedUrl={post.author.avatar}
+            />
+          </div>
+          <div className="min-w-0 flex-1">
+            {(() => {
+              const { name, username } = getAuthorDisplay(post.author)
+              return (
+                <div className="mb-2">
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => router.push(`/poc/user?id=${post.author.id}`)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        router.push(`/poc/user?id=${post.author.id}`)
+                      }
+                    }}
+                    className="hover:underline cursor-pointer"
+                  >
+                    <span className="font-semibold text-gray-900 dark:text-gray-100">{name}</span>
+                    {username && <span className="text-gray-500 ml-1 text-sm">@{username}</span>}
+                  </span>
+                </div>
+              )
+            })()}
+            <div className="text-gray-900 dark:text-gray-100 whitespace-pre-wrap break-words">
+              {post.content}
+            </div>
+          </div>
+        </div>
+        <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800 text-xs text-gray-500">
           <span>{formatRelativeTime(post.createdAt)}</span>
           <span className="mx-2">•</span>
           <span title="Likes">👍 {post.likes}</span>

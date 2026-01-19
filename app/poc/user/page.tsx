@@ -4,9 +4,10 @@
 import { Suspense, useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { postService } from '@/lib/services/post-service'
-import { dpnsService } from '@/lib/services/dpns-service'
+import { unifiedProfileService } from '@/lib/services/unified-profile-service'
 import { useSdk } from '@/contexts/sdk-context'
-import { Post } from '@/lib/types'
+import { Post, User } from '@/lib/types'
+import { UserAvatar } from '@/components/ui/avatar-image'
 
 type Tab = 'posts' | 'comments'
 
@@ -42,7 +43,7 @@ function ProfileContent() {
   const { isReady } = useSdk()
 
   const [tab, setTab] = useState<Tab>('posts')
-  const [username, setUsername] = useState<string | null>(null)
+  const [profile, setProfile] = useState<User | null>(null)
   const [allPosts, setAllPosts] = useState<Post[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -53,9 +54,9 @@ function ProfileContent() {
       if (!userId) return
       setLoading(true)
       try {
-        // Resolve username via DPNS
-        const resolvedUsername = await dpnsService.resolveUsername(userId)
-        setUsername(resolvedUsername)
+        // Fetch profile with username
+        const userProfile = await unifiedProfileService.getProfileWithUsername(userId)
+        setProfile(userProfile)
 
         // Fetch user's posts (includes both root posts and replies)
         const result = await postService.getUserPosts(userId, { limit: 100 })
@@ -106,12 +107,31 @@ function ProfileContent() {
       </button>
 
       {/* Profile header */}
-      <div className="mb-6">
-        <h1 className="text-xl font-semibold">
-          {username || 'Anonymous'}
-        </h1>
-        <div className="text-xs text-gray-500 font-mono mt-1">
-          {userId.slice(0, 16)}...
+      <div className="mb-6 flex gap-4">
+        <UserAvatar
+          userId={userId}
+          size="xl"
+          preloadedUrl={profile?.avatar}
+        />
+        <div className="min-w-0 flex-1">
+          <h1 className="text-xl font-semibold">
+            {profile?.displayName || profile?.username || 'Anonymous'}
+          </h1>
+          {profile?.username && (
+            <div className="text-sm text-gray-500">@{profile.username}</div>
+          )}
+          {!profile?.username && (
+            <div className="text-xs text-gray-500 font-mono mt-1">
+              {userId.slice(0, 16)}...
+            </div>
+          )}
+          {profile?.bio && (
+            <p className="text-sm text-gray-700 dark:text-gray-300 mt-2">{profile.bio}</p>
+          )}
+          <div className="flex gap-4 mt-2 text-sm text-gray-500">
+            <span><strong className="text-gray-900 dark:text-gray-100">{profile?.followers ?? 0}</strong> followers</span>
+            <span><strong className="text-gray-900 dark:text-gray-100">{profile?.following ?? 0}</strong> following</span>
+          </div>
         </div>
       </div>
 
