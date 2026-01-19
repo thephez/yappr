@@ -14,6 +14,7 @@ import {
   EllipsisHorizontalIcon,
   CurrencyDollarIcon,
   PencilSquareIcon,
+  LockClosedIcon,
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid'
 import { Post } from '@/lib/types'
@@ -29,6 +30,7 @@ import { useRequireAuth } from '@/hooks/use-require-auth'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { LikesModal } from './likes-modal'
 import { PostContent } from './post-content'
+import { PrivatePostContent, PrivatePostBadge, isPrivatePost } from './private-post-content'
 import { useTipModal } from '@/hooks/use-tip-modal'
 import { useBlock } from '@/hooks/use-block'
 import { useFollow } from '@/hooks/use-follow'
@@ -547,6 +549,11 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
             </div>
 
             <div className="flex items-center gap-1 flex-shrink-0">
+              {isPrivatePost(post) && (
+                <span className="flex items-center gap-0.5 text-gray-500 mr-1">
+                  <LockClosedIcon className="h-3.5 w-3.5" />
+                </span>
+              )}
               <span className="text-gray-500 text-sm">{formatTime(post.createdAt)}</span>
               <DropdownMenu.Root>
               <DropdownMenu.Trigger asChild>
@@ -638,6 +645,18 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
                 <PostContent content={tipInfo.message} className="mt-1" />
               )}
             </div>
+          ) : isPrivatePost(post) ? (
+            <PrivatePostContent
+              post={post}
+              className="mt-1"
+              hashtagValidations={hashtagValidations}
+              onFailedHashtagClick={handleFailedHashtagClick}
+              mentionValidations={mentionValidations}
+              onFailedMentionClick={handleFailedMentionClick}
+              onRequestAccess={() => {
+                router.push(`/user?id=${post.author.id}`)
+              }}
+            />
           ) : (
             <PostContent
               content={post.content}

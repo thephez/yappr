@@ -56,6 +56,10 @@ export interface Post {
   _enrichment?: PostEnrichment  // Pre-fetched data to avoid N+1 queries
   repostedBy?: { id: string; username?: string; displayName?: string }  // If this is a repost, who reposted it
   repostTimestamp?: Date  // When the repost was created (for timeline sorting)
+  // Private feed fields (present when post is encrypted)
+  encryptedContent?: Uint8Array  // XChaCha20-Poly1305 ciphertext
+  epoch?: number                 // Revocation epoch at post creation
+  nonce?: Uint8Array             // Random nonce for encryption
 }
 
 /** Pre-fetched enrichment data to avoid N+1 queries in feed */

@@ -357,3 +357,49 @@
 - Proper handling of encryption key lookup from identity
 
 **Screenshot:** `screenshots/private-feed-follow-requests-ui.png`
+
+## 2026-01-19: Private Post Rendering UI (Phase 3 Feed Integration)
+
+**Task:** Implement private post rendering in feed for both followers and non-followers (PRD §4.3 & §4.4)
+
+**Changes made:**
+1. Updated `lib/types.ts` to include private feed fields on Post interface:
+   - `encryptedContent?: Uint8Array` - XChaCha20-Poly1305 ciphertext
+   - `epoch?: number` - Revocation epoch at post creation
+   - `nonce?: Uint8Array` - Random nonce for encryption
+
+2. Updated `lib/services/post-service.ts`:
+   - Extended `PostDocument` interface with private feed fields
+   - Updated `transformDocument()` to extract and normalize private feed fields from SDK responses
+   - Added `normalizeBytes()` helper to handle SDK byte array formats (base64, Uint8Array, regular array)
+
+3. Created `components/post/private-post-content.tsx` with comprehensive rendering:
+   - `PrivatePostContent` component handles all decryption states:
+     - **Loading state**: Shows teaser (if available) + "Decrypting..." skeleton
+     - **Decrypted state**: Shows full content with teaser (muted) above
+     - **Locked state (no-keys)**: Shows teaser + locked box + "Request Access" button
+     - **Locked state (revoked)**: Shows teaser + locked box + "Access revoked" message
+     - **Locked state (no-auth)**: Shows teaser + locked box + "Log in to request access"
+     - **Error state**: Shows teaser + error message
+   - `PrivatePostBadge` helper component for showing private indicator
+   - `isPrivatePost()` type guard function
+   - Owner decryption path uses local feed seed and CEK cache
+   - Follower decryption path uses `privateFeedFollowerService.decryptPost()`
+   - Automatic catch-up on rekeys when post epoch > cached epoch
+
+4. Updated `components/post/post-card.tsx`:
+   - Imported `PrivatePostContent`, `PrivatePostBadge`, and `isPrivatePost`
+   - Added `LockClosedIcon` import for private post indicator
+   - Added lock icon next to timestamp for private posts
+   - Integrated `PrivatePostContent` component for rendering private posts
+   - Added `onRequestAccess` handler that navigates to the author's profile
+
+**Key features per PRD §4.3 & §4.4:**
+- Private posts show lock icon in header next to timestamp
+- Non-followers see locked state with teaser (if available) and "Request Access" button
+- Approved followers see decrypted content with loading state during decryption
+- Revoked users see locked state with "Access revoked" message
+- Post owner always sees full decrypted content
+- Graceful error handling with user-friendly messages
+
+**Screenshot:** `screenshots/private-post-view-ui.png`

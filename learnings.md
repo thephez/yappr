@@ -135,3 +135,29 @@
 7. **DPNS registration redirect**: Users without a DPNS username are redirected to `/dpns/register` with a "Skip for now" option. This affects test flows that need to navigate to authenticated pages directly.
 
 **No blockers encountered** - the implementation follows established patterns from `BlockedUsersSettings` and integrates with existing private feed services.
+
+## 2026-01-19: Private Post Rendering UI Implementation
+
+**Key observations:**
+
+1. **Post interface extension for private fields**: The `Post` type in `lib/types.ts` was extended with optional private feed fields (`encryptedContent`, `epoch`, `nonce`). Using `Uint8Array` for byte fields maintains type safety while the `normalizeBytes()` helper in post-service handles SDK response format variations.
+
+2. **State machine pattern for decryption UI**: The `PrivatePostContent` component uses a discriminated union type for state management (`idle | loading | decrypted | locked | error`), making the rendering logic exhaustive and type-safe. Each state has clear visual treatment.
+
+3. **Owner vs follower decryption paths diverge significantly**:
+   - **Owner path**: Uses `privateFeedKeyStore.getFeedSeed()` directly and can generate the full epoch chain to derive any CEK
+   - **Follower path**: Uses `privateFeedFollowerService.decryptPost()` which relies on cached path keys and CEK, with automatic catch-up via `catchUp()` if the post epoch is newer
+
+4. **Type guard function for conditional rendering**: The `isPrivatePost(post)` function checks for the presence of all three private fields (`encryptedContent`, `epoch`, `nonce`) together, ensuring we only attempt decryption on valid private posts.
+
+5. **Graceful degradation for various locked states**: The locked UI differentiates between:
+   - `no-keys`: User doesn't have access, can request
+   - `revoked`: User had access but was revoked, cannot re-request
+   - `no-auth`: User not logged in, should log in first
+   This provides appropriate UX guidance for each scenario.
+
+6. **Teaser content rendering strategy**: When a private post has a teaser (`post.content`), it's shown in all states (loading, locked, decrypted). In the decrypted state, the teaser is styled with muted colors to visually distinguish it from the main encrypted content.
+
+7. **Base58 identifier conversion for AAD construction**: The `identifierToBytes()` helper function is duplicated in the component to avoid adding a dependency on services that might not be available in all contexts. This could be refactored into a shared utility in the future.
+
+**No blockers encountered** - the implementation follows the established PostContent patterns and integrates cleanly with the existing private feed services infrastructure.

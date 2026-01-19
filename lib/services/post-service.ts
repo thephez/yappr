@@ -23,6 +23,10 @@ export interface PostDocument {
   primaryHashtag?: string;
   language?: string;
   sensitive?: boolean;
+  // Private feed fields
+  encryptedContent?: Uint8Array;
+  epoch?: number;
+  nonce?: Uint8Array;
 }
 
 export interface PostStats {
@@ -78,6 +82,15 @@ class PostService extends BaseDocumentService<Post> {
     const rawQuotedPostId = data.quotedPostId || doc.quotedPostId;
     const quotedPostId = rawQuotedPostId ? identifierToBase58(rawQuotedPostId) || undefined : undefined;
 
+    // Extract private feed fields if present
+    const rawEncryptedContent = data.encryptedContent || doc.encryptedContent;
+    const epoch = (data.epoch || doc.epoch) as number | undefined;
+    const rawNonce = data.nonce || doc.nonce;
+
+    // Normalize byte arrays (SDK may return as base64 string, Uint8Array, or regular array)
+    const encryptedContent = rawEncryptedContent ? this.normalizeBytes(rawEncryptedContent) : undefined;
+    const nonce = rawNonce ? this.normalizeBytes(rawNonce) : undefined;
+
     // Return a basic Post object - additional data will be loaded separately
     const post: Post = {
       id,
@@ -98,7 +111,11 @@ class PostService extends BaseDocumentService<Post> {
       }] : undefined,
       // Expose IDs for lazy loading at component level
       replyToId: replyToId || undefined,
-      quotedPostId: quotedPostId || undefined
+      quotedPostId: quotedPostId || undefined,
+      // Private feed fields
+      encryptedContent,
+      epoch,
+      nonce,
     };
 
     return post;
@@ -930,6 +947,40 @@ class PostService extends BaseDocumentService<Post> {
       joinedAt: new Date(),
       hasDpns: false
     };
+  }
+
+  /**
+   * Normalize bytes from SDK response (may be base64 string, Uint8Array, or regular array)
+   */
+  private normalizeBytes(value: unknown): Uint8Array {
+    if (value instanceof Uint8Array) {
+      return value;
+    }
+    if (Array.isArray(value)) {
+      return new Uint8Array(value);
+    }
+    if (typeof value === 'string') {
+      // Try base64 decode
+      try {
+        const binary = atob(value);
+        const bytes = new Uint8Array(binary.length);
+        for (let i = 0; i < binary.length; i++) {
+          bytes[i] = binary.charCodeAt(i);
+        }
+        return bytes;
+      } catch {
+        // Might be hex
+        if (/^[0-9a-fA-F]+$/.test(value)) {
+          const bytes = new Uint8Array(value.length / 2);
+          for (let i = 0; i < bytes.length; i++) {
+            bytes[i] = parseInt(value.substr(i * 2, 2), 16);
+          }
+          return bytes;
+        }
+      }
+    }
+    console.warn('Unable to normalize bytes in post-service:', value);
+    return new Uint8Array(0);
   }
 
   /**
