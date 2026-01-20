@@ -3290,3 +3290,93 @@ Note: The sync doesn't attempt to sync this feed because there's no grant for th
 **PASSED** - E2E Test 6.2 completed successfully. The revocation cryptographically prevents the revoked follower from decrypting new posts created after revocation.
 
 ---
+
+## 2026-01-19: E2E Test 6.3 - Revoked Follower Can Still Decrypt Old Posts (LIMITATION DOCUMENTED)
+
+### Task
+Test E2E 6.3: Revoked Follower Can Still Decrypt Old Posts (PRD §4.6)
+
+### Status
+**CANNOT VERIFY** - Precondition not met; behavior documented as architectural limitation
+
+### PRD Reference
+PRD §4.6 states:
+> "They will still be able to see posts from when they had access"
+
+### Prerequisites Required
+- @follower2 was revoked at epoch N+1
+- **@follower2 has cached keys for epoch N** ← This precondition cannot be met
+
+### Test Attempt
+1. **Logged in as revoked follower (Test Owner PF)** - ✅
+   - Identity: 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA
+   - Previously revoked at epoch 3 (Test 6.1)
+
+2. **Navigated to OLD private post** - ✅
+   - URL: `/post/?id=3JaTDNCSpfFdpYMXcEneCeuziXwdRrMxaGgr8jit8gvi`
+   - Post was created at epoch 1 (before revocation)
+
+3. **Verified cached keys status** - ✅
+   - Checked localStorage for `yappr:pf:*` keys
+   - Result: **No cached keys found**
+   - Console: "PrivateFeedSync: No followed private feeds to sync"
+
+4. **Observed behavior** - ✅
+   - Post shows "Private Content" - locked state
+   - Shows "Only approved followers can see this content"
+   - Shows "Request Access" button
+   - **Cannot decrypt** the old post
+
+### Why Precondition Cannot Be Met
+
+When a follower is revoked:
+1. Their `PrivateFeedGrant` document is **deleted** from chain
+2. Rekey packets in `PrivateFeedRekey` are encrypted to remaining followers' keys
+3. The revoked follower has no grant to use for key recovery
+
+If the revoked follower's localStorage is cleared (or they use a new device):
+1. They cannot call `recoverFollowerKeys()` - no grant exists
+2. They cannot use `catchUp()` - rekey packets are not encrypted to their keys anymore
+3. They have **no way to recover** their cached path keys or CEK
+
+### Architectural Limitation
+
+The current design has an inherent limitation:
+- Revoked followers CAN only decrypt old posts IF they have cached keys in localStorage
+- Once those cached keys are lost (cleared storage, new device), access to ALL posts is lost permanently
+- There is no recovery mechanism for revoked followers to regain their old keys
+
+This is actually **cryptographically correct** by design:
+- Path keys are derived from the grant's encrypted payload
+- Without a grant, path keys cannot be recovered
+- Without path keys, CEK cannot be derived for any epoch
+
+### Expected vs Actual Behavior
+
+| Scenario | PRD Expectation | Actual Behavior | Notes |
+|----------|-----------------|-----------------|-------|
+| Revoked follower with cached keys | Can decrypt old posts | **Would work** if keys existed | Design works correctly |
+| Revoked follower without cached keys | Can decrypt old posts | **Cannot decrypt** any posts | Key recovery impossible |
+
+### Recommendation
+
+1. **Documentation**: The PRD should clarify that revoked followers can only decrypt old posts if they maintain their cached keys locally
+2. **UI Enhancement**: Consider showing "You were revoked. Old posts may still be viewable if you have cached keys." instead of "Request Access"
+3. **Alternative**: Consider keeping path keys in a separate encrypted backup that survives revocation (significant architecture change)
+
+### Screenshots
+- `screenshots/e2e-test6.3-revoked-cannot-decrypt-old-post.png` - Revoked follower seeing "Private Content" on old post from epoch 1
+
+### Test Result
+**LIMITATION DOCUMENTED** - Test 6.3 cannot be verified in current state because the revoked follower has no cached keys. The system behaves correctly per its design, but the design has a limitation where revoked followers permanently lose access to all posts (including old ones) if their cached keys are lost.
+
+### Re-test Note
+To properly verify Test 6.3, would need to:
+1. Approve a new follower
+2. Let them decrypt some posts (caching keys)
+3. Revoke them WITHOUT clearing their localStorage
+4. Verify they can still decrypt old posts with cached keys
+
+This scenario is valid but requires careful test orchestration to maintain cached key state.
+
+---

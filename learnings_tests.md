@@ -1806,3 +1806,49 @@ PrivateFeedSync: No followed private feeds to sync
 **Explanation:** Private feed revocation only affects the PrivateFeedGrant document, not the regular `follow` document. The user still follows the owner for public content.
 
 **Lesson:** Private feed access and regular following are separate relationships with independent document types.
+
+---
+
+## 2026-01-19: Revoked Followers and Key Persistence
+
+### Issue: Revoked Followers Lose All Access Without Cached Keys
+
+**Context:** E2E Test 6.3 attempted to verify that revoked followers can still decrypt OLD posts (from when they had access).
+
+**Finding:** The revoked follower (Test Owner PF) could NOT decrypt any private posts, including old ones from epoch 1 (before revocation at epoch 3).
+
+**Root Cause Analysis:**
+1. When a follower is revoked, their `PrivateFeedGrant` is deleted from chain
+2. Rekey packets in `PrivateFeedRekey` are encrypted only to remaining followers' path keys
+3. Without a grant, the follower cannot call `recoverFollowerKeys()`
+4. Without path keys, they cannot apply rekey packets via `catchUp()`
+5. The revoked follower's localStorage had no cached `yappr:pf:*` keys
+
+**Design Implication:**
+The PRD §4.6 states "They will still be able to see posts from when they had access" - this is only true if:
+- The revoked follower maintains their localStorage
+- They have cached path keys and CEK from when they were approved
+
+If localStorage is cleared (new device, browser reset, etc.):
+- **All access is permanently lost** - including to old posts
+- There is no cryptographic recovery path
+
+**This is Architecturally Correct:**
+The design is cryptographically sound - without the grant, there's no material to derive path keys. This is actually a security feature: it ensures that revoked access truly means revoked, with no backdoor to recover keys from chain data.
+
+### Lesson: Test State Management Critical
+
+For Test 6.3 to work properly:
+1. Must carefully manage localStorage state during test
+2. After follower approval, verify keys are cached
+3. After revocation, do NOT clear localStorage
+4. Then verify old post decryption works
+
+The test framework needs to preserve follower key state across the revocation boundary.
+
+### Recommendation for PRD Clarity
+
+The PRD should clarify:
+> "Revoked followers can decrypt posts from when they had access **only if they retain their cached encryption keys locally**. If local key storage is lost, access to all posts (including historical ones) is permanently revoked."
+
+This aligns the documentation with the cryptographic reality.
