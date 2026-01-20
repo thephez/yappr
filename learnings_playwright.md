@@ -916,3 +916,105 @@ if (!hasFollowNotif && !hasMentionNotif) {
 - Active tab has a visual indicator (motion element with bg-yappr-500)
 - Filter state is managed by `useNotificationStore`
 - The `getFilteredNotifications()` function applies the filter
+
+---
+
+### 2026-01-20 - Simulating "New Device" for Key Management Tests
+
+**Issue:** Needed to test encryption key entry flows that occur on a "new device" where the user has no cached keys.
+
+**Finding:** The app stores encryption-related keys in localStorage with various prefixes. To simulate a new device, clear keys matching these patterns:
+- `yappr:pf:*` - Private feed state and epoch tracking
+- `encryptionKey` - The raw encryption key
+- `privateKey` - Private key components
+- `pathKey` - Path key derivation cache
+- `_ek_` - Encryption key by identity
+- `secure_ek` - Secure storage encryption keys
+
+**Implementation:**
+```typescript
+async function clearPrivateFeedKeys(page: Page): Promise<number> {
+  return page.evaluate(() => {
+    const keysToRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key && (
+        key.startsWith('yappr:pf:') ||
+        key.includes('encryptionKey') ||
+        key.includes('privateKey') ||
+        key.includes('pathKey') ||
+        key.includes('_ek_') ||
+        key.includes('secure_ek')
+      )) {
+        keysToRemove.push(key);
+      }
+    }
+    keysToRemove.forEach(key => localStorage.removeItem(key));
+    return keysToRemove.length;
+  });
+}
+```
+
+**Tips:**
+- After clearing keys, reload the page to ensure React state is refreshed
+- The app detects missing keys and shows "Enter Encryption Key" button on settings page
+- Cleared keys count may be 0 if keys were never stored (already clean state)
+
+---
+
+### 2026-01-20 - Encryption Key Entry Modal Behavior
+
+**Issue:** Needed to understand the encryption key entry modal for testing.
+
+**Finding:** The encryption key entry flow has these characteristics:
+
+1. **Trigger**: Modal appears when navigating to private feed settings without cached keys
+2. **Input**: Single password-type input for the 64-character hex encryption key
+3. **Validation**: Key is validated against on-chain identity key (derived public key must match)
+4. **Error handling**: Wrong keys show inline error message, modal stays open for retry
+5. **Persistence**: Accepted keys are stored in session/localStorage and persist across page refresh
+
+**Key selectors:**
+- Enter key button: `button:has-text(/enter.*encryption.*key/i)`
+- Modal: `[role="dialog"]`
+- Key input: `modal.locator('input[type="password"]')`
+- Confirm button: `modal.locator('button').filter({ hasText: /confirm|save|enter|submit/i })`
+- Error message: `page.getByText(/key does not match|invalid key|incorrect key|wrong key/i)`
+
+**Tips:**
+- The modal may appear automatically after page load or require clicking "Enter Encryption Key" button
+- Wrong keys trigger validation error but don't close the modal - retry is allowed immediately
+- After successful key entry, page may redirect or reload - wait for navigation to settle
+
+---
+
+### 2026-01-20 - Deferred Key Entry Pattern
+
+**Finding:** The app supports deferred encryption key entry - users can skip entering their encryption key initially and use public features normally.
+
+**Behavior observed:**
+1. User logs in without encryption key in session
+2. Encryption key modal may or may not appear automatically on navigation
+3. If dismissed (via Cancel/Escape), app remains usable for public content
+4. When user attempts private-feed action (e.g., create private post), prompt may reappear
+5. Feed loads normally, compose modal works, visibility dropdown accessible
+
+**Test pattern:**
+```typescript
+// Check if prompt appears and dismiss it
+const hasAutoPrompt = await encryptionKeyPrompt.first().isVisible({ timeout: 5000 }).catch(() => false);
+if (hasAutoPrompt) {
+  // Try Cancel button or Escape key
+  await page.keyboard.press('Escape');
+}
+
+// Verify app is still usable
+await goToHome(page);
+const feedContent = page.locator('article').or(page.getByText(/what.?s happening/i));
+const hasFeedContent = await feedContent.first().isVisible({ timeout: 10000 }).catch(() => false);
+```
+
+**Tips:**
+- The prompt may not always reappear when attempting private actions - app handles this differently
+- Test both the dismiss flow and the successful key entry flow
+- Focus on observable behavior rather than expecting specific prompts

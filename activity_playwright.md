@@ -50,7 +50,7 @@ Track implementation progress against e2e_prd.md phases.
 - [x] 09-reset-private-feed.spec.ts
 - [x] 10-replies-quotes.spec.ts
 - [x] 11-notifications.spec.ts
-- [ ] 14-key-management.spec.ts
+- [x] 14-key-management.spec.ts
 - [ ] 15-multi-device.spec.ts
 
 ---
@@ -462,3 +462,36 @@ Running 6 tests using 1 worker
 - Notification service derives notifications from followRequest documents (not separate notification documents)
 - Badge count appears next to Notifications link in sidebar
 - "Mark all as read" button only appears when there are unread notifications
+
+### 2026-01-20 - 14-key-management.spec.ts Complete
+
+**What was done:**
+- Verified and ran `e2e/tests/14-key-management.spec.ts` test suite created by previous agent
+- Test suite covers 5 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §14:
+  - 14.1 Key Entry on Login — New Device (simulates new device by clearing localStorage keys)
+  - 14.2 Deferred Key Entry (skipping key entry, app remains usable)
+  - 14.3 Wrong Key Entry (validates error handling for incorrect keys)
+  - 14.4 Lost Key Flow (checks for lost key guidance UI)
+  - Bonus: Key Persistence After Browser Refresh (verifies key persists across page refresh)
+
+**Files created:**
+- `e2e/tests/14-key-management.spec.ts` (by previous agent)
+
+**Test results:**
+```
+Running 5 tests using 1 worker
+  ✓ 14.1 Key Entry on Login — New Device (53.5s)
+  ✓ 14.2 Deferred Key Entry (37.8s)
+  ✓ 14.3 Wrong Key Entry (39.1s)
+  ✓ 14.4 Lost Key Flow (34.5s)
+  ✓ Bonus: Key Persistence After Browser Refresh (46.4s)
+5 passed (3.7m)
+```
+
+**Key learnings:**
+- Simulating "new device" requires clearing localStorage keys matching `yappr:pf:*`, `encryptionKey`, `privateKey`, `pathKey`, `_ek_`, `secure_ek`
+- The private feed settings page shows "Enter Encryption Key" button when keys are missing from session
+- Wrong key entry shows inline error message and allows retry without closing the modal
+- Key persistence across browser refresh works correctly (session storage used, not just memory)
+- The app remains usable for public features when encryption key is not entered (deferred entry pattern)
+- No explicit "Lost key" link found in the encryption key modal, but help text exists
