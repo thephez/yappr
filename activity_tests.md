@@ -3727,3 +3727,67 @@ To fully verify Test 7.2 in future:
    - Subsequent post decryption uses updated keys
 
 Note: The catch-up mechanism itself was verified working in E2E Test 7.1 during decryption. Test 7.2 specifically tests the *proactive* background sync on app load.
+
+---
+
+## 2026-01-19: E2E Test 12.1 - Private Feed Badge on Profile (COMPLETED)
+
+### Task
+Test E2E 12.1: Verify that users with private feed enabled show "Has Private Feed 🔒" badge on their profile (PRD §4.9)
+
+### Status
+**PASSED** - Private Feed badge correctly displays on profile for users with enabled private feed
+
+### Test Definition (from E2E Plan)
+
+**Preconditions:**
+- `@owner` has private feed enabled
+
+**Steps:**
+1. Any user views `@owner`'s profile
+
+**Expected Results:**
+- Badge visible: "Has Private Feed 🔒"
+- Indicates private content is available
+
+### Test Steps Executed
+
+1. **Logged in as different user (Identity 2)** - ✅
+   - Identity: 6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n
+   - Session restored from prior test state
+
+2. **Navigated to owner's profile** - ✅
+   - URL: `/user/?id=9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+   - Profile loaded showing "Test User 1" with 12 posts
+
+3. **Verified Private Feed badge displays** - ✅
+   - Badge visible next to identity ID: "🔒 Private Feed"
+   - Lock icon (🔒) displayed before "Private Feed" text
+   - Badge positioned next to truncated identity ID "9qRC7aPC...jCT8v2"
+
+4. **Verified additional profile elements** - ✅
+   - "Following" button visible (user is following the owner)
+   - "Request Access" button visible (not yet a private follower)
+   - Posts visible with 🔒 indicator for private posts
+   - Teaser post visible: "Check out this exclusive behind-the-scenes content! 🎬 Only my private followers can see the full story..."
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Badge visible: "Has Private Feed 🔒" | "🔒 Private Feed" badge shown | ✅ |
+| Indicates private content is available | Badge clearly visible alongside identity ID | ✅ |
+| Badge visible to any user | Confirmed - visible when logged in as different user | ✅ |
+
+### Key Observations
+1. **Badge placement**: The "Private Feed" badge appears immediately after the identity ID, making it prominently visible
+2. **Icon consistency**: Uses the same lock icon (🔒) as used for private posts in the feed
+3. **Non-follower view**: Even users who aren't private followers can see the badge, encouraging them to request access
+4. **Request Access integration**: The "Request Access" button is visible, providing a clear call-to-action
+
+### Screenshots
+- `screenshots/e2e-test12.1-private-feed-badge-on-profile.png` - Profile header showing Test User 1
+- `screenshots/e2e-test12.1-private-feed-badge-visible.png` - Profile showing "🔒 Private Feed" badge next to identity ID
+
+### Test Result
+**PASSED** - E2E Test 12.1 completed successfully. The Private Feed badge correctly displays on profiles for users with enabled private feed.
+

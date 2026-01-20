@@ -2001,3 +2001,24 @@ For Test 7.2, performed partial verification:
 - Documented that full verification requires re-establishing follower relationship
 
 The core mechanism was previously verified working in E2E Test 7.1 (catch-up during decryption), so the sync infrastructure is confirmed functional even without full E2E verification in this session.
+
+---
+
+## 2026-01-19: E2E Test 12.1 - Profile Indicators
+
+### Test Environment Notes
+
+1. **Session persistence helps testing** - The browser session persisting from prior tests meant identity 2 was already logged in, speeding up test execution
+2. **Dev server stability** - Initially encountered 404 errors for Next.js chunks indicating a corrupted dev server state; restarting with `pkill -f "next dev"` resolved the issue
+
+### UI Badge Implementation
+
+The "Private Feed" badge is implemented cleanly:
+- Uses consistent lock icon (🔒) 
+- Positioned next to identity ID for clear visibility
+- Does not require private follower status to see - visible to all users
+- Works as a discoverability feature for the private feed system
+
+### Test Simplicity
+
+Test 12.1 (Profile Badge) was a quick verification test - no complex multi-identity setup required. This is a good example of a P2 test that can be done quickly between more complex P0/P1 tests to build confidence in the feature.
