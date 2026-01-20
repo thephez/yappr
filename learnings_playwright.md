@@ -265,3 +265,69 @@ if (isApproved) {
 - Single test failures during identity lookup are often transient
 - If a test fails once but passes on retry, it's likely network-related
 - The 90s timeout with progressive intervals (1s, 2s, 5s, 10s) is sufficient for most cases
+
+---
+
+### 2026-01-20 - Encryption Key Modal During Approval
+
+**Issue:** Test 4.2 (Approve Request) failed because clicking "Approve" triggered an "Enter Encryption Key" modal instead of completing the approval.
+
+**Root Cause:** The private feed approval process requires the owner's encryption key to:
+1. Sync the private feed state from chain
+2. Encrypt the path keys for the new follower using ECIES
+
+If the encryption key is not stored in the session, the UI prompts for it before proceeding.
+
+**Resolution:** Added `handleEncryptionKeyModal()` helper function to detect and fill the modal:
+
+```typescript
+async function handleEncryptionKeyModal(page: Page, identity: { keys: { encryptionKey?: string } }): Promise<boolean> {
+  const modal = page.locator('[role="dialog"]');
+  if (!await modal.isVisible({ timeout: 3000 }).catch(() => false)) return false;
+
+  const isEncryptionModal = await page.getByText(/enter.*encryption.*key/i)
+    .isVisible({ timeout: 2000 }).catch(() => false);
+  if (!isEncryptionModal) return false;
+
+  // Fill in the encryption key
+  const keyInput = page.locator('input[type="password"]');
+  await keyInput.first().fill(identity.keys.encryptionKey);
+
+  const saveBtn = page.locator('button').filter({ hasText: /save|confirm/i });
+  await saveBtn.first().click();
+  await page.waitForTimeout(3000);
+  return true;
+}
+```
+
+**Tips:**
+- Always check for encryption key modal after operations that modify private feed state (approve, revoke)
+- The modal has title "Enter Encryption Key" and an input for hex key
+- After handling the modal, you may need to re-click the action button
+- Test identities must have `encryptionKey` property in their `keys` object
+
+---
+
+### 2026-01-20 - Private Feed Settings Page Structure
+
+**Issue:** Needed to understand how to interact with the Private Feed Settings page for approval tests.
+
+**Finding:** The Private Feed Settings page (`/settings?section=privateFeed`) has multiple sections:
+1. **PrivateFeedDashboard** - Shows stats (followers count, pending, posts), epoch usage, and recent activity
+2. **PrivateFeedFollowRequests** - List of pending requests with Approve/Ignore buttons
+3. **PrivateFeedFollowers** - List of approved followers with Revoke buttons
+
+**Key selectors:**
+- Dashboard card: `text=Your Private Feed`
+- Requests section: `text=Private Feed Requests`
+- Followers section: `text=Private Followers`
+- Approve button: `button:has-text("Approve")`
+- Ignore button: `button:has-text("Ignore")`
+- Revoke button: `button:has-text("Revoke")`
+- Stats numbers: `.text-2xl.font-bold`
+
+**Tips:**
+- Sections load async - wait for data with 5s+ timeout
+- Request cards show user avatar, name, username, and timestamp
+- Ignore just removes from UI, request stays on-chain
+- Dashboard has "View Requests" and "Manage Followers" quick action buttons

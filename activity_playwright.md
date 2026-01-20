@@ -37,7 +37,7 @@ Track implementation progress against e2e_prd.md phases.
 - [x] 01-enable-private-feed.spec.ts
 - [x] 02-compose-private-post.spec.ts
 - [x] 03-request-access.spec.ts
-- [ ] 04-approve-follower.spec.ts
+- [x] 04-approve-follower.spec.ts
 - [ ] 05-view-private-posts.spec.ts
 - [ ] 06-revocation.spec.ts
 - [ ] 07-key-catchup.spec.ts
@@ -181,3 +181,38 @@ Running 4 tests using 1 worker
 - The profile page shows follower/following counts in button text (e.g., "0 Following", "4 Followers")
 - Tests use `test.skip()` with descriptive messages when preconditions aren't met due to persistent state
 - Identity lookup can occasionally time out on slow network - the 90s timeout with retry intervals helps
+
+### 2026-01-20 - 04-approve-follower.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/04-approve-follower.spec.ts` test suite
+- Implemented 6 test scenarios based on YAPPR_PRIVATE_FEED_E2E_TESTS.md §4:
+  - 4.1 View Pending Requests - Navigate to settings and view pending requests list
+  - 4.2 Approve Request - Happy Path - Click approve for a pending request
+  - 4.3 Ignore Request - Click ignore for a request (dismisses from UI)
+  - 4.4 Approve from Notification - Navigate from notification to settings page
+  - 4.5 FollowRequest Cleanup After Approval - Verify follower sees approved state
+  - 4.6 Dashboard Updates After Approval - Check dashboard stats and recent activity
+
+**Files created:**
+- `e2e/tests/04-approve-follower.spec.ts`
+
+**Test results:**
+```
+Running 6 tests using 1 worker
+  ✓ 4.1 View Pending Requests (30.4s)
+  - 4.2 Approve Request - Happy Path (skipped - follower1 already approved)
+  ✓ 4.3 Ignore Request (29.0s)
+  ✓ 4.4 Approve from Notification (31.4s)
+  ✓ 4.5 FollowRequest Cleanup After Approval (27.4s)
+  ✓ 4.6 Dashboard Updates After Approval (27.6s)
+1 skipped, 5 passed (2.6m)
+```
+
+**Key learnings:**
+- The approval process may trigger an "Enter Encryption Key" modal when the private feed state needs syncing
+- Added `handleEncryptionKeyModal()` helper to detect and fill the encryption key modal
+- Private Feed Requests UI uses `PrivateFeedFollowRequests` component with Approve/Ignore buttons
+- The notification for private feed requests links to settings page, not inline approve
+- Dashboard stats are in styled cards with `.text-2xl.font-bold` class for numbers
+- Tests track approval state via `isPrivateFollowerOf` property in identity JSON files
