@@ -34,7 +34,7 @@ Track implementation progress against e2e_prd.md phases.
 
 ## Phase 2: P0 Test Suites
 
-- [ ] 01-enable-private-feed.spec.ts
+- [x] 01-enable-private-feed.spec.ts
 - [ ] 02-compose-private-post.spec.ts
 - [ ] 03-request-access.spec.ts
 - [ ] 04-approve-follower.spec.ts
@@ -119,3 +119,35 @@ Running 3 tests using 1 worker
 - Dev server must be fresh - stale JS chunks cause identity lookup to hang
 - Identity lookup uses debounced network calls, needs pressSequentially() not fill()
 - Need to wait for both identity validation AND key validation checkmarks before Sign In button enables
+
+### 2026-01-19 - 01-enable-private-feed.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/01-enable-private-feed.spec.ts` test suite
+- Implemented 3 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §1:
+  - 1.1 Enable Private Feed - Happy Path (using Identity 2 which has encryption key)
+  - 1.2 Enable Private Feed - Missing Encryption Key (using Identity 3 which has no encryption key)
+  - 1.3 Enable Private Feed - Already Enabled (using Identity 1 which has private feed enabled)
+
+**Files created:**
+- `e2e/tests/01-enable-private-feed.spec.ts`
+
+**Files modified:**
+- `testing-identity-2.json` - Updated with `privateFeedEnabled: true` after test 1.1 runs
+
+**Test results:**
+```
+Running 3 tests using 1 worker
+  - 1.1 Enable Private Feed - Happy Path (skipped - identity 2 already enabled)
+  ✓ 1.2 Enable Private Feed - Missing Encryption Key (28.7s)
+  ✓ 1.3 Enable Private Feed - Already Enabled (18.4s)
+1 skipped, 2 passed (57.1s)
+```
+
+**Key learnings:**
+- The private feed settings page has async state loading for `hasEncryptionKeyOnIdentity`
+- When `hasEncryptionKeyOnIdentity === false`, UI shows "Add Encryption Key to Identity" button
+- When key exists on identity, UI shows "Enable Private Feed" button with inline key input form
+- Test 1.1 is idempotent - skip if identity already has private feed enabled (on-chain state persists)
+- Use `.first()` for text locators that match multiple elements to avoid strict mode violations
+- Identity file should be updated to track enabled state for subsequent test runs

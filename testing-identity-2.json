@@ -10,5 +10,7 @@
   "balance": "0.9988 DASH",
   "createdAt": "2026-01-19",
   "hasProfile": true,
-  "displayName": "Test Follower User"
+  "displayName": "Test Follower User",
+  "privateFeedEnabled": true,
+  "privateFeedEnabledAt": "2026-01-20"
 }

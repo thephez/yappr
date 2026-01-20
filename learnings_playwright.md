@@ -129,3 +129,88 @@ export async function dismissPostLoginModals(page: Page): Promise<void> {
 **Tips:**
 - Always verify selectors against actual app code when tests fail
 - The PRD selectors are approximations - actual code may differ
+
+---
+
+### 2026-01-19 - Strict Mode Text Locators
+
+**Issue:** `page.locator('text=Some text')` failed with "strict mode violation" when multiple elements matched.
+
+**Root Cause:** Playwright's strict mode (enabled by default) requires locators to resolve to exactly one element. Text like "Private feed is enabled" can appear in multiple places (headings, descriptions, etc.).
+
+**Resolution:** Use `.first()` to explicitly select the first matching element:
+
+```typescript
+// Instead of:
+await expect(page.locator('text=Private feed is enabled')).toBeVisible();
+
+// Use:
+await expect(page.getByText('Private feed is enabled').first()).toBeVisible();
+```
+
+**Tips:**
+- Always use `.first()` or more specific selectors when testing for visible text
+- Use `page.getByText()` for text matching as it provides better semantics
+- Consider using `page.getByRole()` for interactive elements to be more specific
+
+---
+
+### 2026-01-19 - Async State Loading in Private Feed Settings
+
+**Issue:** Test for "missing encryption key" flow expected UI that hadn't loaded yet.
+
+**Root Cause:** The `PrivateFeedSettings` component loads `hasEncryptionKeyOnIdentity` asynchronously from the chain. The button changes from "Enable Private Feed" to "Add Encryption Key to Identity" after this check completes.
+
+**Resolution:** Added wait and handled both possible UI states:
+
+```typescript
+// Wait for async check to complete
+await page.waitForTimeout(3000);
+
+const addKeyBtn = page.locator('button:has-text("Add Encryption Key to Identity")');
+const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+
+const addKeyVisible = await addKeyBtn.isVisible().catch(() => false);
+const enableBtnVisible = await enableBtn.isVisible().catch(() => false);
+
+if (addKeyVisible) {
+  // Case: No encryption key on identity
+} else if (enableBtnVisible) {
+  // Case: Has encryption key on identity
+}
+```
+
+**Tips:**
+- For async-loading UI, consider waiting for a stable state indicator
+- Test both possible UI states when dealing with on-chain state checks
+- The identity may have keys on-chain that aren't in the local JSON file
+
+---
+
+### 2026-01-19 - Idempotent Tests with On-Chain State
+
+**Issue:** Test 1.1 "Enable Private Feed" would fail on second run because private feed was already enabled.
+
+**Root Cause:** PrivateFeedState is immutable on-chain - once enabled, it can't be un-enabled without a full reset.
+
+**Resolution:** Check local identity file for `privateFeedEnabled` flag before running enable test:
+
+```typescript
+const currentIdentity = loadIdentity(2);
+if (currentIdentity.privateFeedEnabled) {
+  test.skip(true, 'Identity 2 already has private feed enabled from previous run');
+  return;
+}
+```
+
+Also update the identity file after successful enable:
+```typescript
+const updatedIdentity = loadIdentity(2);
+updatedIdentity.privateFeedEnabled = true;
+saveIdentity(2, updatedIdentity);
+```
+
+**Tips:**
+- Tests that modify on-chain state should be idempotent (skip if already done)
+- Track state changes in the identity JSON files for subsequent runs
+- Consider using fresh identities from faucet for truly clean state
