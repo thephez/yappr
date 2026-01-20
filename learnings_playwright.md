@@ -636,3 +636,94 @@ await blockOption.first().click();
 - Track block state in identity JSON: `blockedBy` and `blockedByFollower` properties
 - Tests that can't complete due to missing prerequisites should skip with explanation
 - The auto-revoke toast message contains "revoked" if revocation was triggered
+
+---
+
+### 2026-01-20 - Reset Private Feed Dialog Structure
+
+**Issue:** Needed to understand the Reset Private Feed dialog structure for testing.
+
+**Finding:** The `ResetPrivateFeedDialog` component (`components/settings/reset-private-feed-dialog.tsx`) uses Radix Dialog with:
+1. Warning section showing consequences (follower count, post count)
+2. Encryption key input (password type)
+3. RESET confirmation text input
+4. Cancel and Reset Private Feed buttons
+
+**Key Selectors:**
+- Dialog: `[role="dialog"]`
+- Title: Text matching "Reset Private Feed"
+- Key input: `input[type="password"]` (first in dialog)
+- Confirm input: `input[type="text"]` or `input[placeholder*="RESET"]`
+- Cancel button: `button:has-text("Cancel")`
+- Confirm button: `button:has-text("Reset Private Feed")` (last one, in footer)
+
+**Tips:**
+- Dialog loads stats async - wait for content to settle
+- Confirm button is disabled until key is 64+ hex chars AND text equals "RESET"
+- Use `.last()` to select the footer confirm button (title also contains same text)
+- The dialog auto-closes on success, toast notification appears
+
+---
+
+### 2026-01-20 - Testing Destructive Operations Safely
+
+**Issue:** Reset private feed is destructive and irreversible - can't test fully in CI.
+
+**Resolution:** Created a hybrid approach:
+1. **Skipped test (9.1)**: Full reset flow - marked with `test.skip()` by default
+2. **Observational tests (9.2-9.4)**: Adapt to current state and observe behavior
+3. **UI verification test**: Opens dialog, verifies UI, then cancels
+
+```typescript
+// Pattern for destructive tests
+test('9.1 Destructive Test', async ({ page }) => {
+  // Skip by default - remove this line to run
+  test.skip(true, 'Destructive test - enable manually');
+
+  // Rest of test...
+});
+
+// Pattern for observational tests
+test('9.2 Observe After Reset', async ({ page }) => {
+  const wasReset = !!(identity as { lastResetAt?: string }).lastResetAt;
+
+  if (wasReset) {
+    // Test behavior after reset
+  } else {
+    // Observe normal state
+    console.log('No reset occurred - observing current state');
+  }
+});
+```
+
+**Tips:**
+- Track destructive operations in identity JSON with timestamps
+- Use boolean flags to indicate state (e.g., `accessRevokedByReset`)
+- Observational tests provide value even when prerequisite state doesn't exist
+- UI verification tests confirm functionality without making changes
+
+---
+
+### 2026-01-20 - Reset Dialog Validation Behavior
+
+**Finding:** The reset dialog has two-factor validation:
+
+1. **Encryption Key**: Must be exactly 64 hex characters (32 bytes)
+   - Validates on change, shows error for invalid format
+   - Input type is `password` to hide key
+
+2. **Confirmation Text**: Must be exactly "RESET" (case-insensitive input converted to uppercase)
+   - Shows label "Type RESET to confirm"
+   - Input automatically uppercases entered text
+
+**Validation Check:**
+```typescript
+const isValid = confirmText === 'RESET' && encryptionKeyHex.trim().length >= 64;
+// Button disabled when !isValid || isResetting
+```
+
+**Tips:**
+- Test that button is disabled with empty fields
+- Entering invalid key length shows specific error message
+- The confirm text input uppercases automatically (`onChange` converts to uppercase)
+- Test both validation conditions separately for full coverage

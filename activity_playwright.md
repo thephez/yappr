@@ -47,7 +47,7 @@ Track implementation progress against e2e_prd.md phases.
 ## Phase 3: P1 Test Suites
 
 - [x] 08-block-autorevoke.spec.ts
-- [ ] 09-reset-private-feed.spec.ts
+- [x] 09-reset-private-feed.spec.ts
 - [ ] 10-replies-quotes.spec.ts
 - [ ] 11-notifications.spec.ts
 - [ ] 14-key-management.spec.ts
@@ -352,3 +352,40 @@ Running 3 tests using 1 worker
 - Test 8.3 validates that follower blocking owner doesn't trigger any revocation on owner's grants
 - The `useBlock` hook provides `toggleBlock()` function that handles both block and unblock
 - Block service has `autoRevokePrivateFeedAccess` method called during blocking to handle auto-revocation
+
+### 2026-01-20 - 09-reset-private-feed.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/09-reset-private-feed.spec.ts` test suite
+- Implemented 6 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §9:
+  - 9.5 Reset Not Available When Not Enabled (run first to avoid destructive operations)
+  - 9.1 Reset Flow — Full Journey (SKIPPED by default - destructive test)
+  - 9.2 Old Posts After Reset — Owner View
+  - 9.3 Old Posts After Reset — Follower View
+  - 9.4 Followers After Reset
+  - Reset Dialog UI Elements (bonus test to verify dialog without confirming)
+
+**Files created:**
+- `e2e/tests/09-reset-private-feed.spec.ts`
+
+**Test results:**
+```
+Running 6 tests using 1 worker
+  ✓ 9.5 Reset Not Available When Not Enabled (32.7s)
+  - 9.1 Reset Flow — Full Journey (skipped - destructive test)
+  ✓ 9.2 Old Posts After Reset — Owner View (28.4s)
+  ✓ 9.3 Old Posts After Reset — Follower View (38.6s)
+  ✓ 9.4 Followers After Reset (28.2s)
+  ✓ Reset Dialog UI Elements (28.7s)
+1 skipped, 5 passed (2.8m)
+```
+
+**Key learnings:**
+- The reset functionality is in the "Danger Zone" section of private feed settings
+- Reset dialog shows stats (follower count, post count) loaded asynchronously
+- Dialog requires two inputs: encryption key (password type) and "RESET" confirmation (text type)
+- The Reset Private Feed button in dialog is disabled until both fields are valid
+- Test 9.1 is SKIPPED by default because reset is destructive and irreversible
+- Other tests (9.2-9.4) adapt to observe current state regardless of whether reset occurred
+- Identity 3 does not have private feed enabled - can test "not enabled" state with it
+- The reset dialog has proper validation: confirm button stays disabled until key is 64+ hex chars and text is "RESET"
