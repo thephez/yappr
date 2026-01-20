@@ -2783,3 +2783,74 @@ Updated all user-facing text in `components/auth/add-encryption-key-modal.tsx` t
 **FIXED** - BUG-015 resolved. Users will now see clear messaging that MASTER key is required for identity modifications.
 
 ---
+
+## 2026-01-19: E2E Test 10.1 - Private Reply to Public Post (BUG FOUND)
+
+### Task
+Test E2E 10.1: Private Reply to Public Post (PRD §5.5)
+
+### Status
+**BLOCKED** - BUG-016 discovered: Visibility selector hidden when replying, cannot create private replies
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (Test User 1) logged in
+- Private feed enabled
+- User has a public post ("Test post after SDK upgrade fix v2!")
+- Encryption key stored in session
+
+### Test Steps Executed
+1. **Navigate to public post** - ✅
+   - URL: `/post/?id=DqL9BjouLa952DAWobGqyEHtr2vN7egMgJXuYAUGgZzE`
+   - Post content: "Test post after SDK upgrade fix v2!"
+   - Post is PUBLIC (no encryption indicators)
+
+2. **Click "Post your reply" button** - ✅
+   - Reply dialog opened correctly
+   - Shows "Replying to Test User 1"
+   - Text input area is available
+
+3. **Look for visibility selector** - ❌ **NOT FOUND**
+   - No visibility selector (Public/Private/Private with Teaser) is shown
+   - Dialog only contains: header, "Replying to" indicator, text area, formatting toolbar
+   - Cannot select "Private" visibility for the reply
+
+### Bug Found
+**BUG-016: Visibility selector hidden when replying - cannot create private replies to public posts**
+
+Per PRD §5.5:
+> "A private post can reply to a public post"
+> - The reply appears in the thread, but non-followers see teaser/locked state
+> - Uses the replier's own feed CEK (normal private post behavior)
+
+The current implementation hides the visibility selector for ALL replies, when it should only be hidden when replying to a PRIVATE post (where encryption is inherited).
+
+**Root Cause:** In `components/compose/compose-modal.tsx` line 1051:
+```typescript
+{!replyingTo && hasPrivateFeed && (
+  <VisibilitySelector ...
+```
+
+The condition `!replyingTo` prevents the visibility selector from appearing for any reply, regardless of whether the parent post is public or private.
+
+**Correct Logic:**
+- Show visibility selector when replying to a PUBLIC post (user can choose public/private)
+- Hide visibility selector when replying to a PRIVATE post (inherits parent's encryption automatically)
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Click reply on public post | Reply dialog opened | ✅ |
+| Select "Private" visibility | No visibility selector available | ❌ |
+| Enter reply content | Text area available | ✅ |
+| Post reply with own CEK | Cannot test - no private option | ❌ |
+
+### Screenshots
+- `screenshots/e2e-test10.1-bug016-no-visibility-selector.png` - Reply dialog without visibility selector
+
+### Test Result
+**BLOCKED** - BUG-016 prevents completion of Test 10.1. Bug report filed in bugs.md.
+
+### Re-test Required
+- [ ] E2E Test 10.1: Private Reply to Public Post (after BUG-016 is fixed)
+
+---

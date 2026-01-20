@@ -1552,3 +1552,45 @@ The fix involved adding conditional rendering based on notification type within 
 
 40. **Keep UI text in sync with SDK requirements** - When SDK security models change (like only accepting MASTER keys), update all user-facing copy to match. Users shouldn't have to discover through trial and error that their CRITICAL key won't work.
 
+
+---
+
+## 2026-01-19: Reply Compose Modal - Visibility Selector Behavior
+
+### Issue: Visibility Selector Hidden for Replies
+
+**Context:** When testing E2E Test 10.1 (Private Reply to Public Post), discovered that the compose modal does not show visibility options when replying.
+
+**Investigation:**
+1. Opened reply dialog on a public post
+2. Noticed no visibility selector was displayed
+3. Searched codebase for visibility selector logic
+4. Found in `components/compose/compose-modal.tsx` line 1051:
+   ```typescript
+   {!replyingTo && hasPrivateFeed && (
+     <VisibilitySelector ...
+   ```
+
+**Analysis:**
+The condition `!replyingTo` was likely added to support the inherited encryption feature (PRD §5.5) where replies to private posts automatically inherit the parent's encryption. However, this logic is overly broad - it hides the selector for ALL replies, not just replies to private posts.
+
+**PRD Requirements (§5.5):**
+- Private replies to public posts ARE allowed
+- User should be able to choose visibility when replying to public posts
+- Only when replying to private posts should the encryption be inherited (no visibility choice)
+
+**Correct Implementation Pattern:**
+```typescript
+// Show visibility selector when:
+// 1. Creating a new post (!replyingTo)
+// 2. Replying to a PUBLIC post (user can choose visibility)
+// 
+// Hide when replying to a PRIVATE post (inherited encryption)
+const shouldShowVisibilitySelector = hasPrivateFeed && (
+  !replyingTo || (replyingTo && !isPrivatePost(replyingTo))
+);
+```
+
+**Lesson:** When implementing conditional UI elements, be careful to handle all edge cases. The inheritance logic for private replies is correct, but it needs to be applied specifically to private parent posts, not all parent posts.
+
+**Filed as BUG-016 in bugs.md**

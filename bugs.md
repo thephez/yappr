@@ -2,7 +2,57 @@
 
 ## Active Bugs
 
-(No active bugs)
+### BUG-016: Visibility selector hidden when replying - cannot create private replies to public posts
+
+**Status:** ACTIVE
+
+**Description:** The compose modal does not show the visibility selector when creating a reply. This prevents users from creating private replies to public posts, which is explicitly allowed by PRD §5.5.
+
+**Observed Behavior:**
+- User opens reply dialog on a public post
+- Reply compose dialog shows only the text input area
+- No visibility selector (Public/Private/Private with Teaser) is available
+- User can only create a public reply
+
+**Expected Behavior (per PRD §5.5):**
+- "A private post can reply to a public post"
+- User should be able to select "Private" visibility when replying to a public post
+- The reply would be encrypted with the replier's own feed CEK
+- Non-followers see the locked/teaser state; private followers see the decrypted reply
+
+**Root Cause:**
+In `components/compose/compose-modal.tsx` line 1051:
+```typescript
+{!replyingTo && hasPrivateFeed && (
+  <VisibilitySelector ...
+```
+
+The condition `!replyingTo` hides the visibility selector for ALL replies, when it should only be hidden for replies that inherit encryption from a private parent post.
+
+**Correct Logic Should Be:**
+- Show visibility selector when replying to a PUBLIC post (user can choose public/private)
+- Hide visibility selector when replying to a PRIVATE post (inherits parent's encryption automatically)
+
+**Impact:** E2E Test 10.1 (Private Reply to Public Post) cannot be completed.
+
+**Files to Modify:**
+- `components/compose/compose-modal.tsx` - Change condition to check if parent is private, not just if replying
+
+**Suggested Fix:**
+```typescript
+// Show visibility selector when:
+// 1. Not replying (new post)
+// 2. Replying to a PUBLIC post (user can choose visibility)
+// Hide when replying to a PRIVATE post (inherited encryption)
+{(!replyingTo || !isPrivatePost(replyingTo)) && hasPrivateFeed && (
+  <VisibilitySelector ...
+```
+
+**Screenshot:** N/A - UI simply doesn't show the selector
+
+**Discovered During:** E2E Test 10.1 - Private Reply to Public Post
+
+**Date Discovered:** 2026-01-19
 
 ---
 
