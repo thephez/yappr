@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth.fixture';
-import { goToPrivateFeedSettings, waitForToast } from '../helpers/navigation.helpers';
+import { goToPrivateFeedSettings } from '../helpers/navigation.helpers';
+import { waitForToast } from '../helpers/wait.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { markPrivateFeedEnabled, isPrivateFeedEnabled } from '../test-data/test-state';
 

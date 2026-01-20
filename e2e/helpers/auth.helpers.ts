@@ -127,35 +127,9 @@ export async function loginWithKey(
 // Re-export for backwards compatibility with any code importing from auth.helpers
 export { dismissPostLoginModals } from './modal.helpers';
 
-/**
- * Enter encryption key when prompted by the application
- * This is used after login when the app requests the encryption key
- */
-export async function enterEncryptionKey(page: Page, encryptionKey: string): Promise<void> {
-  // Wait for the encryption key modal/dialog
-  const keyInput = page.locator('input[type="password"]').filter({
-    hasText: /encryption/i
-  }).or(page.locator('input[placeholder*="encryption key" i]'))
-    .or(page.locator('input[placeholder*="Enter your key" i]'));
-
-  // If a modal appears for encryption key entry, fill it
-  const modal = page.locator('[role="dialog"]');
-  if (await modal.isVisible({ timeout: 5000 }).catch(() => false)) {
-    const passwordInputs = modal.locator('input[type="password"]');
-    if (await passwordInputs.count() > 0) {
-      await passwordInputs.first().fill(encryptionKey);
-
-      // Look for confirm/submit button
-      const confirmBtn = modal.locator('button:has-text("Confirm")').or(
-        modal.locator('button:has-text("Submit")')
-      ).or(modal.locator('button:has-text("Enter")'));
-
-      if (await confirmBtn.isVisible()) {
-        await confirmBtn.click();
-      }
-    }
-  }
-}
+// handleEncryptionKeyModal is the canonical encryption key handler
+// Re-export for backwards compatibility
+export { handleEncryptionKeyModal } from './modal.helpers';
 
 /**
  * Check if currently logged in

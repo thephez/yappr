@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth.fixture';
-import { goToProfile, goToHome, waitForToast } from '../helpers/navigation.helpers';
+import { goToProfile, goToHome } from '../helpers/navigation.helpers';
+import { waitForToast } from '../helpers/wait.helpers';
 import { loadIdentity } from '../test-data/identities';
 
 /**

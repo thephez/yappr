@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth.fixture';
-import { goToSettings, goToNotifications, goToProfile, waitForToast } from '../helpers/navigation.helpers';
+import { goToSettings, goToNotifications, goToProfile } from '../helpers/navigation.helpers';
+import { waitForToast } from '../helpers/wait.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 import { markAsPrivateFollower, getIdentityState } from '../test-data/test-state';

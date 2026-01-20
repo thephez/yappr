@@ -1,5 +1,6 @@
 import { Page, expect } from '@playwright/test';
-import { goToPrivateFeedSettings, openComposeModal, waitForToast, goToProfile } from './navigation.helpers';
+import { goToPrivateFeedSettings, openComposeModal, goToProfile } from './navigation.helpers';
+import { waitForToast } from './wait.helpers';
 
 /**
  * Enable private feed for the current user

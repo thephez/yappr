@@ -1,5 +1,6 @@
 import { test, expect } from '../fixtures/auth.fixture';
-import { goToHome, openComposeModal, waitForToast, goToSearch } from '../helpers/navigation.helpers';
+import { goToHome, openComposeModal, goToSearch } from '../helpers/navigation.helpers';
+import { waitForToast } from '../helpers/wait.helpers';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 
 /**

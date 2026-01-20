@@ -129,28 +129,6 @@ export async function closeModal(page: Page): Promise<void> {
 }
 
 /**
- * Wait for a toast notification
- */
-export async function waitForToast(page: Page, text?: string): Promise<void> {
-  const toastSelector = '[role="alert"]';
-
-  if (text) {
-    await expect(page.locator(toastSelector).filter({ hasText: text })).toBeVisible({
-      timeout: 30000,
-    });
-  } else {
-    await expect(page.locator(toastSelector)).toBeVisible({ timeout: 30000 });
-  }
-}
-
-/**
- * Wait for a toast to disappear
- */
-export async function waitForToastToDisappear(page: Page): Promise<void> {
-  await expect(page.locator('[role="alert"]')).not.toBeVisible({ timeout: 10000 });
-}
-
-/**
  * Check if on a specific page
  */
 export async function isOnPage(page: Page, path: string): Promise<boolean> {
