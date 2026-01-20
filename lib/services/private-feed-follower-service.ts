@@ -27,7 +27,7 @@ import { privateFeedService } from './private-feed-service';
 import type { PrivateFeedRekeyDocument } from './private-feed-service';
 import type { NodeKey } from './private-feed-crypto-service';
 import { YAPPR_CONTRACT_ID, DOCUMENT_TYPES } from '../constants';
-import { queryDocuments } from './sdk-helpers';
+import { queryDocuments, identifierToBase58 } from './sdk-helpers';
 import { hkdf } from '@noble/hashes/hkdf.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 
@@ -366,7 +366,8 @@ class PrivateFeedFollowerService {
         $id: doc.$id as string,
         $ownerId: doc.$ownerId as string,
         $createdAt: doc.$createdAt as number,
-        recipientId: doc.recipientId as string,
+        // Convert recipientId from base64 bytes (SDK format) to base58 string (identity ID format)
+        recipientId: identifierToBase58(doc.recipientId) || '',
         leafIndex: doc.leafIndex as number,
         epoch: doc.epoch as number,
         encryptedPayload: this.normalizeBytes(doc.encryptedPayload),

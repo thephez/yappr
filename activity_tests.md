@@ -2158,3 +2158,59 @@ Test E2E 3.2: Request Access — Not Following First (PRD §4.7)
 **PASSED** - E2E Test 3.2 completed successfully
 
 ---
+
+## 2026-01-19: BUG-012 Fix - Private Feed Followers Incorrect User IDs
+
+### Task
+Fix BUG-012: Private Feed settings page shows incorrect (base64) user IDs for followers instead of proper base58 identity IDs
+
+### Status
+**FIXED** - Followers now display with correct base58 identity IDs and links work correctly
+
+### Root Cause Analysis
+The `getPrivateFollowers()` function in `private-feed-service.ts` and `getGrant()` in `private-feed-follower-service.ts` were directly casting `doc.recipientId` to string:
+
+```typescript
+// Before (incorrect):
+recipientId: doc.recipientId as string,  // Returns base64 like "fqo6OUtPAVlsnOP0YYxOfhgZNxUZHJ5VsG6yUUrUCZo="
+```
+
+The SDK returns byte array fields (marked with `contentMediaType: "application/x.dash.dpp.identifier"` in the contract) as base64-encoded strings via `toJSON()`. However, identity IDs should be displayed as base58 strings for user-facing URLs and displays.
+
+### Solution Applied
+Used the existing `identifierToBase58()` helper from `sdk-helpers.ts` to properly convert the base64 bytes to base58:
+
+```typescript
+// After (correct):
+import { queryDocuments, identifierToBase58 } from './sdk-helpers';
+
+// In getPrivateFollowers() and getGrant():
+recipientId: identifierToBase58(doc.recipientId) || '',  // Returns base58 like "6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n"
+```
+
+### Files Modified
+- `lib/services/private-feed-service.ts` - Added `identifierToBase58` import, used in `getPrivateFollowers()` method
+- `lib/services/private-feed-follower-service.ts` - Added `identifierToBase58` import, used in `getGrant()` method
+
+### Verification
+1. **Build and lint passed** - No errors or new warnings
+2. **Playwright test confirmed**:
+   - Logged in as owner identity (9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2)
+   - Navigated to Private Feed settings
+   - Private Followers list shows:
+     - "Test Follower User" → `/user/?id=6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n` ✅
+     - "Testing User 1 @maybetestprivfeed3.dash" → `/user/?id=FxtXkNLNQZBVArmM26V2dpHSA8A1HtcBKo3VDpmVoCDs` ✅
+   - Clicked on follower link, profile page loaded correctly
+
+### Screenshots
+- `screenshots/bug012-fix-private-followers-correct-ids.png` - Private Feed settings page showing 2 followers
+- `screenshots/bug012-fix-private-followers-list.png` - Dashboard and Recent Activity
+- `screenshots/bug012-fix-private-followers-correct-links.png` - Private Followers list with correct names and Revoke buttons
+
+### Test Result
+**FIXED** - BUG-012 resolved. Private Feed followers now display with correct base58 identity IDs.
+
+### Re-test Required
+- None - Bug fix verified via Playwright testing
+
+---

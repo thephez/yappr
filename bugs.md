@@ -2,21 +2,47 @@
 
 ## Active Bugs
 
-### BUG-012: followers listed in Private Feed page is incorrect
+*No active bugs*
 
-**Status:** OPEN
+---
+
+## Resolved Bugs
+
+### BUG-012: followers listed in Private Feed page is incorrect (RESOLVED)
+
+**Status:** RESOLVED
 
 **Description:** The Private Feed settings page correctly detects 2 followers but displays incorrect user IDs when linking to their profiles.
 
 **Observed Behavior:**
-- Links point to: `fqo6OUtPAVlsnOP0YYxOfhgZNxUZHJ5VsG6yUUrUCZo=` and `QjTG2D1fnUuJt1Fxe5jWtrfPzpZsd2Hw8kW7WKE3UPY=`
+- Links pointed to base64 encoded strings like: `fqo6OUtPAVlsnOP0YYxOfhgZNxUZHJ5VsG6yUUrUCZo=`
 
 **Expected Behavior:**
-- Links should point to: `5TSasoJ1gF1ZKcpBC8zgEyvWCj4duVvdYRM4vTufhpn9` and `9XSvMdaxxpBNb5EmPDZjRn86j5xgcqgEoqnq3x4q3QLZ`
+- Links should point to base58 identity IDs like: `6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n`
 
-**Impact:** Users cannot navigate to the correct profile pages for their private followers.
+**Root Cause:** The `getPrivateFollowers()` function in `private-feed-service.ts` and `getGrant()` in `private-feed-follower-service.ts` were directly casting `doc.recipientId` to string without converting from base64 (SDK format) to base58 (identity ID format).
 
-**Possible Root Cause:** The `recipientId` field in `PrivateFeedGrant` documents may be stored/displayed incorrectly, or there's a data encoding issue (base64 vs base58).
+The SDK returns byte array fields like `recipientId` as base64-encoded strings via `toJSON()`, but identity IDs should be displayed as base58 strings for user-facing URLs and displays.
+
+**Fix Applied:**
+```typescript
+// Changed from:
+recipientId: doc.recipientId as string,
+
+// To:
+recipientId: identifierToBase58(doc.recipientId) || '',
+```
+
+**Files Modified:**
+- `lib/services/private-feed-service.ts` - Added `identifierToBase58` import and used it in `getPrivateFollowers()`
+- `lib/services/private-feed-follower-service.ts` - Added `identifierToBase58` import and used it in `getGrant()`
+
+**Verification:**
+- Private Followers list now correctly shows user profiles with proper base58 identity IDs
+- Links navigate to correct user profiles: `/user/?id=6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n`
+- Screenshot: `screenshots/bug012-fix-private-followers-correct-links.png`
+
+**Date Resolved:** 2026-01-19
 
 ---
 
@@ -87,8 +113,6 @@ After the fix:
 **Note:** There may still be stale test data on-chain from prior testing sessions causing leafIndex conflicts. This is not a code bug but a test data issue.
 
 **Date Resolved:** 2026-01-19
-
-## Resolved Bugs
 
 ### BUG-011: Owner cannot decrypt their own private posts when local feed keys are missing (RESOLVED)
 

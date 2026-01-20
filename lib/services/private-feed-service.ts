@@ -26,7 +26,7 @@ import {
 import { privateFeedKeyStore } from './private-feed-key-store';
 import { privateFeedNotificationService } from './private-feed-notification-service';
 import { YAPPR_CONTRACT_ID, DOCUMENT_TYPES } from '../constants';
-import { queryDocuments } from './sdk-helpers';
+import { queryDocuments, identifierToBase58 } from './sdk-helpers';
 
 // Max plaintext size per SPEC §7.5.1 (999 bytes to leave room for version prefix)
 const MAX_PLAINTEXT_SIZE = 999;
@@ -1082,7 +1082,8 @@ class PrivateFeedService {
       });
 
       return documents.map((doc) => ({
-        recipientId: doc.recipientId as string,
+        // Convert recipientId from base64 bytes (SDK format) to base58 string (identity ID format)
+        recipientId: identifierToBase58(doc.recipientId) || '',
         leafIndex: doc.leafIndex as number,
         grantedAt: doc.$createdAt as number,
       }));

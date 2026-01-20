@@ -1249,3 +1249,67 @@ Document network-dependent tests as "BLOCKED" and re-test when testnet is stable
 ### Best Practices Updates
 
 25. **Test gating logic for sensitive features** - Features like private feed access may have prerequisites (e.g., must follow first). Always verify the gating logic is enforced correctly in the UI.
+
+---
+
+## 2026-01-19: BUG-012 Fix - SDK Identifier Encoding
+
+### Issue 72: SDK Returns Byte Array Fields as Base64 (BUG-012 - FIXED)
+**Problem:** The Private Feed followers page displayed incorrect user IDs like `fqo6OUtPAVlsnOP0YYxOfhgZNxUZHJ5VsG6yUUrUCZo=` instead of proper base58 identity IDs like `6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n`.
+
+**Root Cause:** The Dash Platform SDK's `toJSON()` method returns byte array fields (those with `contentMediaType: "application/x.dash.dpp.identifier"` in the contract) as **base64-encoded strings**, not base58 identity IDs. The code was directly casting these values to strings:
+
+```typescript
+// Incorrect:
+recipientId: doc.recipientId as string,  // Gets base64
+```
+
+**Solution:** Use the existing `identifierToBase58()` helper which handles the conversion:
+
+```typescript
+// Correct:
+recipientId: identifierToBase58(doc.recipientId) || '',  // Gets base58
+```
+
+**Key Insight:** The `sdk-helpers.ts` module already has comprehensive identifier conversion utilities that handle:
+- Base64 strings (SDK v3 byte array format)
+- Base58 strings (identity ID format)
+- Hex strings (64 chars = 32 bytes)
+- Uint8Array
+- Number arrays (from JSON serialization)
+- SDK Identifier objects (with `toBuffer()` or `bytes`)
+
+**Lesson:** When working with identity-related fields from SDK documents (like `recipientId`, `targetId`, `followingId`, etc.), ALWAYS use `identifierToBase58()` to convert to the display format. Direct string casting will give you base64, not base58.
+
+### Issue 73: Pattern for Handling SDK Identifier Fields
+**Observation:** The codebase has a consistent pattern for handling identifier fields, but it wasn't applied everywhere:
+
+**Pattern 1: Using `transformDocumentWithField()`** (for simple documents)
+```typescript
+// sdk-helpers.ts provides this for documents with a single identifier field
+return transformDocumentWithField<LikeDocument>(doc, 'postId', 'like-service');
+```
+
+**Pattern 2: Manual conversion with `identifierToBase58()`** (for complex documents)
+```typescript
+return {
+  $id: doc.$id as string,
+  $ownerId: doc.$ownerId as string,
+  recipientId: identifierToBase58(doc.recipientId) || '',  // Convert!
+  // ... other fields
+};
+```
+
+**Lesson:** When adding new document types or queries that include identifier fields:
+1. Check if `transformDocumentWithField()` can be used
+2. If manual mapping is needed, use `identifierToBase58()` for ALL identifier byte array fields
+3. Grep the codebase for `as string` near field names that end in `Id` to find potential issues
+
+### Best Practices Updates
+
+26. **Always use `identifierToBase58()` for SDK identifier fields** - The SDK returns byte arrays as base64, but identity IDs should be displayed as base58.
+
+27. **Audit new document queries** - When adding queries for document types with identifier fields (like `recipientId`, `targetId`, `followingId`), ensure proper conversion.
+
+28. **Use existing helper patterns** - The codebase has established patterns in `sdk-helpers.ts`. Check existing implementations before writing new document mapping code.
+
