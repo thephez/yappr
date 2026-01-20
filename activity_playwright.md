@@ -38,7 +38,7 @@ Track implementation progress against e2e_prd.md phases.
 - [x] 02-compose-private-post.spec.ts
 - [x] 03-request-access.spec.ts
 - [x] 04-approve-follower.spec.ts
-- [ ] 05-view-private-posts.spec.ts
+- [x] 05-view-private-posts.spec.ts
 - [ ] 06-revocation.spec.ts
 - [ ] 07-key-catchup.spec.ts
 
@@ -216,3 +216,42 @@ Running 6 tests using 1 worker
 - The notification for private feed requests links to settings page, not inline approve
 - Dashboard stats are in styled cards with `.text-2xl.font-bold` class for numbers
 - Tests track approval state via `isPrivateFollowerOf` property in identity JSON files
+
+### 2026-01-20 - 05-view-private-posts.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/05-view-private-posts.spec.ts` test suite
+- Implemented 7 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §5:
+  - 5.1 View as Non-Follower — No Teaser
+  - 5.2 View as Non-Follower — With Teaser
+  - 5.3 View as Non-Follower — Pending Request
+  - 5.4 View as Approved Follower — Decryption Success
+  - 5.5 View as Owner
+  - 5.6 Decryption Loading States
+  - 5.7 Decryption Failure Handling
+
+**Files created:**
+- `e2e/tests/05-view-private-posts.spec.ts`
+
+**Test results:**
+```
+Running 7 tests using 1 worker
+  ✓ 5.1 View as Non-Follower — No Teaser (32.6s)
+  ✓ 5.2 View as Non-Follower — With Teaser (28.5s)
+  ✓ 5.3 View as Non-Follower — Pending Request (30.5s)
+  ✓ 5.4 View as Approved Follower — Decryption Success (32.0s)
+  ✓ 5.5 View as Owner (31.1s)
+  ✓ 5.6 Decryption Loading States (29.0s)
+  ✓ 5.7 Decryption Failure Handling (38.8s)
+7 passed (3.9m)
+```
+
+**Key learnings:**
+- The "Private Feed" badge on owner's profile shows to everyone (indicates owner has private feed)
+- "Private Follower" indicator would show the VIEWER has approved access (different from the badge)
+- Non-followers see "encrypted" indicators in post content when viewing locked posts
+- Teaser content in posts is visible to all users even without decryption
+- The encryption key modal appears when cached keys are missing and user needs to sync state
+- Clearing localStorage `yappr:pf:*` keys simulates key cache corruption for failure testing
+- Loading spinners (`svg.animate-spin`) appear during async decryption operations
+- When decryption fails, content shows as locked with option to recover by re-entering key
