@@ -24,7 +24,32 @@
     .subtitle {
       color: #888;
       font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-cards {
+      display: flex;
+      gap: 1rem;
       margin-bottom: 2rem;
+    }
+    .summary-card {
+      background: #141414;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      min-width: 140px;
+    }
+    .summary-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-value.posts { color: #3b82f6; }
+    .summary-value.users { color: #22c55e; }
+    .summary-label {
+      font-size: 0.75rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     .charts {
       display: grid;
@@ -266,8 +291,19 @@
   </style>
 </head>
 <body>
-  <h1>Yappr Daily Statistics</h1>
+  <h1>Yappr Statistics</h1>
   <div class="subtitle" id="last-updated"></div>
+
+  <div class="summary-cards">
+    <div class="summary-card">
+      <div class="summary-value posts" id="total-posts">-</div>
+      <div class="summary-label">Total Posts</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value users" id="total-users">-</div>
+      <div class="summary-label">Total Users</div>
+    </div>
+  </div>
 
   <div class="charts">
     <div class="chart-container">
@@ -402,15 +438,18 @@
           content.innerHTML = '<div class="no-items">No posts on this day</div>';
           return;
         }
-        content.innerHTML = '<div class="item-list">' + posts.map(p => `
+        content.innerHTML = '<div class="item-list">' + posts.map(p => {
+          const authorName = userNames[p.ownerId] || truncateId(p.ownerId);
+          return `
           <a class="item-link" href="https://yap.pr/post/?id=${p.id}" target="_blank" rel="noopener">
             <div class="item-card">
               <div class="item-meta">${formatTime(p.createdAt)}</div>
               <div class="item-content">${escapeHtml(p.content || '(no content)')}</div>
-              <div class="item-owner">by ${truncateId(p.ownerId)}</div>
+              <div class="item-owner">by ${escapeHtml(authorName)}</div>
             </div>
           </a>
-        `).join('') + '</div>';
+        `;
+        }).join('') + '</div>';
       } else {
         const users = currentDay.userList || [];
         if (!users.length) {
@@ -497,9 +536,25 @@
       .map(([date, stats]) => ({ date, ...stats }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    // Build ownerId -> displayName lookup from all userLists
+    const userNames = {};
+    days.forEach(d => {
+      (d.userList || []).forEach(u => {
+        if (u.ownerId && u.displayName) {
+          userNames[u.ownerId] = u.displayName;
+        }
+      });
+    });
+
+    // Compute totals
+    const totalPosts = days.reduce((sum, d) => sum + (d.posts || 0), 0);
+    const totalUsers = days.reduce((sum, d) => sum + (d.newUsers || 0), 0);
+
     // Render
     document.getElementById('last-updated').textContent =
       DATA.lastUpdated ? `Last updated: ${formatDateTime(DATA.lastUpdated)}` : '';
+    document.getElementById('total-posts').textContent = totalPosts.toLocaleString();
+    document.getElementById('total-users').textContent = totalUsers.toLocaleString();
 
     renderChart('posts-chart', days, 'posts', 'posts', 'posts');
     renderChart('users-chart', days, 'newUsers', 'users', 'users');

@@ -24,7 +24,32 @@
     .subtitle {
       color: #888;
       font-size: 0.875rem;
+      margin-bottom: 1.5rem;
+    }
+    .summary-cards {
+      display: flex;
+      gap: 1rem;
       margin-bottom: 2rem;
+    }
+    .summary-card {
+      background: #141414;
+      border-radius: 8px;
+      padding: 1rem 1.5rem;
+      min-width: 140px;
+    }
+    .summary-value {
+      font-size: 2rem;
+      font-weight: 700;
+      color: #fff;
+      font-variant-numeric: tabular-nums;
+    }
+    .summary-value.posts { color: #3b82f6; }
+    .summary-value.users { color: #22c55e; }
+    .summary-label {
+      font-size: 0.75rem;
+      color: #888;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
     }
     .charts {
       display: grid;
@@ -266,8 +291,19 @@
   </style>
 </head>
 <body>
-  <h1>Yappr Daily Statistics</h1>
+  <h1>Yappr Statistics</h1>
   <div class="subtitle" id="last-updated"></div>
+
+  <div class="summary-cards">
+    <div class="summary-card">
+      <div class="summary-value posts" id="total-posts">-</div>
+      <div class="summary-label">Total Posts</div>
+    </div>
+    <div class="summary-card">
+      <div class="summary-value users" id="total-users">-</div>
+      <div class="summary-label">Total Users</div>
+    </div>
+  </div>
 
   <div class="charts">
     <div class="chart-container">
@@ -312,11 +348,11 @@
 
   <script>
     const DATA = {
-  "lastUpdated": "2026-01-20T19:03:09.489Z",
+  "lastUpdated": "2026-01-20T21:02:25.008Z",
   "contractId": "AyWK6nDVfb8d1ZmkM5MmZZrThbUyWyso1aMeGuuVSfxf",
   "days": {
     "2026-01-20": {
-      "posts": 28,
+      "posts": 29,
       "postList": [
         {
           "id": "Gzycpce5qrAkn82Ee3dnWp13cqX2SZg317eGYgTQ19NV",
@@ -485,18 +521,115 @@
           "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
           "content": "**Every decentralized system we need to rely on at scale needs its own built-in economy.**\n\nThis is ",
           "createdAt": 1768932811261
+        },
+        {
+          "id": "8pi3WTMQyK3C7gVJqZ34sAyd1wsBH646fLwZPZqzaUwL",
+          "ownerId": "B8NL8yQhromH5yntMhGdxKFrUo4WxowEDMPBTeiRXUUH",
+          "content": "Is this the way threads work on X?  It just shows it as you replying to your own posts?  (excuse my ",
+          "createdAt": 1768939140165
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T19:03:09.489Z"
+      "newUsers": 18,
+      "userList": [
+        {
+          "ownerId": "4DkK1KwzUGAMuWPa2VGb4ygosfkK8cLUEBNLTE13XJ6U",
+          "displayName": "New Private feed",
+          "createdAt": 1768870563166
+        },
+        {
+          "ownerId": "EJRctNXwqAZXZNUo8mrPNWs81AtpcZDKN9x35Tw9i7ce",
+          "displayName": "Test priv feed",
+          "createdAt": 1768878297531
+        },
+        {
+          "ownerId": "FNrbCd3vd6uRQyuf1FtVkLnMLwiYjgBG4smdRfvF5UY5",
+          "displayName": "FNrbCd3v",
+          "createdAt": 1768891718379
+        },
+        {
+          "ownerId": "3d3LmzrCi5n3zXo57U57UYAfYEqeozYBd4wC9cgTVSmQ",
+          "displayName": "service",
+          "createdAt": 1768891795134
+        },
+        {
+          "ownerId": "CZECTVR3FaEm88HgTUq3ghpX6Gjp6stzrYnbrP4T8U3m",
+          "displayName": "CZECTVR3",
+          "createdAt": 1768891847940
+        },
+        {
+          "ownerId": "ArtzYRTp98zChTDmyYK6aAFBU8sEez7vF1XN5E6k1Wuw",
+          "displayName": "David",
+          "createdAt": 1768910337249
+        },
+        {
+          "ownerId": "7zQQxC942hZvd9q1rwz1dRF4zFrMHksERTM9bn2rBoar",
+          "displayName": "admin",
+          "createdAt": 1768910445732
+        },
+        {
+          "ownerId": "BUTUVCkzv1vEuFrUEXdKXkeaVkGbWcWfb5W54VQu5iba",
+          "displayName": "maria",
+          "createdAt": 1768910589234
+        },
+        {
+          "ownerId": "8CZbepv3cBNEnQiHSTVcnJQsNirvB41TG8Ehcs7415K6",
+          "displayName": "root",
+          "createdAt": 1768911407677
+        },
+        {
+          "ownerId": "EXdmAmLrYbyX5LyEX1v6RKW4oFRKYSB318SWTwHGq3gN",
+          "displayName": "EXdmAmLr.",
+          "createdAt": 1768918607040
+        },
+        {
+          "ownerId": "9fE3s9dCTX1PZDstU44a7zkxtFtb1jzCV61WaRXXEVag",
+          "displayName": "9fE3s9dC",
+          "createdAt": 1768918645250
+        },
+        {
+          "ownerId": "5GwKgvYkaBDda5kZdWuXVpj33XGUKvVgGdUv9yxjeLWz",
+          "displayName": "5GwKgvYk",
+          "createdAt": 1768918681879
+        },
+        {
+          "ownerId": "GdixYcWqFDsPNVsKnmC6Rabdtn89k4HfnwZcpDoLjbcX",
+          "displayName": "GdixYcWq",
+          "createdAt": 1768918720307
+        },
+        {
+          "ownerId": "2mod1Z3ZNJQpEmbHbEpmnUXvzJR78c3ngPJxRwLyC9gV",
+          "displayName": "2mod1Z3Z",
+          "createdAt": 1768918759597
+        },
+        {
+          "ownerId": "8yRPkk2oH9RHUQLeDETehv9P12vjHkBAGUxbKBthREFZ",
+          "displayName": "8yRPkk2o",
+          "createdAt": 1768918788991
+        },
+        {
+          "ownerId": "Go1Avnk1FNhzzzoHQtegWk7dkMpm8YB5ThASbjLzu7su",
+          "displayName": "Go1Avnk1",
+          "createdAt": 1768918822337
+        },
+        {
+          "ownerId": "HSabD48zCQHvTfNnBaMRKAnKoDmmtMk1uh7sWE5F8hGp",
+          "displayName": "HSabD48z",
+          "createdAt": 1768918873509
+        },
+        {
+          "ownerId": "514sxg6efHjNWHorXNe6Zb3dYoXaNxKxPmHJRsjSRodj",
+          "displayName": "514sxg6e",
+          "createdAt": 1768918904215
+        }
+      ],
+      "collectedAt": "2026-01-20T21:02:25.008Z"
     },
     "2025-12-31": {
       "posts": 0,
       "postList": [],
       "newUsers": 0,
       "userList": [],
-      "collectedAt": "2026-01-20T18:51:27.293Z"
+      "collectedAt": "2026-01-20T20:56:26.161Z"
     },
     "2026-01-01": {
       "posts": 7,
@@ -544,30 +677,9 @@
           "createdAt": 1767307478202
         }
       ],
-      "newUsers": 4,
-      "userList": [
-        {
-          "ownerId": "8kquAXFzHUB9CB23yT1fBFcMvDRFqfPm88y2KokF4Wmx",
-          "displayName": "Pasta Yappr Test",
-          "createdAt": 1767251715709
-        },
-        {
-          "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
-          "displayName": "Test Yappr Pasta",
-          "createdAt": 1767254104758
-        },
-        {
-          "ownerId": "AZ7YQpvFZ9nmZpexrWFUgVt1J3ToAr6pVNBxh3sXbWu8",
-          "displayName": "Secondary Test Account For Yappr Pasta",
-          "createdAt": 1767289031742
-        },
-        {
-          "ownerId": "4qyKd3F4fVZdv6Erj7bSP66VMuBDcrM3ckrhhKAqhmpM",
-          "displayName": "test",
-          "createdAt": 1767289944933
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:29.553Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:27.110Z"
     },
     "2026-01-02": {
       "posts": 12,
@@ -645,50 +757,9 @@
           "createdAt": 1767381571304
         }
       ],
-      "newUsers": 8,
-      "userList": [
-        {
-          "ownerId": "BRF7dy8DFHLX67CUuTCni2L72WLaGhRwLMwhTgzaenXq",
-          "displayName": "Test User 3",
-          "createdAt": 1767333147016
-        },
-        {
-          "ownerId": "AJB95HXCtNCLBFHUvvGaU1jXbxegLMwBM6Ep75Cvm9J7",
-          "displayName": "Test Yappr Account",
-          "createdAt": 1767336318964
-        },
-        {
-          "ownerId": "FagoALQ1TkdYtr9KfQaDexT4a3bfpu4y8TdSDdnnj3Uo",
-          "displayName": "Hello World",
-          "createdAt": 1767336890091
-        },
-        {
-          "ownerId": "8ZpGv9FpbGmvcPKq1mUzFgJP8nsRtAMCKEYzVPT6bhPV",
-          "displayName": "My Name",
-          "createdAt": 1767337295323
-        },
-        {
-          "ownerId": "GLFyDxwzoKBC1dr9HQYtrYCJfoDeNjm3JA2EGKZyjgn7",
-          "displayName": "Bas",
-          "createdAt": 1767357489217
-        },
-        {
-          "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
-          "displayName": "Lynxie Boy",
-          "createdAt": 1767381076687
-        },
-        {
-          "ownerId": "HgwhMXRk4xApV2i8wtUAxzaR9dwjVVDJpzEZDi2M6ELV",
-          "displayName": "Test Joel Not Joel",
-          "createdAt": 1767381390042
-        },
-        {
-          "ownerId": "E32KDzZ7LuzSm6g7DqDoPypTWnWJgBiFoRVAkZgSR2om",
-          "displayName": "Joel TestNot Joel",
-          "createdAt": 1767381521140
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:31.479Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:28.040Z"
     },
     "2026-01-03": {
       "posts": 6,
@@ -730,60 +801,9 @@
           "createdAt": 1767475574874
         }
       ],
-      "newUsers": 10,
-      "userList": [
-        {
-          "ownerId": "7R7GLLDf7dcV6eZ8byZdbcyziNg3NbJa5qNqH8EisJgV",
-          "displayName": "Test Profile",
-          "createdAt": 1767455746976
-        },
-        {
-          "ownerId": "5AtWqx56QGyg7nEUJT7uMpLf9vFQsjL4yYcPEEAoR9u6",
-          "displayName": "Tester Tester",
-          "createdAt": 1767463633540
-        },
-        {
-          "ownerId": "EJ537SPAqUrEpFD7v6uA2WracFsSB7vnJkZ6pnrZNJcX",
-          "displayName": "DM Test User 1",
-          "createdAt": 1767474169204
-        },
-        {
-          "ownerId": "BbAkuXDGe6T2s8srfSffHUwrrg5CBePiDdVFd7WSPjcu",
-          "displayName": "DM Test User 2",
-          "createdAt": 1767474194280
-        },
-        {
-          "ownerId": "9EfPwf3Y1dfqKhn4g31iedapnWKGL6KRtqAoqksLGmPf",
-          "displayName": "DM Testing",
-          "createdAt": 1767474774208
-        },
-        {
-          "ownerId": "7vvVKUFra7N6GejhwMaUBPrt53JePBc1gCPZdAPvicmG",
-          "displayName": "DM Test 3",
-          "createdAt": 1767474802121
-        },
-        {
-          "ownerId": "6h7uPUWjbLQPQQZ1mTKDuZyJ2Uwfe7kTUXdwnmsgziNe",
-          "displayName": "Test User 54",
-          "createdAt": 1767479884280
-        },
-        {
-          "ownerId": "EjyieJzswfJaRQbxPTou3UVSC6iLbLjXJFTxE1gBoJa8",
-          "displayName": "Test User Pw",
-          "createdAt": 1767481699132
-        },
-        {
-          "ownerId": "DxqTibCs1iLytVW7AnKwaixszoovwxRyHPfyXyARh8V5",
-          "displayName": "Test User 718",
-          "createdAt": 1767482066536
-        },
-        {
-          "ownerId": "H9g41gJ5oDVnSPhbmkHPLbd2Mk4YnMW6ubZjKDquQL7P",
-          "displayName": "Test User",
-          "createdAt": 1767482125007
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:33.524Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:28.959Z"
     },
     "2026-01-04": {
       "posts": 12,
@@ -863,7 +883,7 @@
       ],
       "newUsers": 0,
       "userList": [],
-      "collectedAt": "2026-01-20T18:51:36.808Z"
+      "collectedAt": "2026-01-20T20:56:29.870Z"
     },
     "2026-01-05": {
       "posts": 29,
@@ -1043,40 +1063,9 @@
           "createdAt": 1767651451585
         }
       ],
-      "newUsers": 6,
-      "userList": [
-        {
-          "ownerId": "D7sevq8t6Ya2pLqyUmMpcnEQbX3jF4RWVjguasY4RT35",
-          "displayName": "Testing 315",
-          "createdAt": 1767630836541
-        },
-        {
-          "ownerId": "CKbgpYutFNUNoURk429sh7hJxuDaoH1RGBUKHFpfwxvt",
-          "displayName": "Not A Pasta",
-          "createdAt": 1767631873591
-        },
-        {
-          "ownerId": "A5FSgVxWqnALWKqRpLktLH282JnGAJqu6XrLf1Wfmjbc",
-          "displayName": "Hello World Test User 817",
-          "createdAt": 1767632046761
-        },
-        {
-          "ownerId": "84E64kL58BykKmbiWaHduy2mRTXLEm2zjXUdAiw6ue2Q",
-          "displayName": "DigitalGoldTalk",
-          "createdAt": 1767638904312
-        },
-        {
-          "ownerId": "8gJURrAzAbir8WCZAMfFUjvYjybbdJT2AdamiFM5acYG",
-          "displayName": "splawik21",
-          "createdAt": 1767642988022
-        },
-        {
-          "ownerId": "4ThTKv3FEHgFPfvwnKp4ysEJTAfK8st6Jc8ZmahGP5MX",
-          "displayName": "Test Profile Avatar",
-          "createdAt": 1767646006615
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:40.151Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:30.873Z"
     },
     "2026-01-06": {
       "posts": 21,
@@ -1208,20 +1197,9 @@
           "createdAt": 1767731755029
         }
       ],
-      "newUsers": 2,
-      "userList": [
-        {
-          "ownerId": "4VPNH3S1rpCryznciAPJgFYVhcx6YiTKqSPxvos9iris",
-          "displayName": "Pasta",
-          "createdAt": 1767676037998
-        },
-        {
-          "ownerId": "4yAFpjUS9acGY39AWCxze9QdjR1eoZ8jaMYTQYQxitvj",
-          "displayName": "<b>TipperTesting\\nHey</b>",
-          "createdAt": 1767720440031
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:42.033Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:31.809Z"
     },
     "2026-01-07": {
       "posts": 13,
@@ -1305,30 +1283,9 @@
           "createdAt": 1767817126462
         }
       ],
-      "newUsers": 4,
-      "userList": [
-        {
-          "ownerId": "13PBa1KURTkSmR3Fwz9fjF6jSFbHhBNXXBwmSx6gZp7W",
-          "displayName": "anarchiccluster",
-          "createdAt": 1767781532778
-        },
-        {
-          "ownerId": "1ANWBpRF4d2vGAcutZndCjzTZ1QZuBP7gKPax5vwAyA",
-          "displayName": "John Doe",
-          "createdAt": 1767795194732
-        },
-        {
-          "ownerId": "2DDnhBKGVBCtNGzponRjisVn3xo8GuLhLNufKSgAVmw5",
-          "displayName": "Ravenor",
-          "createdAt": 1767810293649
-        },
-        {
-          "ownerId": "5bm6q8tGgfNtNR5AC6j78PfTXrpYZn7ZqsXS8cSinmZv",
-          "displayName": "Not A Pasta",
-          "createdAt": 1767819671847
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:44.616Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:32.997Z"
     },
     "2026-01-08": {
       "posts": 30,
@@ -1514,35 +1471,9 @@
           "createdAt": 1767905573512
         }
       ],
-      "newUsers": 5,
-      "userList": [
-        {
-          "ownerId": "DdRGvPXeuUdfdeQ5xohjjEDy7BSiZRiHiwERhYzps75t",
-          "displayName": "Test User Test",
-          "createdAt": 1767883317014
-        },
-        {
-          "ownerId": "HGkJGMUfociwKnc6UQiXCMVLipxsd74SasRcWbA6aJ1D",
-          "displayName": "Test User 817",
-          "createdAt": 1767883598316
-        },
-        {
-          "ownerId": "EysmgsAN2KqFS7zRWwZwaN4uryFJKrcoHEE4Gam1VPWW",
-          "displayName": "Test Demo Account2",
-          "createdAt": 1767887857032
-        },
-        {
-          "ownerId": "3spiAGMjcMJfVo4mgrC6ypVh782GgnTCN4kPMcndtdfZ",
-          "displayName": "Mestor",
-          "createdAt": 1767894388847
-        },
-        {
-          "ownerId": "BempK7r97fgmaKEXx1RA7D6wLo1vEKmmghwTUmZTtVs8",
-          "displayName": "daf",
-          "createdAt": 1767903156857
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:46.923Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:34.007Z"
     },
     "2026-01-09": {
       "posts": 8,
@@ -1598,7 +1529,7 @@
       ],
       "newUsers": 0,
       "userList": [],
-      "collectedAt": "2026-01-20T18:51:50.592Z"
+      "collectedAt": "2026-01-20T20:56:34.948Z"
     },
     "2026-01-10": {
       "posts": 13,
@@ -1684,7 +1615,7 @@
       ],
       "newUsers": 0,
       "userList": [],
-      "collectedAt": "2026-01-20T18:51:52.460Z"
+      "collectedAt": "2026-01-20T20:56:35.880Z"
     },
     "2026-01-11": {
       "posts": 36,
@@ -1906,35 +1837,9 @@
           "createdAt": 1768171944631
         }
       ],
-      "newUsers": 5,
-      "userList": [
-        {
-          "ownerId": "4H2XhTheXZM6TeRkJSn9oXMBQZgZFNGMDQRgFXziTSxp",
-          "displayName": "Test Profile for Testing",
-          "createdAt": 1768105889182
-        },
-        {
-          "ownerId": "HNHCq3tDqLhECdtHsevyM7dDTVEKh95sSr5Zj9y5cajr",
-          "displayName": "Gaboudaboudi",
-          "createdAt": 1768126096814
-        },
-        {
-          "ownerId": "2nUduCWpN26xmBUmqHjYRbedPeqfynJ4h9TyD8nJcke8",
-          "displayName": "fd",
-          "createdAt": 1768161869344
-        },
-        {
-          "ownerId": "9Hah95qNfG9NgtGBXBoCRFoC2Bs7D9ZsySMtxMPxsHd2",
-          "displayName": "Dash Italia",
-          "createdAt": 1768165805801
-        },
-        {
-          "ownerId": "14u5aGdXy6CpC2EzSw6NV4TqvT5j8Kj2nVZvsZ4LBcMN",
-          "displayName": "Cryptowest ",
-          "createdAt": 1768171789563
-        }
-      ],
-      "collectedAt": "2026-01-20T18:51:54.780Z"
+      "newUsers": 0,
+      "userList": [],
+      "collectedAt": "2026-01-20T20:56:37.281Z"
     },
     "2026-01-12": {
       "posts": 111,
@@ -2606,15 +2511,125 @@
           "createdAt": 1768262231874
         }
       ],
-      "newUsers": 1,
+      "newUsers": 23,
       "userList": [
+        {
+          "ownerId": "6TzyNGeTCdXz8UyfRYTjMS5mWAVR4Pvq4UvcDQc6sHwo",
+          "displayName": "Test User",
+          "createdAt": 1768192631091
+        },
+        {
+          "ownerId": "4H2XhTheXZM6TeRkJSn9oXMBQZgZFNGMDQRgFXziTSxp",
+          "displayName": "Test Profile for Testing",
+          "createdAt": 1768194766592
+        },
+        {
+          "ownerId": "4prcMCcA4xyyvNmffAx9eKueqPqqE1aeRRLmNeZh6U1X",
+          "displayName": "Test user 13",
+          "createdAt": 1768194928138
+        },
+        {
+          "ownerId": "39HKdtAJPJBXTBs6QMdK1Qyff7Su1Vx7Nni46iuHtQFY",
+          "displayName": "Profile",
+          "createdAt": 1768196114296
+        },
+        {
+          "ownerId": "4VPNH3S1rpCryznciAPJgFYVhcx6YiTKqSPxvos9iris",
+          "displayName": "Pasta",
+          "createdAt": 1768197082502
+        },
+        {
+          "ownerId": "E46NuyTqWrCj1hnGN7gGdo4qCkwPdcNAN2poEZzYguzw",
+          "displayName": "Test Profile Name",
+          "createdAt": 1768198381975
+        },
         {
           "ownerId": "GS8HvEgKMzUhLDV6hY1h9kUrZ5xhMfcQ8EgdSxHyZp8j",
           "displayName": "Xkai 64-bit",
-          "createdAt": 1768186333348
+          "createdAt": 1768203268787
+        },
+        {
+          "ownerId": "BempK7r97fgmaKEXx1RA7D6wLo1vEKmmghwTUmZTtVs8",
+          "displayName": "daf",
+          "createdAt": 1768205741221
+        },
+        {
+          "ownerId": "8gJURrAzAbir8WCZAMfFUjvYjybbdJT2AdamiFM5acYG",
+          "displayName": "splawik21",
+          "createdAt": 1768209321023
+        },
+        {
+          "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
+          "displayName": "Lynxie Boy",
+          "createdAt": 1768224239427
+        },
+        {
+          "ownerId": "9Hah95qNfG9NgtGBXBoCRFoC2Bs7D9ZsySMtxMPxsHd2",
+          "displayName": "Dash Italia",
+          "createdAt": 1768224761495
+        },
+        {
+          "ownerId": "CKbgpYutFNUNoURk429sh7hJxuDaoH1RGBUKHFpfwxvt",
+          "displayName": "Not A Pasta",
+          "createdAt": 1768226089211
+        },
+        {
+          "ownerId": "BSC1J8ncBG85GEJvbYyh1GRJSnh8nLZMoK4rQodYNi57",
+          "displayName": "fruitsaladpanda",
+          "createdAt": 1768226425336
+        },
+        {
+          "ownerId": "7Jn6o2XUEgkdLAWN5Hor4Juat2ZkNSnqt39akD77iRqn",
+          "displayName": "TestUser",
+          "createdAt": 1768228919429
+        },
+        {
+          "ownerId": "qfW1Fy93P3An73oZyhfVELWKn9HTTUw7aL7vFGQYvfW",
+          "displayName": "Prethiv Nageswaran",
+          "createdAt": 1768230742215
+        },
+        {
+          "ownerId": "DsqWbcyhjzoZCbHu5JXDEzkjfDsbayz9P3TyTQo6fGz1",
+          "displayName": "BLAZE66",
+          "createdAt": 1768232813852
+        },
+        {
+          "ownerId": "3spiAGMjcMJfVo4mgrC6ypVh782GgnTCN4kPMcndtdfZ",
+          "displayName": "Mestor",
+          "createdAt": 1768239853538
+        },
+        {
+          "ownerId": "AGUwiQUFtYGT8SvREBSuxFKtMGbwhe6nxKMG7w7GHsqJ",
+          "displayName": "Benjamin J. Snider",
+          "createdAt": 1768245104345
+        },
+        {
+          "ownerId": "9V1bpqTdXPRX4RytaJuBB6B6TabkdXs6saHpWcbT9hTw",
+          "displayName": "Decentralized Creative",
+          "createdAt": 1768247935819
+        },
+        {
+          "ownerId": "7tftv5iDWJ2Q6wBJsrsqZL9rkX54oxqe3rusXX65ZGGf",
+          "displayName": "Benjamin J. Snider",
+          "createdAt": 1768250184213
+        },
+        {
+          "ownerId": "3TvXzxbW2w2zeaTwXjXyLwjjN9M3UXzYy8d1w4Gv272x",
+          "displayName": "Test Profile",
+          "createdAt": 1768255152074
+        },
+        {
+          "ownerId": "3fJZjmAsgXvAgLeVMgBqLoc9xB5BdPzy6wzjniqCZjJX",
+          "displayName": "Mender",
+          "createdAt": 1768261524236
+        },
+        {
+          "ownerId": "2NEeTYuEneTeyKtfx2TvVgSyaqVVrNc7XVzGGRkXYzo4",
+          "displayName": "Clarence",
+          "createdAt": 1768261680430
         }
       ],
-      "collectedAt": "2026-01-20T18:51:57.416Z"
+      "collectedAt": "2026-01-20T20:56:38.962Z"
     },
     "2026-01-13": {
       "posts": 179,
@@ -3694,9 +3709,110 @@
           "createdAt": 1768348303548
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:00.403Z"
+      "newUsers": 20,
+      "userList": [
+        {
+          "ownerId": "FdsY5zEVvfmaQPMmFHZz6NHjovGZeq8H4QBZjpwoRf59",
+          "displayName": "momo",
+          "createdAt": 1768267989172
+        },
+        {
+          "ownerId": "6qcCd14MRkTXjALEooEDboGAZcmbvjm2tcZBWfxsF9kB",
+          "displayName": "Bolugulung",
+          "createdAt": 1768304923433
+        },
+        {
+          "ownerId": "9Z6CpVP498mn17fKuphXaKhdWJZkW8Levd5PLNp64rt9",
+          "displayName": "Max",
+          "createdAt": 1768309659678
+        },
+        {
+          "ownerId": "BdANLh4E827icKZKUwSTuwW76ve5gQBimZ4D9npXgaHS",
+          "displayName": "DashRadar",
+          "createdAt": 1768311562854
+        },
+        {
+          "ownerId": "GLFyDxwzoKBC1dr9HQYtrYCJfoDeNjm3JA2EGKZyjgn7",
+          "displayName": "Bas",
+          "createdAt": 1768313344090
+        },
+        {
+          "ownerId": "5y2tZtXf7HfEvJNxbzdsCmGc9L4dEum1XKVuDtQhUCs4",
+          "displayName": "max1",
+          "createdAt": 1768314383355
+        },
+        {
+          "ownerId": "EEiMn2JDBc5UJ477b87rfGPF2QJJpGMpd6QeNPTqTwDE",
+          "displayName": "max2",
+          "createdAt": 1768314771706
+        },
+        {
+          "ownerId": "7DfgfHqhL8b49UYXQEk2fLhArEkiTHUbemzkXtyfLyhH",
+          "displayName": "max3",
+          "createdAt": 1768315038680
+        },
+        {
+          "ownerId": "Ap872taJcEu4FiuLCrSjMiHLSkcBFSBSCbVosAujChh",
+          "displayName": "max4",
+          "createdAt": 1768318599433
+        },
+        {
+          "ownerId": "Dzwq1saK2E7zkogs17FFP6rNRCRXjDNZxd4SGTJHviRC",
+          "displayName": "maxim",
+          "createdAt": 1768319694699
+        },
+        {
+          "ownerId": "hmV7SWSmhfBSk8C1KAHrtg5bDr7SgoXwco53HNMuXPP",
+          "displayName": "jyrikov",
+          "createdAt": 1768320322170
+        },
+        {
+          "ownerId": "9fTP7cuhm2yTG7mkNJrmDcJTe81dWEHQuQdknMUMnw9b",
+          "displayName": "Oleg",
+          "createdAt": 1768321662275
+        },
+        {
+          "ownerId": "FY28p2PpcaABKN6RBbfgSfUPaEhtbZdmhggNYqFcjs7K",
+          "displayName": "m63435545",
+          "createdAt": 1768322609259
+        },
+        {
+          "ownerId": "5EbE9YVTRxntEuKGAQ1DrzCFpigGJFgCF5puQBawTnsy",
+          "displayName": "nettobuy",
+          "createdAt": 1768323495213
+        },
+        {
+          "ownerId": "9AuxDDjr7RTspNBpyzgpYk3C1BfRRna3C75ogZuM7Brd",
+          "displayName": "12345",
+          "createdAt": 1768324538262
+        },
+        {
+          "ownerId": "J5ay4XpG3Pio2PM3zUB7rCUNvqYce4mCgnAiW5cs6BZq",
+          "displayName": "pay",
+          "createdAt": 1768326268577
+        },
+        {
+          "ownerId": "9juBE8tKjeigzCcrwN1JfjAb69Ayr218DcJhhJdoPhGZ",
+          "displayName": "VONNY",
+          "createdAt": 1768331884968
+        },
+        {
+          "ownerId": "tTNJ66ANPHJDZgt2f9qgPDb6eX6uTk4W9uAErrU2BTT",
+          "displayName": "Wilted Tomato",
+          "createdAt": 1768335989472
+        },
+        {
+          "ownerId": "CXRDFnsP7H3vKFVd1mRdqyQXH3BVpEsLNJVvETKDvZVw",
+          "displayName": "ozo",
+          "createdAt": 1768336211872
+        },
+        {
+          "ownerId": "B8NL8yQhromH5yntMhGdxKFrUo4WxowEDMPBTeiRXUUH",
+          "displayName": "Bridgewater",
+          "createdAt": 1768338127967
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:41.030Z"
     },
     "2026-01-14": {
       "posts": 102,
@@ -4314,9 +4430,155 @@
           "createdAt": 1768435099466
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:02.983Z"
+      "newUsers": 29,
+      "userList": [
+        {
+          "ownerId": "BedFKDmbgcXmbEMkx8M6se2GT51w92nNnNAtqTZdGhrV",
+          "displayName": "guru",
+          "createdAt": 1768355409545
+        },
+        {
+          "ownerId": "8miTBzGqAFH1BKAPZDSgx415XEtbLssYkcEGLT5GPaEm",
+          "displayName": "Dandy",
+          "createdAt": 1768382609769
+        },
+        {
+          "ownerId": "FdCsrBRdpWH7bd4UqFbTnkBc3pMxnG3oKiHwxyncM3bW",
+          "displayName": "usd",
+          "createdAt": 1768388419503
+        },
+        {
+          "ownerId": "7rXQobvekvfRMkUxJpza2TAzH411jJkkkU28tdF7CnQX",
+          "displayName": "btc",
+          "createdAt": 1768388747843
+        },
+        {
+          "ownerId": "55nFQ3F4Hpmt2Qa5XdEoWhrzRRQwV1pDuV1qsCaNXwP6",
+          "displayName": "Elon Musk",
+          "createdAt": 1768389205779
+        },
+        {
+          "ownerId": "554ZQe9kCWBLEBD6sBdUBGB1KMvHgEnhbXVZBkS5UvRd",
+          "displayName": "Dash",
+          "createdAt": 1768390241563
+        },
+        {
+          "ownerId": "FdPsad5Ay1uDbefxVNss4RCPrRXeDqJEPUfT1YZiByUw",
+          "displayName": "grok",
+          "createdAt": 1768391101236
+        },
+        {
+          "ownerId": "8khWJqyMNRVJTTAsmKjhN7MejfkhNrXiyCPXjNf1Yzy7",
+          "displayName": "malena",
+          "createdAt": 1768393935277
+        },
+        {
+          "ownerId": "7mT7fpuv9WnMejeJ8QjHpQJ8RzCttehRZ1XZjN4MwtZ7",
+          "displayName": "WLFI",
+          "createdAt": 1768394731850
+        },
+        {
+          "ownerId": "5V3XbYPWChd3uFKqqbbRrTK4Lbgxub7tJmdUdpQtF9gU",
+          "displayName": "Berkeley",
+          "createdAt": 1768395417934
+        },
+        {
+          "ownerId": "2jnC3mFfWiEk6Le9pdDk3FMwxm5veFbBkgkDfz2xdyYT",
+          "displayName": "cypherpunk",
+          "createdAt": 1768396234808
+        },
+        {
+          "ownerId": "HadTLB3THks344jQjMwUUJoFg1K7GEZ21pXpLgnWVNfW",
+          "displayName": "amazon",
+          "createdAt": 1768396747392
+        },
+        {
+          "ownerId": "BUbeoYBuy5FCWNvi4gRq2h1g8PArdykAsDW7cxNLwpUw",
+          "displayName": "gold",
+          "createdAt": 1768397726578
+        },
+        {
+          "ownerId": "7gKB55Z2XpHcCCiRWgvz8gFhKF4LnrhL7SQCQHbYN39D",
+          "displayName": "LinuxSilver",
+          "createdAt": 1768399668192
+        },
+        {
+          "ownerId": "CicE7ESBKe3tiG84gLy4hb2XHKHKwkExGCoj3FKN74LX",
+          "displayName": "Liechtenstein",
+          "createdAt": 1768399889380
+        },
+        {
+          "ownerId": "6K1ft9hgmcQTgRDdN11kzAEqfn1PhUtuhDgR5AenxGPg",
+          "displayName": "MAK",
+          "createdAt": 1768401033713
+        },
+        {
+          "ownerId": "8b3dM1wXgysPaVpZZdUHQjVB5KsLbVFSbL9eTGNL3Mct",
+          "displayName": "MAK",
+          "createdAt": 1768401579536
+        },
+        {
+          "ownerId": "AVLUPs7sKThPfZkHBdqSTUQsn9MSCRUYVxKGgQJxrQYE",
+          "displayName": "Profile",
+          "createdAt": 1768402948759
+        },
+        {
+          "ownerId": "2dkcBCFH36xKDoZ82RFYGRtHN9XuDvGS1J1178ts4uYr",
+          "displayName": "Yuriy",
+          "createdAt": 1768405404666
+        },
+        {
+          "ownerId": "J9EjAvLxDbmu6JDfQ7MFtFdUWfykNCzLwUiyAkPC6gPY",
+          "displayName": "Tatiana",
+          "createdAt": 1768406291736
+        },
+        {
+          "ownerId": "AqnwsGU4AQ35jEwFnL6MGu3Tfz54WdWnb4xQsDTxteTv",
+          "displayName": "Vlada",
+          "createdAt": 1768406699771
+        },
+        {
+          "ownerId": "EptsDhbMiHvdwodf4iAFut5v6pKffuJJ6v4R2ct3dvTN",
+          "displayName": "Elena",
+          "createdAt": 1768407621077
+        },
+        {
+          "ownerId": "Ua1MfNgDDsCLmAomZGbCxBdGFuS1S4XKxv7oR6v3Mey",
+          "displayName": "Irina",
+          "createdAt": 1768408462432
+        },
+        {
+          "ownerId": "EnknJktidZqbxCZG1i7hzfHhXYVqaZajur1TqsWPt4Xf",
+          "displayName": "EnknJktidZqbxCZG1i7hzfHhXYVqaZajur1TqsWPt4Xf",
+          "createdAt": 1768409367396
+        },
+        {
+          "ownerId": "7LhTaAdkomQPiHyBgnvCJmTRxTL9AwVUAavXx9Fn2RLn",
+          "displayName": "Sergei",
+          "createdAt": 1768410836151
+        },
+        {
+          "ownerId": "Ec2NoDUFtftMuYnydSLfjfkjCwafAyiVdwKZaghNj4wS",
+          "displayName": "Khal",
+          "createdAt": 1768411459805
+        },
+        {
+          "ownerId": "EusW7crX9PcKiwTKGSrVLet9YMMKUDbuMB5GRrerZZKK",
+          "displayName": "1001",
+          "createdAt": 1768412005378
+        },
+        {
+          "ownerId": "ENoeM5pVfnaGBymvfkeXbMcE1MyDb9UZWdtcMK7g2fb3",
+          "displayName": "1001",
+          "createdAt": 1768413814671
+        },
+        {
+          "ownerId": "5SfH7tKaM9h7hv2zqrygCenVjXLxNW4TuNeoJkaAAg3N",
+          "displayName": "PeteNStPete",
+          "createdAt": 1768418938852
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:42.862Z"
     },
     "2026-01-15": {
       "posts": 85,
@@ -4832,9 +5094,240 @@
           "createdAt": 1768515740660
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:04.984Z"
+      "newUsers": 46,
+      "userList": [
+        {
+          "ownerId": "8A1nh8WZfL8L5FfetY1yobaByiEj1AanW37mrcHCZfq6",
+          "displayName": "5th_Code",
+          "createdAt": 1768435251657
+        },
+        {
+          "ownerId": "Gwd2xh2maMxZMyFcefxHXHf6cuFoz13F6CjiKLS81J2L",
+          "displayName": "Banana420",
+          "createdAt": 1768437809050
+        },
+        {
+          "ownerId": "BoBQC1AkjhjKiENyBpdGunhzQhuKoo2wJ6pdEF4bHViD",
+          "displayName": "Yapper Always",
+          "createdAt": 1768446114160
+        },
+        {
+          "ownerId": "DNCBzBRH4j8ogj6LdndaFsGAiYYGmdx2PsPVve9aSw2U",
+          "displayName": "Ferro",
+          "createdAt": 1768458591347
+        },
+        {
+          "ownerId": "CyTG7EQQnRSNHVSXZXqgLQzYFot5bHWyc6ijEYQ3kePH",
+          "displayName": "USA",
+          "createdAt": 1768459684354
+        },
+        {
+          "ownerId": "JAAAViXroLWkzc5r7sJWoR6WPZCXxCwKLYSk9hgyaV6R",
+          "displayName": "Ludmila",
+          "createdAt": 1768462069440
+        },
+        {
+          "ownerId": "GkGYjjEAmPYHvRj7cjdYs4qWfo2hAbMbku5bHrU4NbX6",
+          "displayName": "Aleksandr",
+          "createdAt": 1768462821346
+        },
+        {
+          "ownerId": "4oVeCEk2Bse8Lv99mwqrNqKUYUaVjy9C2xUut9wJjYyk",
+          "displayName": "Maksim",
+          "createdAt": 1768463401153
+        },
+        {
+          "ownerId": "4VYPq7BjWQoXBTYHbx6XS2EXuWZCRpKdLRhqRtUnZ2dC",
+          "displayName": "Inna",
+          "createdAt": 1768467700340
+        },
+        {
+          "ownerId": "B1eSGia5NuLoMJHVGVhWPUsZNyT8rdZZSgmhdeYwHuLB",
+          "displayName": "SenfTEST",
+          "createdAt": 1768469814809
+        },
+        {
+          "ownerId": "9raWehpem58tcEqht4FCY4j54W5vNnywpU3tdMnmyUXB",
+          "displayName": "IRemmosss",
+          "createdAt": 1768472015688
+        },
+        {
+          "ownerId": "4cPH1mbD4CX8pTVoj6gja5fYmru79qEiyR6tCtkC4Mss",
+          "displayName": "Roman",
+          "createdAt": 1768472620683
+        },
+        {
+          "ownerId": "AxCujNHCtHhSxE1iuvmYtFyfxX6QyqzVP9bnJYmLBLBH",
+          "displayName": "Alena",
+          "createdAt": 1768474439636
+        },
+        {
+          "ownerId": "9Cr4fzY7v1K5ypP6zHiveau9jRKgNVcSzFos6hnvFjYn",
+          "displayName": "Olga",
+          "createdAt": 1768474653179
+        },
+        {
+          "ownerId": "5WcGqcZiGmKxY6nr8MWKVqZWRT6EQwNT3tXwweTNYHDy",
+          "displayName": "Svetlana",
+          "createdAt": 1768474829822
+        },
+        {
+          "ownerId": "9gNq5WjcVjzc3yjWLgrZJGFudjmyRXHR7tWF1ednGamY",
+          "displayName": "Pavel",
+          "createdAt": 1768474947368
+        },
+        {
+          "ownerId": "Fv8bUTyTdnUhAAkCcFrHpCutChqiVvpg1NByvPotbFup",
+          "displayName": "Bogdan",
+          "createdAt": 1768475169457
+        },
+        {
+          "ownerId": "8dcRDQnFEvdCJ923wniGRVQFVLBnyxPb8jPrhMnkAhH1",
+          "displayName": "Anastasia",
+          "createdAt": 1768475960743
+        },
+        {
+          "ownerId": "5nFfTZvqkXk7CVwWHkjfpw41PQB9JNhJCdu2bFtH5VpX",
+          "displayName": "Andrei",
+          "createdAt": 1768476675407
+        },
+        {
+          "ownerId": "J47Vz3kx7k2eWsAPpf3HdokVWE5tP99xzbio2wXPTCBZ",
+          "displayName": "Oksana",
+          "createdAt": 1768476800184
+        },
+        {
+          "ownerId": "FMed1p9R1Fv5yjKsvkYdQAmvvAWsh4x3aeNXQ6W3eXnx",
+          "displayName": "Vladimir",
+          "createdAt": 1768478509666
+        },
+        {
+          "ownerId": "8AjqUB6FuUEUDgtWGG5vLkQQnbeBGDWP8UqT4jzYSZg",
+          "displayName": "Yana",
+          "createdAt": 1768479997141
+        },
+        {
+          "ownerId": "vxpo7zz6SaS2YE52ydkYh6YsNK2Pm4NPW3q16MjcQcC",
+          "displayName": "Vadim",
+          "createdAt": 1768482336397
+        },
+        {
+          "ownerId": "3maepEroXBd4to3eVonxhLqZ5uMK424W1LQ2JE1NWJs3",
+          "displayName": "Nikolai",
+          "createdAt": 1768482957166
+        },
+        {
+          "ownerId": "H9EDKjDD11GXbWEx5mJLDWLzENZCmkTfc3HMhSYUDfDQ",
+          "displayName": "Ekaterina",
+          "createdAt": 1768483270647
+        },
+        {
+          "ownerId": "FccYdYqGjLhV7u1cyDQc3w7ngKz1aPBvJ9eqXvHzW6tP",
+          "displayName": "Dima",
+          "createdAt": 1768484404968
+        },
+        {
+          "ownerId": "C9m11LYCmPsbwdqYJ2ZyEYHbkCcJbmuxabuGJYiMBKAF",
+          "displayName": "Denis",
+          "createdAt": 1768485156096
+        },
+        {
+          "ownerId": "Gp4X3Q84Xt1TytN5zpjeeWiHVxhbRLzQfL3LNLYM7CJy",
+          "displayName": "Gennady",
+          "createdAt": 1768486262721
+        },
+        {
+          "ownerId": "3jrSdChSFXadizPvJTgDfC76HcWUoLET4hCtng7bHfY3",
+          "displayName": "niallon11",
+          "createdAt": 1768487003133
+        },
+        {
+          "ownerId": "2VBJjbBbCk2V6oNaq5aB4WhwqBR7L5GkXAL9NbJaRt6r",
+          "displayName": "Viktoria",
+          "createdAt": 1768487035391
+        },
+        {
+          "ownerId": "8F4sQP3eB68kWBLihKur3QJGCY91N2k5YiKZhAJKk8Lj",
+          "displayName": "Vika",
+          "createdAt": 1768487691861
+        },
+        {
+          "ownerId": "HitNQRnrJPfHVPfmSvtUYhjv2TyoA84ZAg8j1ZqHc9dk",
+          "displayName": "ETH",
+          "createdAt": 1768489038202
+        },
+        {
+          "ownerId": "4CY5R38vZgwjmuQ1mRegefwTS6tPKgoAPeaGn8fxaS5y",
+          "displayName": "Spicy",
+          "createdAt": 1768489667584
+        },
+        {
+          "ownerId": "3sLkgmxrNDX7BikjFakMSkJb2tpR6gA9wz9tExUH6qq8",
+          "displayName": "Universe",
+          "createdAt": 1768490305794
+        },
+        {
+          "ownerId": "HQwsTFQzy78Def8nPmoNu3H3qGqd9hGfwAtq45XJiusY",
+          "displayName": "Ethereum",
+          "createdAt": 1768490649152
+        },
+        {
+          "ownerId": "B6qGUkkb1TWmHypKLX8bMivVr1vMCTHFBNt7U7Ko3AEc",
+          "displayName": "World",
+          "createdAt": 1768490937584
+        },
+        {
+          "ownerId": "5PSJyXDRBy5Qo7fpMuk6aAKJL9F2Bwk5pN8gLdAJ1Vhs",
+          "displayName": "Anton",
+          "createdAt": 1768493313144
+        },
+        {
+          "ownerId": "Hf4RtYqV2D5vArsd8Ls19ybCZf5jzQdHkz4yLmzbUVvK",
+          "displayName": "Evgenia",
+          "createdAt": 1768494685171
+        },
+        {
+          "ownerId": "E4h1qsadxY9ovghc4tFqKKGbPtxfphkbZhoCb9YRDXaQ",
+          "displayName": "Vera",
+          "createdAt": 1768494928181
+        },
+        {
+          "ownerId": "72EHBgAsCRwG9FYhD1i7ReQiA5wny7W36E5JdVa4UBkn",
+          "displayName": "Alla",
+          "createdAt": 1768495686277
+        },
+        {
+          "ownerId": "5AJUX2cu7cxCviKEgFeEFoH3dLGo6f2qEWGxXpU7hKu5",
+          "displayName": "Ivan",
+          "createdAt": 1768495880350
+        },
+        {
+          "ownerId": "3puibGpsCuDZSGo4Rk8mMpnNWgZC9r12han6jau8ESrj",
+          "displayName": "Viktor",
+          "createdAt": 1768495993621
+        },
+        {
+          "ownerId": "3zSYVVUoNrhmHnitMiFc4FtZY7dTpsn5fvAiv5BZEed8",
+          "displayName": "TanteStefana",
+          "createdAt": 1768498596023
+        },
+        {
+          "ownerId": "H5MZfwLELurkviAJ8aZgtpz6skqEaLcy3mBMDhBYWBRJ",
+          "displayName": "Duff",
+          "createdAt": 1768506320248
+        },
+        {
+          "ownerId": "Hbfk1gZuuLhySV9xLhGdGLRPLuri3PEU1BvPSMYGkqgk",
+          "displayName": "Thumbs",
+          "createdAt": 1768509558385
+        },
+        {
+          "ownerId": "GfcFERSA6eSnippt5dZWfdsxgqafgS2jTR1dvNue7b9a",
+          "displayName": "Test mobile User",
+          "createdAt": 1768510435458
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:44.070Z"
     },
     "2026-01-16": {
       "posts": 51,
@@ -5146,9 +5639,405 @@
           "createdAt": 1768607730237
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:07.303Z"
+      "newUsers": 79,
+      "userList": [
+        {
+          "ownerId": "9EVSySJX4QLA4GWWUbW2SKuKy6NZuYGdPmjA6tXMpjVz",
+          "displayName": "Torino",
+          "createdAt": 1768522363364
+        },
+        {
+          "ownerId": "6H2QL3MBqeVoqHcUjn4m1z96VwPpMbZjBBwYZohPyYLT",
+          "displayName": "Sarix",
+          "createdAt": 1768523883774
+        },
+        {
+          "ownerId": "EysmgsAN2KqFS7zRWwZwaN4uryFJKrcoHEE4Gam1VPWW",
+          "displayName": "Test Demo Account2",
+          "createdAt": 1768534945435
+        },
+        {
+          "ownerId": "Hd2HnUS5kKp2bB6vs4gfHnZ7V3XipuajvAdmHqQtSweh",
+          "displayName": "Test user",
+          "createdAt": 1768536132007
+        },
+        {
+          "ownerId": "3VL2cfGtJnrxrDSwGihTEiGDPWqWCi3awk1XWZc8QMzn",
+          "displayName": "Larisa",
+          "createdAt": 1768546239780
+        },
+        {
+          "ownerId": "7Yohaqk7BWEkHPc8ndosCwPmvrvmqL4dHaRQYa7hBZV3",
+          "displayName": "Valera",
+          "createdAt": 1768547132434
+        },
+        {
+          "ownerId": "F7tqumodtrBDF1tNPruptuoWPoefz99CN6faURkR12GY",
+          "displayName": "Lida",
+          "createdAt": 1768548113800
+        },
+        {
+          "ownerId": "B1N62TjGaNDBf4yZY5t9VfTsgzoUWsQmGBV22tGt4XdD",
+          "displayName": "Maks",
+          "createdAt": 1768548428073
+        },
+        {
+          "ownerId": "BqRZeyq8vhxEwGz5z8BsVnn4wu9J9XrGq1GC5MRa5U93",
+          "displayName": "1234",
+          "createdAt": 1768556007870
+        },
+        {
+          "ownerId": "GpFXbac2we4SvYTYy3zKQygHdyLU9KEhspfDmzMPV1Su",
+          "displayName": "123456",
+          "createdAt": 1768556108123
+        },
+        {
+          "ownerId": "E4RdYVrsQbq5umRwei7W4wjPh3XpDjBqb9tkrp9QS3ih",
+          "displayName": "1234567",
+          "createdAt": 1768556249499
+        },
+        {
+          "ownerId": "6W5LMjeyzxocLmkCDgBoQV3Msd5WSfHk9oERqN5WmmAi",
+          "displayName": "12345678",
+          "createdAt": 1768556307442
+        },
+        {
+          "ownerId": "7BSDUHkpDjuLJ9y1DnfY991Ls29eiB67rHRSj2ZY8Bxb",
+          "displayName": "123456789",
+          "createdAt": 1768556376006
+        },
+        {
+          "ownerId": "4bb9tHPxv8n6BVufJ1dXt7BsG2d2VBZKt5NjUZ8umAMJ",
+          "displayName": "12345678910",
+          "createdAt": 1768556515907
+        },
+        {
+          "ownerId": "AzMPe1hxki1EdcUK9u4RhxzXbKe3CsK829xo8hRc7yHH",
+          "displayName": "1234567890",
+          "createdAt": 1768556586299
+        },
+        {
+          "ownerId": "7yaWEr4Bppi9crR4RnuU4Rhq5vQuXsDj9offnpo2gt4m",
+          "displayName": "4321",
+          "createdAt": 1768556700853
+        },
+        {
+          "ownerId": "2Lz1cNPpGaAhByPPJA11aiQeR3wXFDtawrFyUHBC5tSC",
+          "displayName": "54321",
+          "createdAt": 1768556778982
+        },
+        {
+          "ownerId": "6qKvxiWgyGdfUHmsn61YMiYMPiYBUYLav6QHJcgKKhfX",
+          "displayName": "654321",
+          "createdAt": 1768556841062
+        },
+        {
+          "ownerId": "FVxWs7huTDUeZRnjXRrLKy2Lq5mvHqq2z4dw1CcUexSb",
+          "displayName": "7654321",
+          "createdAt": 1768556987964
+        },
+        {
+          "ownerId": "2nKq86em2UnXfJLCegQK2JjdbJeSevww997wNk328whb",
+          "displayName": "87654321",
+          "createdAt": 1768557052243
+        },
+        {
+          "ownerId": "GwFEKBwzj21B4iT4e4tUYWJApdt66gLcEUZ3JGftnBPQ",
+          "displayName": "987654321",
+          "createdAt": 1768557150201
+        },
+        {
+          "ownerId": "5d3c7qwHdvTSuQYxNzRBtUB1v9TxjkNVtW2x1hew3caK",
+          "displayName": "0987654321",
+          "createdAt": 1768557240461
+        },
+        {
+          "ownerId": "8nWoYpuz1Po8cM2ZMDbaQixiiBTkMKtT85YjUrHRaan2",
+          "displayName": "10987654321",
+          "createdAt": 1768557316205
+        },
+        {
+          "ownerId": "6K6cmoWL5oCXeeAShbSsSDhtNnhMTo8j2zyhBpPELibL",
+          "displayName": "004",
+          "createdAt": 1768557388890
+        },
+        {
+          "ownerId": "5kbFyJm6f2yi8dwmXJsKXvWGQo4wimtsCiBBgAfGUqt3",
+          "displayName": "0001",
+          "createdAt": 1768557497115
+        },
+        {
+          "ownerId": "2eNCvR5fvC6TFEDUzku47ZG4VjA5BA4WA7SBMU3svs9C",
+          "displayName": "0002",
+          "createdAt": 1768557631645
+        },
+        {
+          "ownerId": "Dmg9frMWHzRheHS73aJSt5qhDTeetuwuz9gMeZU1Wb5A",
+          "displayName": "0003",
+          "createdAt": 1768558002720
+        },
+        {
+          "ownerId": "4bhbKpJ3bHvVgFzqhN6rw11LwfvhrUNJt3HWEfx9w5TU",
+          "displayName": "0010",
+          "createdAt": 1768558103886
+        },
+        {
+          "ownerId": "9vUabPWdNk7rgDUe5MxpKmdfZByAPTR4bFvP3KFt9Wna",
+          "displayName": "0011",
+          "createdAt": 1768558158405
+        },
+        {
+          "ownerId": "62656aj1Nk5xUiukfTKUHq9jEvqoaDRKKV8pWLGj3yZG",
+          "displayName": "0004",
+          "createdAt": 1768558290674
+        },
+        {
+          "ownerId": "Co4RR1qo5d6SCVm7nY4fjrA7kvhhmfZo8zyp9GcBGhoK",
+          "displayName": "0005",
+          "createdAt": 1768558361694
+        },
+        {
+          "ownerId": "3DGUhczxtCd86gPJwrPeWpTmK3x3radQZ7vpui5d4w5Q",
+          "displayName": "0006",
+          "createdAt": 1768558467424
+        },
+        {
+          "ownerId": "9RqLgSdGDAR68eijuqeEGVHJZCaHDDCtr4HihzQzyKKR",
+          "displayName": "7777",
+          "createdAt": 1768559526364
+        },
+        {
+          "ownerId": "DcqpHxwZumPsSLE19CVPUSPpSRTcerXrRoJQoNJeyv4d",
+          "displayName": "0007",
+          "createdAt": 1768559586780
+        },
+        {
+          "ownerId": "9Rc7VvbAG66BYBnEdLiTKHcAuWGoTSTTwKM4ZhYcTCFx",
+          "displayName": "0008",
+          "createdAt": 1768559641615
+        },
+        {
+          "ownerId": "AdV3QGSGCd4KYtFzrj52SP7gr6mEWnAqC76BTb2A8nyV",
+          "displayName": "0009",
+          "createdAt": 1768559695730
+        },
+        {
+          "ownerId": "EuU2K6WPjbjkR2XA6YLdLyVG1rntgTRxwC1r6e486xL6",
+          "displayName": "00010",
+          "createdAt": 1768559749439
+        },
+        {
+          "ownerId": "E5kfiQfh8jUHhA8yHkyu1gwRrAc2vXBgEXa6xwy1gt4e",
+          "displayName": "5555",
+          "createdAt": 1768559861393
+        },
+        {
+          "ownerId": "Eo97n7SN8nHrWdduapGPX7yWwGL8tci4cras6B36EaFL",
+          "displayName": "1111",
+          "createdAt": 1768559939243
+        },
+        {
+          "ownerId": "54VpmbCi4d2FzEaG35Qjyv5saMvrhuqrUkV9sBdncdv3",
+          "displayName": "111",
+          "createdAt": 1768560031104
+        },
+        {
+          "ownerId": "FGXocLHH5KputMoPwP8nvorDRTb8htbSSg3F1BoBXsxe",
+          "displayName": "015",
+          "createdAt": 1768560152006
+        },
+        {
+          "ownerId": "8YHaYsj37WP4bPqZrMjN1HkP2wiZSUyzUb5N7zibXNn3",
+          "displayName": "13",
+          "createdAt": 1768560273083
+        },
+        {
+          "ownerId": "4iNJQzMyoS5wdBTRZgU4JXseKVWKJY8ZZEFs8ZbysXNV",
+          "displayName": "15",
+          "createdAt": 1768560391400
+        },
+        {
+          "ownerId": "8DuLUpfHr6CMHbuQ1ZCffCfi4MmpoJoYb9cBD17KkH1Z",
+          "displayName": "11",
+          "createdAt": 1768560470963
+        },
+        {
+          "ownerId": "89AtgDi1PgyjtJa5oCkTpT3Zd1Zpp8UgdLQLFERcVhDV",
+          "displayName": "30",
+          "createdAt": 1768560697643
+        },
+        {
+          "ownerId": "DPYkktkj2czE9iHDdYcQX7UgtdtWEySdcnKGwmiFVdoH",
+          "displayName": "04",
+          "createdAt": 1768561457583
+        },
+        {
+          "ownerId": "3uAhhLvZigybkerRCkwM4m69aEPcguo331Lq2oMG7D1S",
+          "displayName": "30",
+          "createdAt": 1768561562732
+        },
+        {
+          "ownerId": "BXtbcoDDbQ2dwyaAHrgjE2bmE6T1rDVn7kpMKWppkWiw",
+          "displayName": "30",
+          "createdAt": 1768561630473
+        },
+        {
+          "ownerId": "8T2W32XzB8n5wg4qLJSu9iFZ1oYerqdnUhZnFH6AdMTL",
+          "displayName": "23",
+          "createdAt": 1768561835734
+        },
+        {
+          "ownerId": "B9bk4DKLgh5AmdYFSUBQJbVm21ximvxXwuuaBCwsC2zK",
+          "displayName": "05",
+          "createdAt": 1768562111603
+        },
+        {
+          "ownerId": "9Qf9vcYt9YuenHukr3WZH5AukrezGDCkTHbT3xvAJRKf",
+          "displayName": "20",
+          "createdAt": 1768562206144
+        },
+        {
+          "ownerId": "5npKXTeQsdiLZSjQDhjqSb1XF2N63opY1gTZ7sf6fjty",
+          "displayName": "18",
+          "createdAt": 1768562333786
+        },
+        {
+          "ownerId": "HnbdhmfAXQBDnEF3mfxC2AVcXA2qjdXFSTXtVYu7FNzU",
+          "displayName": "13",
+          "createdAt": 1768562452303
+        },
+        {
+          "ownerId": "7TBfrtLNwUebczgzY4aX5jtpoDvBLVtcR5pTawGPcLxC",
+          "displayName": "17",
+          "createdAt": 1768562622545
+        },
+        {
+          "ownerId": "FR1Uv79d9wm93uweZnDncehjFEod7vmfSJqy7iQTQXkD",
+          "displayName": "07",
+          "createdAt": 1768562750807
+        },
+        {
+          "ownerId": "7eCfq17tWBVbt22cDDiFickh9sSSJtcYamg6XMjv6My5",
+          "displayName": "05",
+          "createdAt": 1768562854086
+        },
+        {
+          "ownerId": "GYJzicjs3Xjq8gX9xLtbuZM4xCeGCTkmFo6qRtdsSfe4",
+          "displayName": "02",
+          "createdAt": 1768563001755
+        },
+        {
+          "ownerId": "39TEwwDdQmKaPaHXnW66buomDh4cGMX2gSStLBxgYDG6",
+          "displayName": "transfer",
+          "createdAt": 1768563568959
+        },
+        {
+          "ownerId": "AqwW4YgGN92XL8GFkVXDXVhkB6yR3vdbYes9azJjW53v",
+          "displayName": "master",
+          "createdAt": 1768563930728
+        },
+        {
+          "ownerId": "5tsnbBj7EyWRtHwpWW4GUYNw777ZFhAxe91JYUPkKQrN",
+          "displayName": "gh78k",
+          "createdAt": 1768563998354
+        },
+        {
+          "ownerId": "9Uz78ZeQXjuQs41DG6ZMqLvWdLZ7LJ2zuEaZKvm8pMfx",
+          "displayName": "0000",
+          "createdAt": 1768565159152
+        },
+        {
+          "ownerId": "E43CPRF1dKaYbqAoCwAuz8ka29p3znXahDVV9CyYycK1",
+          "displayName": "moscow",
+          "createdAt": 1768565253709
+        },
+        {
+          "ownerId": "81gTfSuTEn5XE2Htg6Bag98yGgd3bZkFHPhkRqUqdwse",
+          "displayName": "russia",
+          "createdAt": 1768565870340
+        },
+        {
+          "ownerId": "HgygdDKK7FBs9sXC84S3K4cAuj51jXEVBcLK9FpXJGpS",
+          "displayName": "009",
+          "createdAt": 1768579504334
+        },
+        {
+          "ownerId": "D1yQ3Pw1RJSet8fmWE6cRydRhQiMESepSZLbZCzzAVwu",
+          "displayName": "010",
+          "createdAt": 1768579564238
+        },
+        {
+          "ownerId": "CWrxJxjDKHUtgBTin8UuXZ782svT4H6Ucoo9TRXWcLtj",
+          "displayName": "0110",
+          "createdAt": 1768579665588
+        },
+        {
+          "ownerId": "41uAZMy9X22ujuGm95y9zr1rDyBzi6yM4ZS4R4PbgAZs",
+          "displayName": "100",
+          "createdAt": 1768579838041
+        },
+        {
+          "ownerId": "AZf3ifE8dzwneupDrayp85LGLkLHkFRovewUSoQ7Jk2E",
+          "displayName": "china",
+          "createdAt": 1768580463385
+        },
+        {
+          "ownerId": "6PsbBMzvTYzmL16k2uxDueG4azqETTFN1vitDxmhjHak",
+          "displayName": "china",
+          "createdAt": 1768580712257
+        },
+        {
+          "ownerId": "4UpE7PX5NDaPtFms5kSbs3q4KfcgqKiX4Ety4KnNVw6M",
+          "displayName": "india",
+          "createdAt": 1768581388654
+        },
+        {
+          "ownerId": "HKLctbLJ3phDuBWrAudQz8hk18vZWr8Fa7is3Mj9XYCS",
+          "displayName": "japan",
+          "createdAt": 1768582398673
+        },
+        {
+          "ownerId": "9BSJR9zzmMxoFfvDwRre1GAB8rSWf9P1H4ioRxzvuqCs",
+          "displayName": "29",
+          "createdAt": 1768583102045
+        },
+        {
+          "ownerId": "H9g41gJ5oDVnSPhbmkHPLbd2Mk4YnMW6ubZjKDquQL7P",
+          "displayName": "Test User",
+          "createdAt": 1768583557347
+        },
+        {
+          "ownerId": "4Nrw3YzDUhKk17npcmtop1A73B19CVFb3b4JFjPG7BSZ",
+          "displayName": "Test User",
+          "createdAt": 1768584823465
+        },
+        {
+          "ownerId": "Hfc4bHRUhJWKeReBVqQcFAiJgxjdmxPPzN1Gtcaf4Hny",
+          "displayName": "family",
+          "createdAt": 1768587892255
+        },
+        {
+          "ownerId": "7zCvsh9QMbCxFD2XYDU75jNmukGdNY2eMeZxwiHR7e33",
+          "displayName": "evolution",
+          "createdAt": 1768589085536
+        },
+        {
+          "ownerId": "B8vSmjraTQMnpf6mvEYwJUAM9uySxiYKCMHRCnSPNhDm",
+          "displayName": "TanteStefana2",
+          "createdAt": 1768589995832
+        },
+        {
+          "ownerId": "5DbLwAxGBzUzo81VewMUwn4b5P4bpv9FNFybi25XB5Bk",
+          "displayName": "Quantum",
+          "createdAt": 1768591098869
+        },
+        {
+          "ownerId": "8Mm85Pecopxp4EaUqkuNiCQTWgo3o1Pqg14U8sERcE9B",
+          "displayName": "John Deo",
+          "createdAt": 1768595623514
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:45.376Z"
     },
     "2026-01-17": {
       "posts": 26,
@@ -5310,9 +6199,185 @@
           "createdAt": 1768688733355
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:09.516Z"
+      "newUsers": 35,
+      "userList": [
+        {
+          "ownerId": "Dh11CgiT5GceG4Hk3JnKJ6iRjSn7vEh6D5H6FYPJgymi",
+          "displayName": "ageofdoge",
+          "createdAt": 1768610739255
+        },
+        {
+          "ownerId": "BJ3fjRBCxk7nb7hZMkEWM8G5SZwjk4B5PGWJE1f7T49e",
+          "displayName": "pq7g",
+          "createdAt": 1768630359117
+        },
+        {
+          "ownerId": "AvsgAWrVHpsgJ58UdJmcyA3N5FzPwYUguvjghg1U2YdZ",
+          "displayName": "irina",
+          "createdAt": 1768631257172
+        },
+        {
+          "ownerId": "7QABfqY3jQeTjGps3Xtd38BBacsLRNBHTgR9XUEbNCLn",
+          "displayName": "privat",
+          "createdAt": 1768631897955
+        },
+        {
+          "ownerId": "5D3CnUxGhQGqthBTwFkzqyyRYZRPPLYjrVqeBJdDLrcL",
+          "displayName": "qs7g",
+          "createdAt": 1768632027522
+        },
+        {
+          "ownerId": "2GUyi1f2HpeNQ7LXhCZgWXjPFby3zfzNxhFwyvdi32mX",
+          "displayName": "2GUyi1f2HpeNQ7LXh",
+          "createdAt": 1768644449095
+        },
+        {
+          "ownerId": "2PpgkVLDhFBaRX2FEqx3z6yfaQQzEdiq1Neno89ViHhu",
+          "displayName": "2PpgkVLDhFBaRX2FEqx",
+          "createdAt": 1768644613178
+        },
+        {
+          "ownerId": "3dtnRbqgpzRiew2b67iUSXgVRXnPMh37GhXaT5K6314b",
+          "displayName": "administrator",
+          "createdAt": 1768644683378
+        },
+        {
+          "ownerId": "3i3J2S3W761WBJnwWidTPmoJpHibAqcys84qeN3fHLJZ",
+          "displayName": "oracle",
+          "createdAt": 1768644826971
+        },
+        {
+          "ownerId": "3s41bCUATdnSrjwsHJj738pQTgwqipGGnBCKZfxqoqXY",
+          "displayName": "3s41bCUATdnSrjwsHJj7",
+          "createdAt": 1768644879859
+        },
+        {
+          "ownerId": "7Ja43zwHgx3RgcaG5yma46acBstmFsrLimTq1c57UxGY",
+          "displayName": "7Ja43zwHgx3RgcaG5yma",
+          "createdAt": 1768644932851
+        },
+        {
+          "ownerId": "7kwAuRBizB9kZQgb8aaup8soBpDs2uaqgGQKcd83Z74Z",
+          "displayName": "7kwAuRBizB9kZQgb8aau",
+          "createdAt": 1768644985988
+        },
+        {
+          "ownerId": "6HuoWoKnW7MpPYaVNHdUjH7eo98DN1zMkp6mYBUfsbT5",
+          "displayName": "6HuoWoKnW7MpPYaVNHdU",
+          "createdAt": 1768645043563
+        },
+        {
+          "ownerId": "7vUW3QZiGVw1zEpvnUSF26QHgu8mpfcyGqRQnfkdaHzE",
+          "displayName": "7vUW3QZiGVw1zEpvnUSF",
+          "createdAt": 1768645098167
+        },
+        {
+          "ownerId": "3WvLAyPaGFBGkPS6jTd4p9vA6beXJk52ge1892oyn6Wq",
+          "displayName": "3WvLAyP",
+          "createdAt": 1768645528086
+        },
+        {
+          "ownerId": "71buQMKioYd8xbjUoyH1Y63Hu5yX5EWCgjqcXMSFkMtJ",
+          "displayName": "71buQMKioY",
+          "createdAt": 1768645617044
+        },
+        {
+          "ownerId": "9Hm6MhzcfB1qfmKtLG74JGhN4ajuLwW8TagrsfrWkQhF",
+          "displayName": "9Hm6Mhzc",
+          "createdAt": 1768645696740
+        },
+        {
+          "ownerId": "9LL8xK85BSthyEpJ7xmhyhD9GUEcrAKWju8BvSyDMkNc",
+          "displayName": "9LL8xK85B",
+          "createdAt": 1768645754816
+        },
+        {
+          "ownerId": "9rWksDhsjmYybtf8kKeCYiZRuRvjHULVydzo2PCZRhmt",
+          "displayName": "9rWksDhsj",
+          "createdAt": 1768645813399
+        },
+        {
+          "ownerId": "56659pB7BWgH5PA7WAty5SzbnoP5HDmYEmzJtMTRM9Ek",
+          "displayName": "yappr",
+          "createdAt": 1768645929448
+        },
+        {
+          "ownerId": "AamN4a8CfSm147beGv644oEJPnbzYg9K8vmxJZ4rtRsg",
+          "displayName": "AamN4a8CfS",
+          "createdAt": 1768646018054
+        },
+        {
+          "ownerId": "BZcSNF6JrfWsK4m9sLqJ924BX67HTHymA3euqn7vPoid",
+          "displayName": "user",
+          "createdAt": 1768646227900
+        },
+        {
+          "ownerId": "BzxtUt8BTsjeSnqGrZ8n73z4SqjHF6JwpdiSyJYkMueH",
+          "displayName": "name",
+          "createdAt": 1768646312137
+        },
+        {
+          "ownerId": "CGGAmbhLRL2hypvzYH2BmSD6x8h6JeBtainnWiLD9Ads",
+          "displayName": "ice",
+          "createdAt": 1768647406976
+        },
+        {
+          "ownerId": "CJ3CB8usTmtARW45FkPii8ikHMQG9cPsiBNZdkvVbTG",
+          "displayName": "CJ3CB8us",
+          "createdAt": 1768647489911
+        },
+        {
+          "ownerId": "DpCBruZU1KSU9YHMHXfPnArqdqkat4qhzHVSebD4zAWf",
+          "displayName": "sunshine",
+          "createdAt": 1768647552848
+        },
+        {
+          "ownerId": "zGp3WUwQQ5qzWqarMKBKioAXknF5s3TJUxu7TQC9SxY",
+          "displayName": "zGp3WUwQ",
+          "createdAt": 1768647650519
+        },
+        {
+          "ownerId": "E8TsGev5uP8gYR7cdN5Coc9h3aMnfwQetzc6diNEQnBD",
+          "displayName": "sunrise",
+          "createdAt": 1768647760716
+        },
+        {
+          "ownerId": "H21RRAeifvpQHbDtRmASzuDsVG98RpnsEGp7ivh4wgPj",
+          "displayName": "H21RRAei",
+          "createdAt": 1768647809566
+        },
+        {
+          "ownerId": "Fgd2g2Wp6DZnx1vBAuo3dDUHB7hQJpDdm5ZrZ9MWL63W",
+          "displayName": "Fgd2g2Wp",
+          "createdAt": 1768647853722
+        },
+        {
+          "ownerId": "GXmhWLcYesv1MDHgA1oTSCnCM1XZzKVcC5uh48C4u2Q8",
+          "displayName": "GXmhWLcY",
+          "createdAt": 1768647926216
+        },
+        {
+          "ownerId": "FL4QuQT8nQoJGL2eZjqsF1TA3UNiHFhC7ucQqe7aMEFD",
+          "displayName": "FL4QuQT8",
+          "createdAt": 1768647984963
+        },
+        {
+          "ownerId": "EXCDWRH9itPYGjxFF6XmDMeqtTqh9ji3njrjBJa4uXj5",
+          "displayName": "EXCDWRH9",
+          "createdAt": 1768648055717
+        },
+        {
+          "ownerId": "ETQTVVvLpbUZoxhJcbgoYzXbNAYFgjFCXAZU1jZXHY99",
+          "displayName": "ETQTVVvL",
+          "createdAt": 1768648100691
+        },
+        {
+          "ownerId": "ELvhBu95u6BKddT69JJbsz5sbWQgxbq2oC2N7LDks76x",
+          "displayName": "service",
+          "createdAt": 1768648153611
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:46.389Z"
     },
     "2026-01-18": {
       "posts": 21,
@@ -5444,9 +6509,510 @@
           "createdAt": 1768773152533
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:11.354Z"
+      "newUsers": 100,
+      "userList": [
+        {
+          "ownerId": "2RcEAtZ1c9LuUARdW7yLWaquwJLru8PRQ5wZW4hBJSjd",
+          "displayName": "2RcEAtZ1",
+          "createdAt": 1768717950585
+        },
+        {
+          "ownerId": "HSVPixmpnQmbrKt49i7YxV3fJQvmQqkJCiz4Hey3xPf9",
+          "displayName": "HSVPixmp",
+          "createdAt": 1768718031806
+        },
+        {
+          "ownerId": "3insHiDfmTpoYn6H1ZMFG9cbQfiQKArMEcRgwoSsJiT9",
+          "displayName": "Olivia",
+          "createdAt": 1768718096135
+        },
+        {
+          "ownerId": "4LdurQCBYoxp3xuAUXzMAckQpdf5v66C8V1fwPJRGuCj",
+          "displayName": "4LdurQCB",
+          "createdAt": 1768718140395
+        },
+        {
+          "ownerId": "4yE5TDKAyuNxbyXyLxbq41Af5KnLW2DYkk6NuppDVJv8",
+          "displayName": "4yE5TDKA",
+          "createdAt": 1768718189708
+        },
+        {
+          "ownerId": "GTYVK52Qaek2V4SXvmELh2BiZUfEJKN4bEVY5pGp2tft",
+          "displayName": "GTYVK52Q",
+          "createdAt": 1768718277346
+        },
+        {
+          "ownerId": "GDpry2vpnMvMsqqAipJQKRe3m6RBUW3eZ5vok5rktDfx",
+          "displayName": "GDpry2vp",
+          "createdAt": 1768718368328
+        },
+        {
+          "ownerId": "4ftixphgcd1TwpKCtodS4Q2bYBT9zzKB184jafKt2hw7",
+          "displayName": "4ftixphg",
+          "createdAt": 1768719455751
+        },
+        {
+          "ownerId": "7EZ5uawpnnaYiwUpJaKgH1WkQHmp9XtAaDGbET5LjheX",
+          "displayName": "7EZ5uawp",
+          "createdAt": 1768719506981
+        },
+        {
+          "ownerId": "5Vj9hbuLigQWUwqgycdFctDAv447E4sLDi9Vo6geQi5J",
+          "displayName": "5Vj9hbuL",
+          "createdAt": 1768719570097
+        },
+        {
+          "ownerId": "7h7EECBPQ1CSUMzhGYYLJyc8JFzYRoE2E3xV5893UZtj",
+          "displayName": "7h7EECBP",
+          "createdAt": 1768719640852
+        },
+        {
+          "ownerId": "DsjMcVHs4AYtuBiPgYUyR3LLWmHv4pK7V4w3QKENDm9u",
+          "displayName": "DsjMcVHs",
+          "createdAt": 1768719728655
+        },
+        {
+          "ownerId": "DMTs7n4SzzXix4idq9z37tsHUpSc2P4HZEewYZdvirdf",
+          "displayName": "DMTs7n4S",
+          "createdAt": 1768719785340
+        },
+        {
+          "ownerId": "FiQddoKV13TBUbMiKsCm39aWqH9pPtn22MR2yMeTgyGD",
+          "displayName": "FiQddoKV",
+          "createdAt": 1768719842844
+        },
+        {
+          "ownerId": "EnbMZhrY1wojvZfrbbMdoLYFR9FwTK9yDZi7TB2mPETp",
+          "displayName": "EnbMZhrY",
+          "createdAt": 1768719895919
+        },
+        {
+          "ownerId": "FNP83Cfpva5KA3AKyUkvEJewHZki4sUW8QwR1ndHo99v",
+          "displayName": "FNP83Cfp",
+          "createdAt": 1768719947271
+        },
+        {
+          "ownerId": "Fb9r5qmusEz7PbXKoCDkaLoHRJYMLWjKZ1JwHEjNgHG7",
+          "displayName": "Fb9r5qmu",
+          "createdAt": 1768720005518
+        },
+        {
+          "ownerId": "GwYNMhbX4dxq8pxmS99HQm6EuozxzC2yckHTNRuaxW3K",
+          "displayName": "GwYNMhbX",
+          "createdAt": 1768720051041
+        },
+        {
+          "ownerId": "6GdYFEGyTdZKwWNTazQrkYax325WwVFgtBP2Atoorz14",
+          "displayName": "6GdYFEGy",
+          "createdAt": 1768720102046
+        },
+        {
+          "ownerId": "9wJHptn8uGs2oYLAuUDJzrePwjjgCU2Axrj3EU5gZzuv",
+          "displayName": "9wJHptn8",
+          "createdAt": 1768720150299
+        },
+        {
+          "ownerId": "7huokzW1xJTNVgY8u1yFiYZGyMM7iTAKZuegS6Xi6Gqs",
+          "displayName": "7huokzW1",
+          "createdAt": 1768720198047
+        },
+        {
+          "ownerId": "999ZUQRSdmhAn4dAVDzCGEBqmejMjzBX6PJ71eung29V",
+          "displayName": "999ZUQRS",
+          "createdAt": 1768720251710
+        },
+        {
+          "ownerId": "ADFf3HbCsurcbiT4gVRJ4QQsfJMHPmvfSXX4R25JM1D2",
+          "displayName": "ADFf3HbC",
+          "createdAt": 1768720305032
+        },
+        {
+          "ownerId": "AmJqcGkhvmRQ2DZPs1V8wLufNKsXwHFBuMaFjyp2VH9E",
+          "displayName": "AmJqcGkh",
+          "createdAt": 1768720352517
+        },
+        {
+          "ownerId": "AxTet5XRRSaSNvG1BdR8eQz4miGJBpJEgCMgcMw1Qou3",
+          "displayName": "AxTet5XR",
+          "createdAt": 1768720413630
+        },
+        {
+          "ownerId": "9xQrdsLAdy369DPvNFmxSvxsL9Sdt9NMrztdnBPpQMct",
+          "displayName": "9xQrdsLA",
+          "createdAt": 1768720467341
+        },
+        {
+          "ownerId": "BgbRnDHxZJtYPeagfidVp8BxNXxD1yX9qXEa8Hzvawpg",
+          "displayName": "BgbRnDHx",
+          "createdAt": 1768720515897
+        },
+        {
+          "ownerId": "ADLd71KbgFLteJ5Zd9Yn2aLhZLhzAYMz1JiSTPyeeEe8",
+          "displayName": "ADLd71Kb",
+          "createdAt": 1768720579266
+        },
+        {
+          "ownerId": "AzpeDCMdcr928ikYhcHufABdFExNoSkiJRpH2eAChYHm",
+          "displayName": "AzpeDCMd",
+          "createdAt": 1768720630500
+        },
+        {
+          "ownerId": "Azi5dAnpeXG9nqoMDdLMvTDEjGTrwsJEDW4tXxtvaDHT",
+          "displayName": "Azi5dAnp",
+          "createdAt": 1768720686706
+        },
+        {
+          "ownerId": "BjYX8gjZXcan6LCqYSAHw6cB1fF2vFk8Pwyyra1jrZBe",
+          "displayName": "BjYX8gjZ",
+          "createdAt": 1768720744493
+        },
+        {
+          "ownerId": "BhD3vXbLc4NkmYethQv7tSHg7R7ZpaYYvRhdnRwvD49c",
+          "displayName": "BhD3vXbL",
+          "createdAt": 1768720804446
+        },
+        {
+          "ownerId": "CApsu1gNQZ9aZJkewinN5SNv6QeiVJwdWhZYm2uhks7p",
+          "displayName": "CApsu1gN",
+          "createdAt": 1768720851503
+        },
+        {
+          "ownerId": "CQJyn3WwtLPhdtw2WRmRHmZ6kAVU4jEMoxcHUg5TWC4Y",
+          "displayName": "CQJyn3Ww",
+          "createdAt": 1768720900025
+        },
+        {
+          "ownerId": "D8U5opqpm4GC412xx774GMFwXcDGz2osjfriguEV9rHE",
+          "displayName": "D8U5opqp",
+          "createdAt": 1768720977350
+        },
+        {
+          "ownerId": "DnhkHBEVpURMjAEbxbHUhfwx7sy6fm1Ga8uyt9PriPi4",
+          "displayName": "DnhkHBEV",
+          "createdAt": 1768721021338
+        },
+        {
+          "ownerId": "DNb5Udewr4iXKPz8Cb6CNYeMKrbi18BgBTKQajiP9Pud",
+          "displayName": "DNb5Udew",
+          "createdAt": 1768721071324
+        },
+        {
+          "ownerId": "4g73YEenUQQsgK8K54sv6ZrvevByBudPPthWmsf3tuqk",
+          "displayName": "4g73YEen",
+          "createdAt": 1768721114607
+        },
+        {
+          "ownerId": "CF9qQ2k7kn43vFaJULRM6bLexuegjr5EMw6Gqp9dToph",
+          "displayName": "CF9qQ2k7",
+          "createdAt": 1768721176823
+        },
+        {
+          "ownerId": "Efq8Yw1wTQNqoNiDXJ2PRUFR5QdkLM39XwoEXH27PXwf",
+          "displayName": "Efq8Yw1w",
+          "createdAt": 1768721224400
+        },
+        {
+          "ownerId": "5HFQhEYBn9WMSh3NJvS9utUnMnZzxtzwbSBHF9dxNw3t",
+          "displayName": "5HFQhEYB",
+          "createdAt": 1768721272460
+        },
+        {
+          "ownerId": "7DSV4a58NHdkbfpEcWPhKdsnnmgm7rvLb6EUhTPyiN3t",
+          "displayName": "7DSV4a58",
+          "createdAt": 1768721331764
+        },
+        {
+          "ownerId": "At4zcWX9NyCacuRg1KrwshXitnEJkpBrjTCTz8BBJWdS",
+          "displayName": "At4zcWX9",
+          "createdAt": 1768721378938
+        },
+        {
+          "ownerId": "H6rsYG3NoRLv5MEx13LXHjB5LkdEL2K2ESkbw6SkoE9k",
+          "displayName": "H6rsYG3N",
+          "createdAt": 1768721451278
+        },
+        {
+          "ownerId": "rMUcaXd2v85YuhspCn3eXbagp3UU2LgyktxGBieAnX4",
+          "displayName": "rMUcaXd2",
+          "createdAt": 1768721510668
+        },
+        {
+          "ownerId": "EMSkRVM4AokUzkqRrTbMtmeQTHyF96AXVQYC8TbKPkEA",
+          "displayName": "https",
+          "createdAt": 1768721605397
+        },
+        {
+          "ownerId": "2CLYfTnF8YK2Zn2PMWUq5Lj2rwWcWWp1XJCA4fGfyJKe",
+          "displayName": "user7",
+          "createdAt": 1768725891141
+        },
+        {
+          "ownerId": "2HotdE6yvtveCz5faR35GgFKKyLwndyea3ZnJ699uuTq",
+          "displayName": "2HotdE6y",
+          "createdAt": 1768726682892
+        },
+        {
+          "ownerId": "5Ek6FZYGT8Ne8jXs7HReS9RAttXvU8WRoLPA5W4txXUk",
+          "displayName": "5Ek6FZYG",
+          "createdAt": 1768726767485
+        },
+        {
+          "ownerId": "CY6bb1XXD6nycQ4cMAvFwtwiiH7mQU9AcfkfCtNc6kft",
+          "displayName": "CY6bb1XX",
+          "createdAt": 1768726819221
+        },
+        {
+          "ownerId": "8JsMTYLDCnqdMxDbGHg3mmo9f7XVUQ3Zw9YPMZkwsFHc",
+          "displayName": "8JsMTYLD",
+          "createdAt": 1768726872241
+        },
+        {
+          "ownerId": "CmFC5kAPhExg8buwD85ieEXHjPEyddySUoAiJ8yzSTyB",
+          "displayName": "CmFC5kAP",
+          "createdAt": 1768726923315
+        },
+        {
+          "ownerId": "8JKxQRXqnRyfaHAwdvHViREPHrTnjdPG5iyCd9evg3fr",
+          "displayName": "8JKxQRXq",
+          "createdAt": 1768726973257
+        },
+        {
+          "ownerId": "7ujrYwngSG4eEo93S38DcweWFhLGSdUgNxgd8R1dyEe6",
+          "displayName": "7ujrYwng",
+          "createdAt": 1768727029337
+        },
+        {
+          "ownerId": "9zTp78Xm1VyavQxHmXg2oi3xySftHSc7fWDL1owyHp5t",
+          "displayName": "9zTp78Xm",
+          "createdAt": 1768727079783
+        },
+        {
+          "ownerId": "D8qU41KVNv7ALaYSWpMNtYUsBcYCg64cRz7mvLPD7deP",
+          "displayName": "D8qU41KV",
+          "createdAt": 1768727125984
+        },
+        {
+          "ownerId": "DNxUtJi8jHjXjL8WESinWY5wn1nY7fm32vkc1Ah5RJ1K",
+          "displayName": "DNxUtJi8",
+          "createdAt": 1768727179360
+        },
+        {
+          "ownerId": "AE7FTM412MsZyZQ6T2AJNDpUtGyajKf4pbBmJfD11zfM",
+          "displayName": "AE7FTM41",
+          "createdAt": 1768727232816
+        },
+        {
+          "ownerId": "Eo8BMrozL7jfTpAGkqgJzpBFFwQAUgqM4MrPEtXJHJ39",
+          "displayName": "Eo8BMroz",
+          "createdAt": 1768727283965
+        },
+        {
+          "ownerId": "EacYkLMVLfvBYoCpofGV4cr4gX2H3Xg33n2yMn6isM6D",
+          "displayName": "EacYkLMV",
+          "createdAt": 1768727331534
+        },
+        {
+          "ownerId": "EEmTy2hDmBoa8Y37ZarhEgLm4weQEM8cEJynXMfy6wPU",
+          "displayName": "EEmTy2hD",
+          "createdAt": 1768727385763
+        },
+        {
+          "ownerId": "DuTB4jqugADGpQ8b2GfAWDj5PiiidYWSrp2PX7nniU7",
+          "displayName": "DuTB4jqu",
+          "createdAt": 1768727435500
+        },
+        {
+          "ownerId": "FnZMyW2SEpU4WHoQQTnUptUGD3KzJ9bD5uSmMaVHjvj3",
+          "displayName": "FnZMyW2S",
+          "createdAt": 1768727487027
+        },
+        {
+          "ownerId": "FtjnePcF9TdCtt3MRR4PvXpJ1jA6LzKV9Yg1vHSGFqK2",
+          "displayName": "FtjnePcF",
+          "createdAt": 1768727535358
+        },
+        {
+          "ownerId": "FE1WLAv8Apyt6BG9G4MGZ3ziERyVCnPvPKXTFRdfmiia",
+          "displayName": "FE1WLAv8",
+          "createdAt": 1768727585484
+        },
+        {
+          "ownerId": "BmoBFsJZVCBTqHUj4NWewCb3pJcSuXp83eje34LC2URW",
+          "displayName": "BmoBFsJZ",
+          "createdAt": 1768727633672
+        },
+        {
+          "ownerId": "ZhXJyMKqj6i3a2JRcg4cPKJix18awqqLF7sD5rcxYGN",
+          "displayName": "ZhXJyMKq",
+          "createdAt": 1768727698046
+        },
+        {
+          "ownerId": "7J2vB1MXwwYFRVrbMjDxX9mrQfLrJnoERbmiGV1r7ivV",
+          "displayName": "7J2vB1MX",
+          "createdAt": 1768727754007
+        },
+        {
+          "ownerId": "G1o9wVvk4CD334PyKbqWPWJ8LwNwLYL8AURRSFmvGRiU",
+          "displayName": "G1o9wVvk",
+          "createdAt": 1768727799344
+        },
+        {
+          "ownerId": "FezH5UUzDEWc8Wt83Ayj4iQT3sY859xeGKu8C28Fin9F",
+          "displayName": "FezH5UUz",
+          "createdAt": 1768727877302
+        },
+        {
+          "ownerId": "GpAXLSTqjwHgkb9sZacsSNvpzZAiuBzzsinTuP8moa49",
+          "displayName": "GpAXLSTq",
+          "createdAt": 1768727925252
+        },
+        {
+          "ownerId": "HoJinb7Lm2t6F7L2KkdmMxttXhF3F4JrNmj1L85QwV9K",
+          "displayName": "HoJinb7L",
+          "createdAt": 1768727973445
+        },
+        {
+          "ownerId": "6txByUswapcmDRAgF1SnaJichnU1GhFzMzjQbBoYtk8k",
+          "displayName": "6txByUsw",
+          "createdAt": 1768728021514
+        },
+        {
+          "ownerId": "Go128UVmoyziFsPu9cU1HhJ26NEVRhVvj733umQ2Yhp5",
+          "displayName": "Go128UVm",
+          "createdAt": 1768728074078
+        },
+        {
+          "ownerId": "GcNs1mMvf1vWXMKZpbSMWpdQJBgkBkiuSXSMzfttuUhd",
+          "displayName": "GcNs1mMv",
+          "createdAt": 1768728123962
+        },
+        {
+          "ownerId": "9uX1vq3fRujJa1DG87xbkNQzxMFZDQMN4c5qroqVYBn2",
+          "displayName": "9uX1vq3f",
+          "createdAt": 1768728181708
+        },
+        {
+          "ownerId": "HmMLsvRgfdJRdwNibTXcPkwsYEG6Bt8yqQKZ7Z7st2iH",
+          "displayName": "key",
+          "createdAt": 1768728273796
+        },
+        {
+          "ownerId": "EPusv6CkyDunNZvmsi6GA3XuX4fxC6uzRBPSgZ3DpDkj",
+          "displayName": "freedom",
+          "createdAt": 1768728394137
+        },
+        {
+          "ownerId": "4RFE3qwCudAAXdD6ePBRNhzpcuuYaqNaHEJP3bgv9WF9",
+          "displayName": "liberty",
+          "createdAt": 1768728506943
+        },
+        {
+          "ownerId": "6bCX58JLT1mFgYAL1KMF6scGKgy5SJiChwoGKjcGv6cY",
+          "displayName": "6bCX58JL",
+          "createdAt": 1768728565047
+        },
+        {
+          "ownerId": "HoJvN8d8Hd2YYkaBkimbryP5jQD7LAHtDgJ1hPwpkRKL",
+          "displayName": "your",
+          "createdAt": 1768728893871
+        },
+        {
+          "ownerId": "YoFqDf5KCfiw5E1SA3LdKexL5LAThrweiVvYbvS9xci",
+          "displayName": "the",
+          "createdAt": 1768729248042
+        },
+        {
+          "ownerId": "DpNj5Av2xL5r2n2QYar7jxmtoAiCFEpSqcim4dmZBJQS",
+          "displayName": "this",
+          "createdAt": 1768729897405
+        },
+        {
+          "ownerId": "HnXM9qqPhnjUdnwdiQoUSG1cMPEbi5xwiFp41EwCsY4D",
+          "displayName": "HnXM9qqP",
+          "createdAt": 1768730012927
+        },
+        {
+          "ownerId": "DBmAkAwRkdyEmYfQjstux41aypRbEud4Ls68BaK7wJup",
+          "displayName": "DBmAkAwR",
+          "createdAt": 1768730107270
+        },
+        {
+          "ownerId": "G8nJstS7h6NWaMhSSGTxF6tM8WW8YCj73bH3unTa6Wbi",
+          "displayName": "00000",
+          "createdAt": 1768731565338
+        },
+        {
+          "ownerId": "2e3LyuYhx7PaCMKHYPZYnHfnicTpbhtZrCPrBxiHdcQQ",
+          "displayName": "yes",
+          "createdAt": 1768734316046
+        },
+        {
+          "ownerId": "7v6ojPAbegx8V2L25WhZHSgVvLXrDvMMfaFttQpZSPed",
+          "displayName": "7v6ojPAb",
+          "createdAt": 1768734487492
+        },
+        {
+          "ownerId": "3mBi7fmH1bA2ryRVc9L72Q1CPZJmQtkKaZT3ixv6iZBw",
+          "displayName": "3mBi7fmH",
+          "createdAt": 1768734692071
+        },
+        {
+          "ownerId": "9DQZ3eDxWa6A6sFuxAyGRtG51wWrgCe5XGKWGW2kx73X",
+          "displayName": "9DQZ3eDx",
+          "createdAt": 1768749433535
+        },
+        {
+          "ownerId": "4spEpDtzF8QfweLQxEdV2S6RhSKU7D9ksYWoaiiohF2B",
+          "displayName": "4spEpDtz",
+          "createdAt": 1768750257985
+        },
+        {
+          "ownerId": "EDfRGK7xvUbRqEAQFKgET93v6cSs9zw6jtL8gnkrJ4GM",
+          "displayName": "EDfRGK7x",
+          "createdAt": 1768750404172
+        },
+        {
+          "ownerId": "B5DzZTABzca1Lan76vBiGwY3EQNVnnYrgj55Bqn8BJer",
+          "displayName": "B5DzZTAB",
+          "createdAt": 1768750645368
+        },
+        {
+          "ownerId": "E8ndVboz2p9LbZiXyZVaFAvYx8Xg8a2LZL9eW32Wt7B",
+          "displayName": "E8ndVboz",
+          "createdAt": 1768754741390
+        },
+        {
+          "ownerId": "FwQkAWLSRbiyEiyfFUTNRDKGo6fUE7T3K8UvJr7F9Gzj",
+          "displayName": "FwQkAWLS",
+          "createdAt": 1768754803566
+        },
+        {
+          "ownerId": "2dTRVHHYybRXkQvrgeLjkQvLWGzaZQnaUx6TyDx2WPbR",
+          "displayName": "2dTRVHHY",
+          "createdAt": 1768754860279
+        },
+        {
+          "ownerId": "LYspBUMx6P5faxfT9u6nAs5dczF6LDoxdV4UuskQ1hC",
+          "displayName": "login",
+          "createdAt": 1768756111597
+        },
+        {
+          "ownerId": "3XuHgH2R6kh8zemsnPBBcFkwYGUKbhFuBDYzFwde9Ne2",
+          "displayName": "account",
+          "createdAt": 1768756789113
+        },
+        {
+          "ownerId": "3dfbwQHmSGrom1wxvPdYaeh7uDhWQeub3J1FHW1kiBFN",
+          "displayName": "Test profile",
+          "createdAt": 1768763459942
+        },
+        {
+          "ownerId": "BCcLRpW7MEAyjdiMuSG1LvAw8YX6pe4GVoagRJS92ruL",
+          "displayName": "Random Randy",
+          "createdAt": 1768763618062
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:47.506Z"
     },
     "2026-01-19": {
       "posts": 51,
@@ -5758,9 +7324,565 @@
           "createdAt": 1768860489023
         }
       ],
-      "newUsers": 0,
-      "userList": [],
-      "collectedAt": "2026-01-20T18:52:13.626Z"
+      "newUsers": 111,
+      "userList": [
+        {
+          "ownerId": "4RjNqC3tKiGTxwxHvJxv15ru5KRpNe5X7GZ14iCfKN1U",
+          "displayName": "4RjNqC3t",
+          "createdAt": 1768801965686
+        },
+        {
+          "ownerId": "H8n5RCSCUbVkC6JoJXxjBRkyvNCyg66E6RJtweqfLhLs",
+          "displayName": "H8n5RCSC",
+          "createdAt": 1768802045950
+        },
+        {
+          "ownerId": "9SnQ3BeLXjPL8VYUFtTqTTeA7sxJN98CEoTSpkMZ7H5D",
+          "displayName": "9SnQ3BeL",
+          "createdAt": 1768802107214
+        },
+        {
+          "ownerId": "DgnyeBmFSHzqGgvJxYxM9DiuJSCqirGDJkUCz9FERZWw",
+          "displayName": "Test User",
+          "createdAt": 1768803170879
+        },
+        {
+          "ownerId": "EwciQUD98D58TFJ3wq85YvS3cCkriHLjajFMyyvqbovn",
+          "displayName": "you",
+          "createdAt": 1768806347639
+        },
+        {
+          "ownerId": "EZ95Q3yPbhu7vZJPwaq89sNFKyQtUoSCbPoXZybBVDCk",
+          "displayName": "EZ95Q3yP",
+          "createdAt": 1768806473124
+        },
+        {
+          "ownerId": "5WUcAVDMXgDaTE7fh8bfeGDZSCekpo4PKkv91emn6nXK",
+          "displayName": "Raven",
+          "createdAt": 1768815061349
+        },
+        {
+          "ownerId": "E1qdW3JZmZJSpe5YWBUDqh8WVwvFpPYM1tXPMTTFhU9M",
+          "displayName": "tor",
+          "createdAt": 1768818727906
+        },
+        {
+          "ownerId": "7TW6zGoRPgRXjDKmfwJeTzidxj7qFV1YoBeZvBoMaYbL",
+          "displayName": "7TW6zGoR",
+          "createdAt": 1768822642288
+        },
+        {
+          "ownerId": "Gd3fyVgW64gJwo46SutJtpBpwmsPB4o3yRkhdcnG2Wkr",
+          "displayName": "Gd3fyVgW",
+          "createdAt": 1768822792699
+        },
+        {
+          "ownerId": "GxMqjXKb9eMceDneeJhvn4MCoPT675CMp5LNDbM6rfrh",
+          "displayName": "GxMqjXKb",
+          "createdAt": 1768824592355
+        },
+        {
+          "ownerId": "EQrJQ3VYNTTvVqbYbz62r9Mfs7ZUKrcMr5QicxMFMFgC",
+          "displayName": "EQrJQ3VY",
+          "createdAt": 1768824702851
+        },
+        {
+          "ownerId": "DcgGGeZXrGBvbhBm53Q5D5Szue3oEpT7CGRhr5vuwBHs",
+          "displayName": "DcgGGeZX",
+          "createdAt": 1768824776672
+        },
+        {
+          "ownerId": "CPcqMXhGMeAzvegWZ8NhEVRrW9BbPLxMQFCdLz8c1So8",
+          "displayName": "CPcqMXhG",
+          "createdAt": 1768824853823
+        },
+        {
+          "ownerId": "8SrYnyPLpjwd8e1hRJmgfsToyJfCrd7FVLtcMXFtKVgS",
+          "displayName": "8SrYnyP",
+          "createdAt": 1768824928735
+        },
+        {
+          "ownerId": "HuCvAbaXL2qBG5JWM5m8w5gEtKhs2xG8ZabZ3weEDq9x",
+          "displayName": "HuCvAbaX",
+          "createdAt": 1768825004831
+        },
+        {
+          "ownerId": "9jHQ76fKKtVZE4YZNsKVC7HncayDzvWa8cMehdUkDrNH",
+          "displayName": "9jHQ76fK",
+          "createdAt": 1768825102915
+        },
+        {
+          "ownerId": "qQBrKQQ8CNBamW6XXaB6HuWKmnjxSK32So8xYzvCf8d",
+          "displayName": "qQBrKQQ8",
+          "createdAt": 1768825185306
+        },
+        {
+          "ownerId": "HD8GmE2U7gJnSH5debSRCcNdRiwW1G8X4TFLT7L9AcbB",
+          "displayName": "HD8GmE2U",
+          "createdAt": 1768825263562
+        },
+        {
+          "ownerId": "A3SHL1ZFpXL6o4WiEA3cbCoGgyjAE7xXWMD6HhbNcRAi",
+          "displayName": "A3SHL1ZF",
+          "createdAt": 1768825341235
+        },
+        {
+          "ownerId": "3vLXR6PfTbnefQ4UQZo7BhHj5J7XyHPMadKyWCnijZmB",
+          "displayName": "3vLXR6Pf",
+          "createdAt": 1768825451850
+        },
+        {
+          "ownerId": "DXAh2HR2FZimgB6R8EfTUbEJ3xm8T4fAxnjmeEg2qMsr",
+          "displayName": "DXAh2HR2",
+          "createdAt": 1768825532060
+        },
+        {
+          "ownerId": "72jXa6SokjfZuKbPrdaV2oD3NHpvF27xQMyyk5bRzuDf",
+          "displayName": "72jXa6So",
+          "createdAt": 1768825647955
+        },
+        {
+          "ownerId": "2t2bm9xdVRmiZFjeFKrAzZd2641uZjxTEaUB3YaZYPaU",
+          "displayName": "support",
+          "createdAt": 1768825714499
+        },
+        {
+          "ownerId": "BnHqRhfURxmhvQtpvfrFMipYfQewNu251M8dwvaGTtWD",
+          "displayName": "BnHqRhfU",
+          "createdAt": 1768825787765
+        },
+        {
+          "ownerId": "H76NpfzXR9PoQE51Gv1UyjAKc61r3TnmpxxhJdsnSLJ",
+          "displayName": "H76NpfzX",
+          "createdAt": 1768825871968
+        },
+        {
+          "ownerId": "Gj9PcGGKYimHq2vg4DABcZkudv1ZEpSyDU22mx9v7gYY",
+          "displayName": "Gj9PcGGK",
+          "createdAt": 1768825951017
+        },
+        {
+          "ownerId": "414DQzjX7s44n4A3DWsYpj2e58o1kVQhK6y6SeCmXfoh",
+          "displayName": "414DQzjX",
+          "createdAt": 1768832636176
+        },
+        {
+          "ownerId": "6isJhrwkaJPXHmPj5mY6ptpArBTxHmBuqJ9TEWGD8QaZ",
+          "displayName": "6isJhrwk",
+          "createdAt": 1768832719578
+        },
+        {
+          "ownerId": "NQyV69f7tpGCYu2cQV3JmjMs8a12B6GcGbw3oJkmqCS",
+          "displayName": "NQyV69f7",
+          "createdAt": 1768832791556
+        },
+        {
+          "ownerId": "JBaXQy3hjTj1MiPdugDPQvC86aubsWCSxREM9WsmsAga",
+          "displayName": "JBaXQy3h",
+          "createdAt": 1768832856720
+        },
+        {
+          "ownerId": "Hry1QVR7NZBMra3yey1pjHq19YgcNXLnPmZSrhbH8Je7",
+          "displayName": "Hry1QVR7",
+          "createdAt": 1768832910959
+        },
+        {
+          "ownerId": "FRWTgkhUtt2Lb76mwUqfQGDi9g9xuJL6EpDCAYnQ2kKY",
+          "displayName": "FRWTgkhU",
+          "createdAt": 1768832966933
+        },
+        {
+          "ownerId": "G13noV8rtNeoggL9GKQptzpMgoK3Gup3ntgYWXXGqJW5",
+          "displayName": "G13noV8r",
+          "createdAt": 1768833018913
+        },
+        {
+          "ownerId": "FVun6D7S9jpRnD1zrzHbvryA5uZbuQUEgqf5HwHjxFNu",
+          "displayName": "FVun6D7S",
+          "createdAt": 1768833074543
+        },
+        {
+          "ownerId": "EDwAn3NvjFS2zJ8sRMbXD6d4Zhxn1mMDtJQen2Q9dkUZ",
+          "displayName": "EDwAn3Nv",
+          "createdAt": 1768833130134
+        },
+        {
+          "ownerId": "GfSgiNW8DgJwnU7uKMhPp9k1ndgakcj98273AF8TQm2S",
+          "displayName": "GfSgiNW8",
+          "createdAt": 1768833212073
+        },
+        {
+          "ownerId": "Ep5yAeNu1GmFvcLTwifikShQ5u3aqHzX3V8KN4xeWAUj",
+          "displayName": "Ep5yAeNu",
+          "createdAt": 1768833271921
+        },
+        {
+          "ownerId": "E79SUjsxsyTfPK23i4DTuSUXLBLgvFAoggCnfmkz85YT",
+          "displayName": "E79SUjsx",
+          "createdAt": 1768833318871
+        },
+        {
+          "ownerId": "F6Ahd9Z8BwYPo1SG3Rn6G6aTtT7V8sf1LDVovHLYU174",
+          "displayName": "F6Ahd9Z8",
+          "createdAt": 1768833372265
+        },
+        {
+          "ownerId": "E83vEMUXvBwnKcNqh5qHvrkUWE1PC2PvDPfGQz8yzEEr",
+          "displayName": "E83vEMUX",
+          "createdAt": 1768833428039
+        },
+        {
+          "ownerId": "D96MKt5YbX24t2FaM65zbHJNXjxXUeMUVMTWXTRDkWFq",
+          "displayName": "D96MKt5Y",
+          "createdAt": 1768833484202
+        },
+        {
+          "ownerId": "CYkLsitnjJK2Bfz1gE7jY1mzKoVpgLUcGkH6qW3SJJwJ",
+          "displayName": "CYkLsitn",
+          "createdAt": 1768833530799
+        },
+        {
+          "ownerId": "DeZqeDy8K89DJycMJwpkL3WUGoCyNxgudHj4LH31boGS",
+          "displayName": "DeZqeDy8",
+          "createdAt": 1768833627265
+        },
+        {
+          "ownerId": "DSqpT5KafH4sJgRmTwS5f92gH2fYK6TC5hVYmutCFMLu",
+          "displayName": "DSqpT5Ka",
+          "createdAt": 1768833673505
+        },
+        {
+          "ownerId": "E1pzfM6ScHLwSkEukXipgGxFiXttGcwCGhGrRw7gmvDs",
+          "displayName": "E1pzfM6S",
+          "createdAt": 1768833715837
+        },
+        {
+          "ownerId": "DGZhK9MA1zVHMQ3qJqTVstioqTSTMCozUmetczMg8LRc",
+          "displayName": "DGZhK9MA",
+          "createdAt": 1768833760895
+        },
+        {
+          "ownerId": "CGcRBFh6Ks6FBAuChSTFA1hxo3BxujrNxyiuWvmMBvJN",
+          "displayName": "CGcRBFh6",
+          "createdAt": 1768833844420
+        },
+        {
+          "ownerId": "BWyP1CXJPkQZQf9H3kTdgKszkQKL6pReTT9tnb2wzfu5",
+          "displayName": "BWyP1CXJ",
+          "createdAt": 1768833903842
+        },
+        {
+          "ownerId": "BviW7U9UMr7VyaFNjPHbC52teugdgmXwPLjvoVmDS6SC",
+          "displayName": "BviW7U9U",
+          "createdAt": 1768833949709
+        },
+        {
+          "ownerId": "Cu9EEGFp7Kk34RkSHwabuatpSEokfvGjquNYiyAdjL32",
+          "displayName": "Cu9EEGFp",
+          "createdAt": 1768833997339
+        },
+        {
+          "ownerId": "BSM87swGm4GsB6N4ondYKr96cJn1m3rLL27THReoGNLu",
+          "displayName": "BSM87swG",
+          "createdAt": 1768834039465
+        },
+        {
+          "ownerId": "B68dz4M2eLMiXQHHzFqyYdiB31XVReELhTnhYYfZJXZb",
+          "displayName": "B68dz4M2",
+          "createdAt": 1768834171048
+        },
+        {
+          "ownerId": "3eu5yTWBnDmzpLCZKz9mDbLwDnA1pvF7FjJ7dnXhQJit",
+          "displayName": "3eu5yTWB",
+          "createdAt": 1768834260542
+        },
+        {
+          "ownerId": "5MAARrJ3XGX7WTUQMGxFTUEUBrmR8dmDkv5HserLHq9k",
+          "displayName": "5MAARrJ3",
+          "createdAt": 1768834303477
+        },
+        {
+          "ownerId": "3NJHWxaRhDjp6NyiFeRvpLqTBywd6jwSKp9ymVASQT9T",
+          "displayName": "3NJHWxaR",
+          "createdAt": 1768834354398
+        },
+        {
+          "ownerId": "2x9qvva2Fn88Yp2JVPGbNCrmLjyTw6F12GifNdf3qseE",
+          "displayName": "info",
+          "createdAt": 1768834413385
+        },
+        {
+          "ownerId": "4uNVCan6fX8vUDJX6CLruyK2cAaLo8t6SJ4q7sB7k9ki",
+          "displayName": "4uNVCan6",
+          "createdAt": 1768834470014
+        },
+        {
+          "ownerId": "5wMPPswHu93eKSpRoj7qcLrXBGppeejVVhkWfoVMgb3a",
+          "displayName": "5wMPPswH",
+          "createdAt": 1768834519096
+        },
+        {
+          "ownerId": "6gvxHAt2L182KPyQMdT3qhhQeNRa4qA1zbEPzfJno76P",
+          "displayName": "6gvxHAt2",
+          "createdAt": 1768834566605
+        },
+        {
+          "ownerId": "6PHAhaBNuLFnLBY9hcZFpCjsEKdwe76b8SckZqAHYACN",
+          "displayName": "6PHAhaBN",
+          "createdAt": 1768834614391
+        },
+        {
+          "ownerId": "8hqwYCaokuDmhh8d9Lxkjfkh9EkWCny21QMWZJ1Yx7VL",
+          "displayName": "8hqwYCao",
+          "createdAt": 1768836624225
+        },
+        {
+          "ownerId": "53FBPougFSAACRfMHCA61UKbSyKwSUzJunRqjZsTuY1X",
+          "displayName": "53FBPoug",
+          "createdAt": 1768836752881
+        },
+        {
+          "ownerId": "25yeCyNwyNZ1BPLQS7gaRPNVwKGGxWc7QwMaohpbob9L",
+          "displayName": "25yeCyNw",
+          "createdAt": 1768836836746
+        },
+        {
+          "ownerId": "ArcvJbio5aXzhh6mG9NR93w3ZmDQ4QiFAuTBgj3wmVDv",
+          "displayName": "ArcvJbio",
+          "createdAt": 1768836946612
+        },
+        {
+          "ownerId": "CSNbN5NiFKp5Kgp8JBMBE7LayRtMDYZQdhiUMAG9VK4S",
+          "displayName": "CSNbN5Ni",
+          "createdAt": 1768837008452
+        },
+        {
+          "ownerId": "BdigVgHRtvLyMhCbmgkTWMCKTh9awzEBgh81WQmgz7cp",
+          "displayName": "BdigVgHR",
+          "createdAt": 1768837066868
+        },
+        {
+          "ownerId": "G8UU4fngmQpV3mkxQcY84pKZKfdA1DacSkN7iVvB4cXo",
+          "displayName": "G8UU4fng",
+          "createdAt": 1768837122648
+        },
+        {
+          "ownerId": "F4Ej9RNKxWGszDJ3m6csmhTQecUVntEYGLPBELjKerYR",
+          "displayName": "F4Ej9RNK",
+          "createdAt": 1768837190301
+        },
+        {
+          "ownerId": "CHkLHZVdtAapdkT3pCRmfsPqrFDzTpXJkuEG82iqdZXZ",
+          "displayName": "CHkLHZVd",
+          "createdAt": 1768837245893
+        },
+        {
+          "ownerId": "APRut1rqbWVZCos62HZLk6wLsEiNLds9DtVpbdS81e61",
+          "displayName": "APRut1rq",
+          "createdAt": 1768837319973
+        },
+        {
+          "ownerId": "339gT6rStC7eomiUX72CxcWyzCwM2HvMpywUXBSzbcFa",
+          "displayName": "339gT6rS",
+          "createdAt": 1768837408140
+        },
+        {
+          "ownerId": "BURJThZc7ujJ4WabAKNW7vifgzb2mWiog7oKqCnam9Mz",
+          "displayName": "BURJThZc",
+          "createdAt": 1768837470294
+        },
+        {
+          "ownerId": "9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2",
+          "displayName": "Test User 1",
+          "createdAt": 1768837491922
+        },
+        {
+          "ownerId": "7kvUcjPoVBKCAtGNLwUSHHB1c3Tht4mwTTxND7eR59e8",
+          "displayName": "7kvUcjPo",
+          "createdAt": 1768837542959
+        },
+        {
+          "ownerId": "8iFHvbwBhhCWQUCptwsGcLv6tgut4A5VcfzwKbk1YGAk",
+          "displayName": "8iFHvbwB",
+          "createdAt": 1768837605410
+        },
+        {
+          "ownerId": "8a5F4pc5bPmnq4Y6WtDKsrhSwJtwwJY7TLHqqUGjZkm1",
+          "displayName": "8a5F4pc5",
+          "createdAt": 1768837674567
+        },
+        {
+          "ownerId": "5YB4PWtX8EdqMCV9Sy5DFQ3cqKnXBmK5W6GWH5EgcdJY",
+          "displayName": "5YB4PWtX",
+          "createdAt": 1768837771833
+        },
+        {
+          "ownerId": "FqqgYfVjv4QnUcRtcQMtGoe51beQKXDQWfMUsxESgrsi",
+          "displayName": "FqqgYfVj",
+          "createdAt": 1768837847384
+        },
+        {
+          "ownerId": "9PZuNUhsdtYswCA9wkQNqBf5Eb5dUWbwZP5fUZ6QNPF7",
+          "displayName": "9PZuNUhs",
+          "createdAt": 1768837910131
+        },
+        {
+          "ownerId": "7pNe7CGho18AfRw8j5UNyF8eHsKVLqtQ4PehZmuC8bW2",
+          "displayName": "7pNe7CGh",
+          "createdAt": 1768837972525
+        },
+        {
+          "ownerId": "8LJhhMfyrgm1cWZhXQPN11YZCYGax3WVxCBfianJbHJJ",
+          "displayName": "8LJhhMfy",
+          "createdAt": 1768838029673
+        },
+        {
+          "ownerId": "9phmwi4UsG4N38DRqe9KTryE5tPVdZFY9JByYwvtoSzJ",
+          "displayName": "9phmwi4U",
+          "createdAt": 1768838082344
+        },
+        {
+          "ownerId": "8ncpAgo95VCjti1WRuJzYtWzamUiaD6pSPLM7Xyd84bL",
+          "displayName": "8ncpAgo9",
+          "createdAt": 1768838132679
+        },
+        {
+          "ownerId": "95J3aXAvbV2EiK9FYH9zfmaGojGWdFSMFsm5CNurs2WQ",
+          "displayName": "95J3aXAv",
+          "createdAt": 1768838197502
+        },
+        {
+          "ownerId": "8ZTTDavX9WrjjiuWzQJ2j1JRgiq3ZNcucKn4oC6rfqNN",
+          "displayName": "8ZTTDavX",
+          "createdAt": 1768838305079
+        },
+        {
+          "ownerId": "41dR5HJwRaF9dYbMidjPQFzFDPwGiuBFpuoqeA6XhPtY",
+          "displayName": "41dR5HJw",
+          "createdAt": 1768838365834
+        },
+        {
+          "ownerId": "Gkp9ydq8mdc4bpMitRs6EER8n1kBzyipTXGfxgN2Hs8k",
+          "displayName": "Gkp9ydq8",
+          "createdAt": 1768838420193
+        },
+        {
+          "ownerId": "9kEEN1Ks7Cpjbx4eGWiDPeFU7SWi4GXmRuUaN2NSXbsD",
+          "displayName": "9kEEN1Ks",
+          "createdAt": 1768838487775
+        },
+        {
+          "ownerId": "e61i1mCi7cT6t7kEjbt32JAxpWmp72Fcv1fNREFZP72",
+          "displayName": "e61i1mCi",
+          "createdAt": 1768838549241
+        },
+        {
+          "ownerId": "J7YNDtdDNr9Rj25jW3XpUNWeyE7mAm2PCoNqHS39sNWv",
+          "displayName": "J7YNDtdD",
+          "createdAt": 1768838644830
+        },
+        {
+          "ownerId": "5rMCbfoCUcNm7bp1jF1wzrJqZtDr55GiVxhDsAWGdcoy",
+          "displayName": "5rMCbfoC",
+          "createdAt": 1768838722578
+        },
+        {
+          "ownerId": "51F4NvNNkynEuAndCKa4iYHUwTmSnpx9VqH3G6KZHFRC",
+          "displayName": "51F4NvNN",
+          "createdAt": 1768838787027
+        },
+        {
+          "ownerId": "8D8VUnXEfW9wP3P2THGqm6vU32oKk8xacQUdmjzNR7Fy",
+          "displayName": "8D8VUnXE",
+          "createdAt": 1768838857101
+        },
+        {
+          "ownerId": "HKbVqy5SktmbPRrmdrTtcD1UuAsMBT8ypv9ijbTzF27",
+          "displayName": "HKbVqy5S",
+          "createdAt": 1768838906303
+        },
+        {
+          "ownerId": "HZJ8bZf55vsTVjhDreHgiy4HVLDakREbiMn6KgnBz9pB",
+          "displayName": "HZJ8bZf5",
+          "createdAt": 1768838959921
+        },
+        {
+          "ownerId": "3zxLH2dXPUMXreTypz1JQ5j5phKv9MUG7ZHU3hKBrmbv",
+          "displayName": "3zxLH2dX",
+          "createdAt": 1768839008116
+        },
+        {
+          "ownerId": "3gQp5VHG85tYauMhK5fkBmY2bBRUskmMwLSEhN9jQfzT",
+          "displayName": "www",
+          "createdAt": 1768839054628
+        },
+        {
+          "ownerId": "2Ndb5JmCmv2hfJXYxghBZopJPeoqgRCAdWzRUiaEfsU8",
+          "displayName": "admin",
+          "createdAt": 1768839104969
+        },
+        {
+          "ownerId": "3hjzL59kaVkDN9aZcbMkVLZev5j1EU4ZdGiT7cAggDsP",
+          "displayName": "3hjzL59k",
+          "createdAt": 1768839169875
+        },
+        {
+          "ownerId": "2Qa7cWXNKntJCkGVsKYbZ9VcoWnjSoZmDBUMxTAQn5Bj",
+          "displayName": "2Qa7cWXN",
+          "createdAt": 1768839221378
+        },
+        {
+          "ownerId": "2wMAkMjQGA2oqFgfG1H2x9J1tkouq5gRy7uypAERkQh2",
+          "displayName": "2wMAkMjQ",
+          "createdAt": 1768839267596
+        },
+        {
+          "ownerId": "JAvwVhDt1j4gGAKnj6M4xpCCfnw7brkPrWiQjs4tTP7Q",
+          "displayName": "JAvwVhDt",
+          "createdAt": 1768839310765
+        },
+        {
+          "ownerId": "5d33ZfZQoTFKumSXBQzSM44FwarCmjEDXnf9tUNhmdFZ",
+          "displayName": "Tathagata",
+          "createdAt": 1768841237101
+        },
+        {
+          "ownerId": "3Y6GkAZesSee26LmaX68VQu4TUtZBjDFrM5mjtKT84kf",
+          "displayName": "Gonzalo",
+          "createdAt": 1768853717468
+        },
+        {
+          "ownerId": "4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA",
+          "displayName": "Test Owner PF",
+          "createdAt": 1768854269747
+        },
+        {
+          "ownerId": "FxtXkNLNQZBVArmM26V2dpHSA8A1HtcBKo3VDpmVoCDs",
+          "displayName": "Testing User 1",
+          "createdAt": 1768855754349
+        },
+        {
+          "ownerId": "6DkmgQWvbB1z8HJoY6MnfmnvDBcYLyjYyJ9fLDPYt87n",
+          "displayName": "Test Follower User",
+          "createdAt": 1768859413261
+        },
+        {
+          "ownerId": "B5RMsgxA56kTec8MoPkHMMkUD6aJah6KCxutrxb2jC2V",
+          "displayName": "Testing Private Feed",
+          "createdAt": 1768859676835
+        },
+        {
+          "ownerId": "5TSasoJ1gF1ZKcpBC8zgEyvWCj4duVvdYRM4vTufhpn9",
+          "displayName": "Test follower",
+          "createdAt": 1768860216177
+        },
+        {
+          "ownerId": "9XSvMdaxxpBNb5EmPDZjRn86j5xgcqgEoqnq3x4q3QLZ",
+          "displayName": "test follower",
+          "createdAt": 1768861206041
+        }
+      ],
+      "collectedAt": "2026-01-20T20:56:48.602Z"
     }
   }
 };
@@ -5854,15 +7976,18 @@
           content.innerHTML = '<div class="no-items">No posts on this day</div>';
           return;
         }
-        content.innerHTML = '<div class="item-list">' + posts.map(p => `
+        content.innerHTML = '<div class="item-list">' + posts.map(p => {
+          const authorName = userNames[p.ownerId] || truncateId(p.ownerId);
+          return `
           <a class="item-link" href="https://yap.pr/post/?id=${p.id}" target="_blank" rel="noopener">
             <div class="item-card">
               <div class="item-meta">${formatTime(p.createdAt)}</div>
               <div class="item-content">${escapeHtml(p.content || '(no content)')}</div>
-              <div class="item-owner">by ${truncateId(p.ownerId)}</div>
+              <div class="item-owner">by ${escapeHtml(authorName)}</div>
             </div>
           </a>
-        `).join('') + '</div>';
+        `;
+        }).join('') + '</div>';
       } else {
         const users = currentDay.userList || [];
         if (!users.length) {
@@ -5949,9 +8074,25 @@
       .map(([date, stats]) => ({ date, ...stats }))
       .sort((a, b) => a.date.localeCompare(b.date));
 
+    // Build ownerId -> displayName lookup from all userLists
+    const userNames = {};
+    days.forEach(d => {
+      (d.userList || []).forEach(u => {
+        if (u.ownerId && u.displayName) {
+          userNames[u.ownerId] = u.displayName;
+        }
+      });
+    });
+
+    // Compute totals
+    const totalPosts = days.reduce((sum, d) => sum + (d.posts || 0), 0);
+    const totalUsers = days.reduce((sum, d) => sum + (d.newUsers || 0), 0);
+
     // Render
     document.getElementById('last-updated').textContent =
       DATA.lastUpdated ? `Last updated: ${formatDateTime(DATA.lastUpdated)}` : '';
+    document.getElementById('total-posts').textContent = totalPosts.toLocaleString();
+    document.getElementById('total-users').textContent = totalUsers.toLocaleString();
 
     renderChart('posts-chart', days, 'posts', 'posts', 'posts');
     renderChart('users-chart', days, 'newUsers', 'users', 'users');

@@ -16,13 +16,14 @@ import { getSdk, cleanup, paginateFetch } from './lib/sdk.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-// Yappr contract ID (testnet)
+// Yappr contract IDs (testnet)
 const YAPPR_CONTRACT_ID = 'AyWK6nDVfb8d1ZmkM5MmZZrThbUyWyso1aMeGuuVSfxf';
+const YAPPR_PROFILE_CONTRACT_ID = 'FZSnZdKsLAuWxE7iZJq12eEz6xfGTgKPxK7uZJapTQxe';
 
-// Document types with $createdAt index (can query by time range directly)
+// Document types
 const DOCUMENT_TYPES = {
   posts: 'post',
-  newUsers: 'profile',
+  profile: 'profile',
 };
 
 // File paths
@@ -114,11 +115,11 @@ function isDayComplete(stats, dateStr) {
  * Fetch documents for a specific day using time range query
  * Returns both count and document summaries
  */
-async function fetchDocumentsForDay(sdk, documentType, startMs, endMs) {
+async function fetchDocumentsForDay(sdk, contractId, documentType, startMs, endMs) {
   const { documents, count, reachedLimit } = await paginateFetch(
     sdk,
     () => ({
-      dataContractId: YAPPR_CONTRACT_ID,
+      dataContractId: contractId,
       documentTypeName: documentType,
       where: [
         ['$createdAt', '>=', startMs],
@@ -134,6 +135,42 @@ async function fetchDocumentsForDay(sdk, documentType, startMs, endMs) {
   }
 
   return { documents, count };
+}
+
+/**
+ * Fetch all profiles from unified contract and group by date.
+ * (unified profile contract has no $createdAt index, so we fetch all once)
+ * Returns a Map of dateStr -> array of profile documents
+ */
+async function fetchAllProfilesByDate(sdk) {
+  console.log('Fetching all profiles from unified contract...');
+  const { documents, reachedLimit } = await paginateFetch(
+    sdk,
+    () => ({
+      dataContractId: YAPPR_PROFILE_CONTRACT_ID,
+      documentTypeName: DOCUMENT_TYPES.profile,
+    }),
+    { maxResults: 100000, pageSize: 100 }
+  );
+
+  if (reachedLimit) {
+    console.warn('  Warning: Reached count limit for profiles');
+  }
+
+  console.log(`  Total profiles: ${documents.length}`);
+
+  // Group by date (YYYY-MM-DD in UTC)
+  const byDate = new Map();
+  for (const doc of documents) {
+    if (!doc.$createdAt) continue;
+    const dateStr = new Date(doc.$createdAt).toISOString().split('T')[0];
+    if (!byDate.has(dateStr)) {
+      byDate.set(dateStr, []);
+    }
+    byDate.get(dateStr).push(doc);
+  }
+
+  return byDate;
 }
 
 /**
@@ -161,8 +198,11 @@ function summarizeProfile(doc) {
 
 /**
  * Collect stats for a single day
+ * @param {object} sdk - The EvoSDK instance
+ * @param {string} dateStr - Date in YYYY-MM-DD format
+ * @param {Map} profilesByDate - Pre-fetched profiles grouped by date
  */
-async function collectDayStats(sdk, dateStr) {
+async function collectDayStats(sdk, dateStr, profilesByDate) {
   const { startMs, endMs } = getDayBoundaries(dateStr);
   const stats = {};
 
@@ -170,7 +210,7 @@ async function collectDayStats(sdk, dateStr) {
 
   // Fetch posts
   try {
-    const { documents, count } = await fetchDocumentsForDay(sdk, DOCUMENT_TYPES.posts, startMs, endMs);
+    const { documents, count } = await fetchDocumentsForDay(sdk, YAPPR_CONTRACT_ID, DOCUMENT_TYPES.posts, startMs, endMs);
     stats.posts = count;
     stats.postList = documents.map(summarizePost);
     console.log(`  posts: ${count}`);
@@ -181,18 +221,12 @@ async function collectDayStats(sdk, dateStr) {
     stats.postList = [];
   }
 
-  // Fetch new users (profiles)
-  try {
-    const { documents, count } = await fetchDocumentsForDay(sdk, DOCUMENT_TYPES.newUsers, startMs, endMs);
-    stats.newUsers = count;
-    stats.userList = documents.map(summarizeProfile);
-    console.log(`  newUsers: ${count}`);
-    await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
-  } catch (error) {
-    console.error(`  Error fetching newUsers:`, error.message);
-    stats.newUsers = null;
-    stats.userList = [];
-  }
+  // Get new users from pre-fetched profiles
+  const profiles = profilesByDate.get(dateStr) || [];
+  profiles.sort((a, b) => (a.$createdAt || 0) - (b.$createdAt || 0));
+  stats.newUsers = profiles.length;
+  stats.userList = profiles.map(summarizeProfile);
+  console.log(`  newUsers: ${stats.newUsers}`);
 
   stats.collectedAt = new Date().toISOString();
   return stats;
@@ -289,8 +323,13 @@ async function main() {
   try {
     sdk = await getSdk();
 
+    // Fetch all profiles once (no $createdAt index, so we can't query by date)
+    const profilesByDate = await fetchAllProfilesByDate(sdk);
+    await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
+    console.log();
+
     for (const dateStr of datesToCollect) {
-      const dayStats = await collectDayStats(sdk, dateStr);
+      const dayStats = await collectDayStats(sdk, dateStr, profilesByDate);
       allStats.days[dateStr] = dayStats;
       console.log();
     }
