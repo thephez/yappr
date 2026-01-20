@@ -90,6 +90,7 @@ function NotificationsPage() {
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab.key}
+                data-testid={`notification-tab-${tab.key}`}
                 onClick={() => setFilter(tab.key)}
                 className={`flex-1 py-4 text-sm font-medium transition-colors relative ${
                   filter === tab.key
@@ -214,7 +215,7 @@ function NotificationsPage() {
                   </div>
 
                   {!notification.read && (
-                    <div className="w-2 h-2 bg-yappr-500 rounded-full mt-2 flex-shrink-0" />
+                    <div data-testid="unread-badge" className="w-2 h-2 bg-yappr-500 rounded-full mt-2 flex-shrink-0" />
                   )}
                 </div>
               </motion.div>

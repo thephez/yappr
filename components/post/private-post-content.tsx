@@ -414,7 +414,7 @@ export function PrivatePostContent({
   // Decrypted state - show full content
   if (state.status === 'decrypted') {
     return (
-      <div className={cn('space-y-1', className)}>
+      <div data-testid="decrypted-content" className={cn('space-y-1', className)}>
         {/* Show teaser with muted style if present */}
         {hasTeaser && (
           <div className="text-gray-500 dark:text-gray-400 text-sm">
@@ -457,7 +457,7 @@ export function PrivatePostContent({
     const isApprovedNoKeys = state.reason === 'approved-no-keys'
 
     return (
-      <div className={cn('space-y-2', className)}>
+      <div data-testid="encrypted-content" className={cn('space-y-2', className)}>
         {/* Show teaser if available */}
         {hasTeaser && (
           <PostContent
@@ -576,6 +576,7 @@ export function PrivatePostContent({
 export function PrivatePostBadge({ className }: { className?: string }) {
   return (
     <span
+      data-testid="private-post-badge"
       className={cn(
         'inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 text-xs',
         className

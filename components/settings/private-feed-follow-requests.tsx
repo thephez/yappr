@@ -301,7 +301,7 @@ export function PrivateFeedFollowRequests() {
       </CardHeader>
       <CardContent>
         {requests.length === 0 ? (
-          <p className="text-gray-500 text-sm text-center py-4">
+          <p data-testid="no-pending-requests" className="text-gray-500 text-sm text-center py-4">
             No pending requests
           </p>
         ) : (
@@ -309,6 +309,7 @@ export function PrivateFeedFollowRequests() {
             {requests.map(request => (
               <div
                 key={request.id}
+                data-testid={`request-card-${request.id}`}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-950 rounded-lg"
               >
                 <Link
@@ -328,6 +329,7 @@ export function PrivateFeedFollowRequests() {
                 </Link>
                 <div className="flex gap-2 flex-shrink-0 ml-2">
                   <Button
+                    data-testid={`approve-btn-${request.id}`}
                     variant="default"
                     size="sm"
                     onClick={() => handleApprove(request)}
@@ -344,6 +346,7 @@ export function PrivateFeedFollowRequests() {
                     )}
                   </Button>
                   <Button
+                    data-testid={`ignore-btn-${request.id}`}
                     variant="outline"
                     size="sm"
                     onClick={() => handleIgnore(request)}

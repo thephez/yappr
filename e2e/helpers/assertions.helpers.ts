@@ -55,7 +55,9 @@ export async function assertPrivateFeedEnabled(page: Page): Promise<void> {
  * Assert that private feed is NOT enabled for current user
  */
 export async function assertPrivateFeedNotEnabled(page: Page): Promise<void> {
-  const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+  const enableBtn = page.locator('[data-testid="enable-private-feed-btn"]').or(
+    page.locator('button:has-text("Enable Private Feed")')
+  );
   await expect(enableBtn).toBeVisible({ timeout: 10000 });
 }
 
@@ -63,9 +65,11 @@ export async function assertPrivateFeedNotEnabled(page: Page): Promise<void> {
  * Assert that a post shows encrypted/locked state
  */
 export async function assertPostLocked(post: Locator): Promise<void> {
-  const lockIndicator = post.locator('[aria-label*="locked" i]').or(
-    post.locator('text=This content is encrypted')
-  ).or(post.locator('text=Private content'));
+  const lockIndicator = post.locator('[data-testid="encrypted-content"]').or(
+    post.locator('[aria-label*="locked" i]')
+  ).or(post.locator('text=This content is encrypted')).or(
+    post.locator('text=Private content')
+  );
 
   await expect(lockIndicator).toBeVisible({ timeout: 10000 });
 }
@@ -74,11 +78,17 @@ export async function assertPostLocked(post: Locator): Promise<void> {
  * Assert that a post shows decrypted content
  */
 export async function assertPostDecrypted(post: Locator, expectedContent?: string): Promise<void> {
-  // Should NOT show lock indicator
-  const lockIndicator = post.locator('[aria-label*="locked" i]').or(
-    post.locator('text=This content is encrypted')
-  );
-  await expect(lockIndicator).not.toBeVisible({ timeout: 5000 });
+  // Check for decrypted content data-testid OR absence of encrypted content
+  const decryptedContent = post.locator('[data-testid="decrypted-content"]');
+  const isDecrypted = await decryptedContent.isVisible({ timeout: 1000 }).catch(() => false);
+
+  if (!isDecrypted) {
+    // Should NOT show lock indicator
+    const lockIndicator = post.locator('[data-testid="encrypted-content"]').or(
+      post.locator('[aria-label*="locked" i]')
+    ).or(post.locator('text=This content is encrypted'));
+    await expect(lockIndicator).not.toBeVisible({ timeout: 5000 });
+  }
 
   // If content is provided, verify it's visible
   if (expectedContent) {
@@ -91,7 +101,9 @@ export async function assertPostDecrypted(post: Locator, expectedContent?: strin
  */
 export async function assertAccessPending(page: Page): Promise<void> {
   await expect(
-    page.locator('text=Pending').or(page.locator('text=Request Sent'))
+    page.locator('[data-testid="access-pending"]').or(
+      page.locator('text=Pending')
+    ).or(page.locator('text=Request Sent'))
   ).toBeVisible({ timeout: 10000 });
 }
 
@@ -111,7 +123,9 @@ export async function assertAccessApproved(page: Page): Promise<void> {
  */
 export async function assertAccessRevoked(page: Page): Promise<void> {
   await expect(
-    page.locator('text=Revoked').or(page.locator('text=Access Revoked'))
+    page.locator('[data-testid="access-revoked"]').or(
+      page.locator('text=Revoked')
+    ).or(page.locator('text=Access Revoked'))
   ).toBeVisible({ timeout: 10000 });
 }
 
@@ -134,9 +148,9 @@ export async function assertNoModal(page: Page): Promise<void> {
  */
 export async function assertPrivateOptionAvailable(page: Page): Promise<void> {
   // The visibility dropdown should contain private options
-  const privateOption = page.locator('button:has-text("Private")').or(
-    page.locator('[role="option"]:has-text("Private")')
-  );
+  const privateOption = page.locator('[data-testid="visibility-private"]').or(
+    page.locator('button:has-text("Private")')
+  ).or(page.locator('[role="option"]:has-text("Private")'));
   await expect(privateOption).toBeVisible({ timeout: 5000 });
 }
 
@@ -194,9 +208,9 @@ export async function assertElementCount(locator: Locator, count: number): Promi
  * Assert loading state is complete
  */
 export async function assertNotLoading(page: Page): Promise<void> {
-  const loadingIndicator = page.locator('[data-testid="loading"]').or(
-    page.locator('.loading')
-  ).or(page.locator('[aria-busy="true"]'));
+  const loadingIndicator = page.locator('[data-testid="loading-skeleton"]').or(
+    page.locator('[data-testid="loading"]')
+  ).or(page.locator('.loading')).or(page.locator('[aria-busy="true"]'));
 
   await expect(loadingIndicator).not.toBeVisible({ timeout: 30000 });
 }

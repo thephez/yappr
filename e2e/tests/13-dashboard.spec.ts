@@ -95,7 +95,9 @@ test.describe('13 - Dashboard', () => {
       const retryDashboard = await dashboardCard.isVisible({ timeout: 5000 }).catch(() => false);
       if (!retryDashboard) {
         // Check if private feed is enabled via UI
-        const enableButton = page.locator('button:has-text("Enable Private Feed")');
+        const enableButton = page.locator('[data-testid="enable-private-feed-btn"]').or(
+          page.locator('button:has-text("Enable Private Feed")')
+        );
         const hasEnableBtn = await enableButton.isVisible({ timeout: 3000 }).catch(() => false);
 
         if (hasEnableBtn) {
@@ -111,12 +113,10 @@ test.describe('13 - Dashboard', () => {
     const hasStatsGrid = await statsGrid.first().isVisible({ timeout: 5000 }).catch(() => false);
     console.log('Stats grid visible:', hasStatsGrid);
 
-    // Check for Followers stat card
-    const followersCard = page.getByText('Followers').filter({
-      has: page.locator('xpath=ancestor::div[contains(@class, "rounded-xl")]')
-    }).or(
-      page.locator('div').filter({ hasText: 'Followers' }).filter({
-        has: page.locator('.text-2xl.font-bold')
+    // Check for Followers stat card using data-testid
+    const followersCard = page.locator('[data-testid="follower-count-stat"]').or(
+      page.getByText('Followers').filter({
+        has: page.locator('xpath=ancestor::div[contains(@class, "rounded-xl")]')
       })
     );
     const hasFollowersCard = await followersCard.first().isVisible({ timeout: 5000 }).catch(() => false);
@@ -125,14 +125,18 @@ test.describe('13 - Dashboard', () => {
     const followerCount = page.getByText(/\/1024/);
     const hasFollowerCapacity = await followerCount.isVisible({ timeout: 5000 }).catch(() => false);
 
-    // Check for Pending stat card
-    const pendingCard = page.getByText('Pending').filter({
-      has: page.locator('xpath=ancestor::div[contains(@class, "rounded-xl")]')
-    });
+    // Check for Pending stat card using data-testid
+    const pendingCard = page.locator('[data-testid="pending-requests-stat"]').or(
+      page.getByText('Pending').filter({
+        has: page.locator('xpath=ancestor::div[contains(@class, "rounded-xl")]')
+      })
+    );
     const hasPendingCard = await pendingCard.first().isVisible({ timeout: 5000 }).catch(() => false);
 
-    // Check for Private Posts stat card
-    const postsCard = page.getByText('Private Posts').or(page.getByText(/Private\s*Posts/i));
+    // Check for Private Posts stat card using data-testid
+    const postsCard = page.locator('[data-testid="private-posts-stat"]').or(
+      page.getByText('Private Posts')
+    ).or(page.getByText(/Private\s*Posts/i));
     const hasPostsCard = await postsCard.first().isVisible({ timeout: 5000 }).catch(() => false);
 
     // Check for epoch usage bar
@@ -143,9 +147,13 @@ test.describe('13 - Dashboard', () => {
     const revocationsText = page.getByText(/\d+\/\d+\s*revocations?/i);
     const hasRevocationsDisplay = await revocationsText.isVisible({ timeout: 5000 }).catch(() => false);
 
-    // Check for quick action buttons
-    const viewRequestsBtn = page.locator('button').filter({ hasText: /View Requests/i });
-    const manageFollowersBtn = page.locator('button').filter({ hasText: /Manage Followers/i });
+    // Check for quick action buttons using data-testid
+    const viewRequestsBtn = page.locator('[data-testid="view-requests-btn"]').or(
+      page.locator('button').filter({ hasText: /View Requests/i })
+    );
+    const manageFollowersBtn = page.locator('[data-testid="manage-followers-btn"]').or(
+      page.locator('button').filter({ hasText: /Manage Followers/i })
+    );
 
     const hasViewRequestsBtn = await viewRequestsBtn.isVisible({ timeout: 5000 }).catch(() => false);
     const hasManageFollowersBtn = await manageFollowersBtn.isVisible({ timeout: 5000 }).catch(() => false);
@@ -374,9 +382,11 @@ test.describe('13 - Dashboard', () => {
     // Wait for dashboard to load (including async activity data)
     await page.waitForTimeout(7000);
 
-    // Look for Recent Activity section
-    const activityHeader = page.getByText('Recent Activity');
-    const hasActivityHeader = await activityHeader.isVisible({ timeout: 10000 }).catch(() => false);
+    // Look for Recent Activity section using data-testid
+    const activitySection = page.locator('[data-testid="recent-activity"]').or(
+      page.getByText('Recent Activity')
+    );
+    const hasActivityHeader = await activitySection.isVisible({ timeout: 10000 }).catch(() => false);
 
     // Take screenshot
     await page.screenshot({ path: 'screenshots/13-13.3-recent-activity.png' });
@@ -399,7 +409,9 @@ test.describe('13 - Dashboard', () => {
         return;
       } else {
         console.log('Dashboard not visible - checking for enable state');
-        const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+        const enableBtn = page.locator('[data-testid="enable-private-feed-btn"]').or(
+          page.locator('button:has-text("Enable Private Feed")')
+        );
         if (await enableBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
           test.skip(true, 'Private feed not enabled');
           return;
@@ -513,12 +525,16 @@ test.describe('13 - Dashboard', () => {
     // Wait for dashboard to load
     await page.waitForTimeout(5000);
 
-    // Find the View Requests button
-    const viewRequestsBtn = page.locator('button').filter({ hasText: /View Requests/i });
+    // Find the View Requests button using data-testid
+    const viewRequestsBtn = page.locator('[data-testid="view-requests-btn"]').or(
+      page.locator('button').filter({ hasText: /View Requests/i })
+    );
     const hasViewRequestsBtn = await viewRequestsBtn.isVisible({ timeout: 10000 }).catch(() => false);
 
-    // Find the Manage Followers button
-    const manageFollowersBtn = page.locator('button').filter({ hasText: /Manage Followers/i });
+    // Find the Manage Followers button using data-testid
+    const manageFollowersBtn = page.locator('[data-testid="manage-followers-btn"]').or(
+      page.locator('button').filter({ hasText: /Manage Followers/i })
+    );
     const hasManageFollowersBtn = await manageFollowersBtn.isVisible({ timeout: 5000 }).catch(() => false);
 
     // Take screenshot before clicking
@@ -588,9 +604,11 @@ test.describe('13 - Dashboard', () => {
     // Don't wait for network idle - we want to catch loading state
     await page.goto('http://localhost:3000/settings?section=privateFeed');
 
-    // Try to catch the loading skeleton
+    // Try to catch the loading skeleton using data-testid
     // The component shows animate-pulse divs while loading
-    const loadingState = page.locator('.animate-pulse');
+    const loadingState = page.locator('[data-testid="loading-skeleton"]').or(
+      page.locator('.animate-pulse')
+    );
 
     // Take screenshot immediately
     await page.screenshot({ path: 'screenshots/13-bonus-loading-state.png' });

@@ -102,6 +102,7 @@ export function VisibilitySelector({
     <div className="relative">
       {/* Main selector button */}
       <button
+        data-testid="visibility-selector"
         type="button"
         onClick={(e) => {
           e.stopPropagation()
@@ -140,6 +141,7 @@ export function VisibilitySelector({
             return (
               <button
                 key={option.value}
+                data-testid={`visibility-${option.value}`}
                 type="button"
                 onClick={() => handleSelect(option)}
                 disabled={isDisabled}
@@ -190,7 +192,7 @@ export function VisibilitySelector({
 
           {/* Footer with follower info */}
           {isPrivate && privateFollowerCount === 0 && (
-            <div className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-100 dark:border-amber-800">
+            <div data-testid="no-followers-warning" className="px-4 py-2 bg-amber-50 dark:bg-amber-900/20 border-t border-amber-100 dark:border-amber-800">
               <p className="text-xs text-amber-700 dark:text-amber-400">
                 <LockClosedIconSolid className="w-3 h-3 inline-block mr-1" />
                 You have no private followers yet. This post will only be visible to you.

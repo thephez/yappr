@@ -11,14 +11,16 @@ export async function enablePrivateFeed(page: Page, encryptionKey: string): Prom
   await goToPrivateFeedSettings(page);
 
   // Look for the enable button
-  const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+  const enableBtn = page.locator('[data-testid="enable-private-feed-btn"]').or(
+    page.locator('button:has-text("Enable Private Feed")')
+  );
 
   // If private feed is already enabled, skip
   if (!(await enableBtn.isVisible({ timeout: 5000 }).catch(() => false))) {
     // Check if already enabled
-    const alreadyEnabled = page.locator('text=Private feed is enabled').or(
-      page.locator('text=Private Feed Dashboard')
-    );
+    const alreadyEnabled = page.locator('[data-testid="private-feed-enabled"]').or(
+      page.locator('text=Private feed is enabled')
+    ).or(page.locator('text=Private Feed Dashboard'));
     if (await alreadyEnabled.isVisible({ timeout: 2000 }).catch(() => false)) {
       return; // Already enabled
     }
@@ -44,9 +46,9 @@ export async function enablePrivateFeed(page: Page, encryptionKey: string): Prom
   await waitForToast(page);
 
   // Verify private feed is now enabled
-  await expect(page.locator('text=Private Feed Dashboard').or(
-    page.locator('text=Private feed is enabled')
-  )).toBeVisible({ timeout: 60000 });
+  await expect(page.locator('[data-testid="private-feed-enabled"]').or(
+    page.locator('text=Private Feed Dashboard')
+  ).or(page.locator('text=Private feed is enabled'))).toBeVisible({ timeout: 60000 });
 }
 
 /**
@@ -66,22 +68,22 @@ export async function createPrivatePost(
   const modal = page.locator('[role="dialog"]');
 
   // Select visibility
-  const visibilityDropdown = modal.locator('[role="combobox"]').or(
-    modal.locator('button').filter({ hasText: /public/i })
-  );
+  const visibilityDropdown = modal.locator('[data-testid="visibility-selector"]').or(
+    modal.locator('[role="combobox"]')
+  ).or(modal.locator('button').filter({ hasText: /public/i }));
 
   if (await visibilityDropdown.isVisible()) {
     await visibilityDropdown.click();
 
     // Select private option
     if (options?.visibility === 'private-with-teaser') {
-      await page.locator('button:has-text("Private with Teaser")').or(
-        page.locator('[role="option"]:has-text("Private with Teaser")')
-      ).click();
+      await page.locator('[data-testid="visibility-private-with-teaser"]').or(
+        page.locator('button:has-text("Private with Teaser")')
+      ).or(page.locator('[role="option"]:has-text("Private with Teaser")')).click();
     } else {
-      await page.locator('button:has-text("Private")').first().or(
-        page.locator('[role="option"]:has-text("Private")').first()
-      ).click();
+      await page.locator('[data-testid="visibility-private"]').or(
+        page.locator('button:has-text("Private")').first()
+      ).or(page.locator('[role="option"]:has-text("Private")').first()).click();
     }
   }
 
@@ -139,7 +141,9 @@ export async function requestAccess(page: Page, ownerIdentityId: string): Promis
   await goToProfile(page, ownerIdentityId);
 
   // Click request access button
-  const requestBtn = page.locator('button:has-text("Request Access")');
+  const requestBtn = page.locator('[data-testid="request-access-btn"]').or(
+    page.locator('button:has-text("Request Access")')
+  );
   await expect(requestBtn).toBeVisible({ timeout: 10000 });
   await requestBtn.click();
 
@@ -147,9 +151,9 @@ export async function requestAccess(page: Page, ownerIdentityId: string): Promis
   await waitForToast(page);
 
   // Verify pending state
-  await expect(page.locator('text=Pending').or(
-    page.locator('text=Request Sent')
-  )).toBeVisible({ timeout: 30000 });
+  await expect(page.locator('[data-testid="access-pending"]').or(
+    page.locator('text=Pending')
+  ).or(page.locator('text=Request Sent'))).toBeVisible({ timeout: 30000 });
 }
 
 /**
@@ -159,16 +163,10 @@ export async function approveFollower(page: Page, followerIdentityId: string): P
   // Navigate to private feed settings
   await goToPrivateFeedSettings(page);
 
-  // Find the follower in pending requests
-  const pendingSection = page.locator('text=Pending Requests').locator('..');
-  const followerRow = pendingSection.locator(`text=${followerIdentityId}`).or(
-    page.locator(`[data-identity="${followerIdentityId}"]`)
-  );
-
-  // Click approve button
-  const approveBtn = followerRow.locator('button:has-text("Approve")').or(
-    page.locator(`button:has-text("Approve")`).first()
-  );
+  // Try to find the approve button using the new data-testid pattern
+  const approveBtn = page.locator(`[data-testid="approve-btn-${followerIdentityId}"]`).or(
+    page.locator(`[data-testid^="approve-btn-"]`).first()
+  ).or(page.locator('button:has-text("Approve")').first());
 
   await approveBtn.click();
 
@@ -183,20 +181,17 @@ export async function revokeFollower(page: Page, followerIdentityId: string): Pr
   // Navigate to private feed settings
   await goToPrivateFeedSettings(page);
 
-  // Find the follower in approved list
-  const followerRow = page.locator(`[data-identity="${followerIdentityId}"]`).or(
-    page.locator('text=Approved').locator('..').locator(`text=${followerIdentityId}`)
-  );
-
-  // Click revoke button
-  const revokeBtn = followerRow.locator('button:has-text("Revoke")').or(
-    page.locator('button:has-text("Revoke")').first()
-  );
+  // Try to find the revoke button using the new data-testid pattern
+  const revokeBtn = page.locator(`[data-testid="revoke-btn-${followerIdentityId}"]`).or(
+    page.locator(`[data-testid^="revoke-btn-"]`).first()
+  ).or(page.locator('button:has-text("Revoke")').first());
 
   await revokeBtn.click();
 
-  // Confirm if there's a confirmation dialog
-  const confirmBtn = page.locator('[role="dialog"] button:has-text("Confirm")').or(
+  // Confirm if there's a confirmation dialog - try data-testid first
+  const confirmBtn = page.locator(`[data-testid="confirm-revoke-btn-${followerIdentityId}"]`).or(
+    page.locator(`[data-testid^="confirm-revoke-btn-"]`).first()
+  ).or(page.locator('[role="dialog"] button:has-text("Confirm")')).or(
     page.locator('[role="dialog"] button:has-text("Revoke")')
   );
   if (await confirmBtn.isVisible({ timeout: 2000 }).catch(() => false)) {
@@ -213,13 +208,19 @@ export async function revokeFollower(page: Page, followerIdentityId: string): Pr
 export async function isPostDecrypted(page: Page, postLocator: string | ReturnType<Page['locator']>): Promise<boolean> {
   const post = typeof postLocator === 'string' ? page.locator(postLocator) : postLocator;
 
+  // Check for decrypted content using data-testid
+  const decryptedContent = post.locator('[data-testid="decrypted-content"]');
+  if (await decryptedContent.isVisible({ timeout: 1000 }).catch(() => false)) {
+    return true;
+  }
+
   // A decrypted post should NOT show lock icon or encrypted placeholder
   const lockIcon = post.locator('[aria-label*="locked" i]').or(
     post.locator('svg').filter({ hasText: /lock/i })
   );
-  const encryptedPlaceholder = post.locator('text=This content is encrypted').or(
-    post.locator('text=Private content')
-  );
+  const encryptedPlaceholder = post.locator('[data-testid="encrypted-content"]').or(
+    post.locator('text=This content is encrypted')
+  ).or(post.locator('text=Private content'));
 
   const hasLock = await lockIcon.isVisible({ timeout: 1000 }).catch(() => false);
   const hasPlaceholder = await encryptedPlaceholder.isVisible({ timeout: 1000 }).catch(() => false);
@@ -232,6 +233,12 @@ export async function isPostDecrypted(page: Page, postLocator: string | ReturnTy
  */
 export async function isPostLocked(page: Page, postLocator: string | ReturnType<Page['locator']>): Promise<boolean> {
   const post = typeof postLocator === 'string' ? page.locator(postLocator) : postLocator;
+
+  // Check for encrypted content using data-testid first
+  const encryptedContent = post.locator('[data-testid="encrypted-content"]');
+  if (await encryptedContent.isVisible({ timeout: 1000 }).catch(() => false)) {
+    return true;
+  }
 
   // A locked post shows lock icon or encrypted placeholder
   const lockIcon = post.locator('[aria-label*="locked" i]').or(
@@ -285,9 +292,9 @@ export async function waitForPrivateFeedEnabled(page: Page): Promise<void> {
 export async function enterEncryptionKeyInSettings(page: Page, encryptionKey: string): Promise<void> {
   await goToPrivateFeedSettings(page);
 
-  const enterKeyBtn = page.locator('button:has-text("Enter Encryption Key")').or(
-    page.locator('button:has-text("Add Encryption Key")')
-  );
+  const enterKeyBtn = page.locator('[data-testid="encryption-key-input"]').or(
+    page.locator('button:has-text("Enter Encryption Key")')
+  ).or(page.locator('button:has-text("Add Encryption Key")'));
 
   if (await enterKeyBtn.isVisible({ timeout: 5000 }).catch(() => false)) {
     await enterKeyBtn.click();

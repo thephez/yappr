@@ -43,7 +43,9 @@ test.describe('01 - Enable Private Feed', () => {
     await page.waitForLoadState('networkidle');
 
     // Verify "Enable Private Feed" button is visible
-    const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+    const enableBtn = page.locator('[data-testid="enable-private-feed-btn"]').or(
+      page.locator('button:has-text("Enable Private Feed")')
+    );
     await expect(enableBtn).toBeVisible({ timeout: 30000 });
 
     // Verify capacity info is shown (1,024 followers)
@@ -71,7 +73,9 @@ test.describe('01 - Enable Private Feed', () => {
     await waitForToast(page);
 
     // Verify private feed is now enabled - check for enabled state indicators
-    await expect(page.locator('text=Private feed is enabled')).toBeVisible({ timeout: 60000 });
+    await expect(page.locator('[data-testid="private-feed-enabled"]').or(
+      page.locator('text=Private feed is enabled')
+    )).toBeVisible({ timeout: 60000 });
 
     // Verify dashboard stats are shown with initial values
     // Should show: Followers: 0/1024, Available Slots
@@ -113,7 +117,9 @@ test.describe('01 - Enable Private Feed', () => {
     // 3. The enable flow should be blocked if key is missing
 
     const addKeyBtn = page.locator('button:has-text("Add Encryption Key to Identity")');
-    const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+    const enableBtn = page.locator('[data-testid="enable-private-feed-btn"]').or(
+      page.locator('button:has-text("Enable Private Feed")')
+    );
 
     const addKeyVisible = await addKeyBtn.isVisible().catch(() => false);
     const enableBtnVisible = await enableBtn.isVisible().catch(() => false);
@@ -171,10 +177,14 @@ test.describe('01 - Enable Private Feed', () => {
 
     // Dashboard should be shown (not enable button)
     // Use .first() to avoid strict mode violation since text appears in multiple places
-    await expect(page.getByText('Private feed is enabled').first()).toBeVisible({ timeout: 30000 });
+    await expect(page.locator('[data-testid="private-feed-enabled"]').or(
+      page.getByText('Private feed is enabled')
+    ).first()).toBeVisible({ timeout: 30000 });
 
     // Enable button should NOT be visible
-    const enableBtn = page.locator('button:has-text("Enable Private Feed")');
+    const enableBtn = page.locator('[data-testid="enable-private-feed-btn"]').or(
+      page.locator('button:has-text("Enable Private Feed")')
+    );
     await expect(enableBtn).not.toBeVisible({ timeout: 5000 });
 
     // Stats should display current state
@@ -182,7 +192,9 @@ test.describe('01 - Enable Private Feed', () => {
     await expect(page.locator('text=Followers').first()).toBeVisible({ timeout: 10000 });
 
     // Should see management options - Reset Private Feed is in danger zone
-    await expect(page.locator('button:has-text("Reset Private Feed")').first()).toBeVisible({ timeout: 10000 });
+    await expect(page.locator('[data-testid="reset-private-feed-btn"]').or(
+      page.locator('button:has-text("Reset Private Feed")')
+    ).first()).toBeVisible({ timeout: 10000 });
 
     // Verify the dashboard cards are present
     // Check for epoch display (shows current epoch / max)

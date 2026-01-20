@@ -201,7 +201,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
     return (
       <Card>
         <CardContent className="pt-6">
-          <div className="animate-pulse space-y-2">
+          <div data-testid="loading-skeleton" className="animate-pulse space-y-2">
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-3/4"></div>
             <div className="h-4 bg-gray-200 dark:bg-gray-800 rounded w-1/2"></div>
           </div>
@@ -224,7 +224,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
       <CardContent className="space-y-4">
         {isEnabled ? (
           <>
-            <div className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
+            <div data-testid="private-feed-enabled" className="bg-green-50 dark:bg-green-950 p-4 rounded-lg">
               <div className="flex gap-3">
                 <CheckCircleIcon className="h-5 w-5 text-green-600 dark:text-green-400 flex-shrink-0 mt-0.5" />
                 <div className="space-y-1">
@@ -315,6 +315,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
                     </p>
                   </div>
                   <Button
+                    data-testid="encryption-key-input"
                     variant="outline"
                     className="w-full"
                     onClick={() => openEncryptionKeyModal('manage_private_feed', checkPrivateFeedStatus)}
@@ -356,6 +357,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
                     This will remove all current followers and make existing private posts unreadable.
                   </p>
                   <Button
+                    data-testid="reset-private-feed-btn"
                     variant="outline"
                     className="mt-2 border-red-300 dark:border-red-700 text-red-600 dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900"
                     onClick={() => setShowResetDialog(true)}
@@ -426,6 +428,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
                   </div>
                 ) : (
                   <Button
+                    data-testid="enable-private-feed-btn"
                     className="w-full"
                     onClick={handleStartEnable}
                   >

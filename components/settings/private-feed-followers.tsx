@@ -277,6 +277,7 @@ export function PrivateFeedFollowers() {
           <div className="relative">
             <MagnifyingGlassIcon className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <Input
+              data-testid="follower-search"
               placeholder="Search followers..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -302,6 +303,7 @@ export function PrivateFeedFollowers() {
             {filteredFollowers.map((follower) => (
               <div
                 key={follower.id}
+                data-testid={`follower-card-${follower.id}`}
                 className="flex items-center justify-between p-3 bg-gray-50 dark:bg-gray-950 rounded-lg"
               >
                 <Link
@@ -323,6 +325,7 @@ export function PrivateFeedFollowers() {
                   {confirmRevokeId === follower.id ? (
                     <div className="flex flex-col gap-2">
                       <Button
+                        data-testid={`confirm-revoke-btn-${follower.id}`}
                         variant="destructive"
                         size="sm"
                         onClick={() => handleConfirmRevoke(follower)}
@@ -335,6 +338,7 @@ export function PrivateFeedFollowers() {
                         )}
                       </Button>
                       <Button
+                        data-testid={`cancel-revoke-btn-${follower.id}`}
                         variant="outline"
                         size="sm"
                         onClick={handleCancelRevoke}
@@ -345,6 +349,7 @@ export function PrivateFeedFollowers() {
                     </div>
                   ) : (
                     <Button
+                      data-testid={`revoke-btn-${follower.id}`}
                       variant="outline"
                       size="sm"
                       onClick={() => handleRevokeClick(follower.id)}

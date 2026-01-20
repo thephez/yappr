@@ -208,7 +208,7 @@ export function PrivateFeedDashboard() {
         {/* Stats Grid */}
         <div className="grid grid-cols-3 gap-4">
           {/* Followers */}
-          <div className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 p-4 rounded-xl text-center">
+          <div data-testid="follower-count-stat" className="bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950/50 dark:to-blue-900/30 p-4 rounded-xl text-center">
             <UserGroupIcon className="h-6 w-6 mx-auto mb-2 text-blue-600 dark:text-blue-400" />
             <p className="text-2xl font-bold text-blue-700 dark:text-blue-300">{followerCount}</p>
             <p className="text-xs text-blue-600/70 dark:text-blue-400/70">/{TREE_CAPACITY}</p>
@@ -216,7 +216,7 @@ export function PrivateFeedDashboard() {
           </div>
 
           {/* Pending Requests */}
-          <div className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/30 p-4 rounded-xl text-center">
+          <div data-testid="pending-requests-stat" className="bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950/50 dark:to-amber-900/30 p-4 rounded-xl text-center">
             <ClockIcon className="h-6 w-6 mx-auto mb-2 text-amber-600 dark:text-amber-400" />
             <p className="text-2xl font-bold text-amber-700 dark:text-amber-300">{pendingRequestCount}</p>
             <p className="text-xs text-amber-600/70 dark:text-amber-400/70">&nbsp;</p>
@@ -224,7 +224,7 @@ export function PrivateFeedDashboard() {
           </div>
 
           {/* Private Posts */}
-          <div className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/30 p-4 rounded-xl text-center">
+          <div data-testid="private-posts-stat" className="bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-950/50 dark:to-purple-900/30 p-4 rounded-xl text-center">
             <DocumentTextIcon className="h-6 w-6 mx-auto mb-2 text-purple-600 dark:text-purple-400" />
             <p className="text-2xl font-bold text-purple-700 dark:text-purple-300">{privatePostCount}</p>
             <p className="text-xs text-purple-600/70 dark:text-purple-400/70">&nbsp;</p>
@@ -233,7 +233,7 @@ export function PrivateFeedDashboard() {
         </div>
 
         {/* Epoch Usage */}
-        <div className="space-y-2">
+        <div data-testid="epoch-progress" className="space-y-2">
           <div className="flex justify-between items-center text-sm">
             <span className="font-medium">Epoch Usage</span>
             <span className={`text-sm ${isEpochWarning ? 'text-red-600 dark:text-red-400 font-semibold' : 'text-gray-500'}`}>
@@ -267,6 +267,7 @@ export function PrivateFeedDashboard() {
         {/* Quick Actions */}
         <div className="flex gap-3">
           <Button
+            data-testid="view-requests-btn"
             variant="outline"
             size="sm"
             className="flex-1"
@@ -287,6 +288,7 @@ export function PrivateFeedDashboard() {
             )}
           </Button>
           <Button
+            data-testid="manage-followers-btn"
             variant="outline"
             size="sm"
             className="flex-1"
@@ -305,7 +307,7 @@ export function PrivateFeedDashboard() {
 
         {/* Recent Activity */}
         {recentActivity.length > 0 && (
-          <div className="border-t pt-4">
+          <div data-testid="recent-activity" className="border-t pt-4">
             <h4 className="font-medium text-sm mb-3">Recent Activity</h4>
             <div className="space-y-2">
               {recentActivity.map((activity) => (
