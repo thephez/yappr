@@ -1313,3 +1313,33 @@ return {
 
 28. **Use existing helper patterns** - The codebase has established patterns in `sdk-helpers.ts`. Check existing implementations before writing new document mapping code.
 
+---
+
+## 2026-01-19: E2E Test 1.2 - Straightforward Test
+
+### Issue 74: Test Identity Selection for Missing Encryption Key Test
+**Observation:** For Test 1.2, it was necessary to find a test identity that:
+1. Has NO encryption key on the identity
+2. Has NOT enabled private feed
+
+Testing-identity-3 (`4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA`) was ideal because it was created for prior testing and never had encryption key or private feed enabled.
+
+**Lesson:** Maintain separate test identities for different test scenarios. Having a "clean" identity without encryption keys is valuable for testing the prerequisite gating flow.
+
+### Issue 75: Modal Overlay Stacking on Login
+**Observation:** When logging in as a new identity (no DPNS username, no key backup), multiple modals can appear simultaneously:
+1. DPNS Registration modal
+2. Key Backup modal
+
+These modals can overlay each other, causing Playwright click timeouts due to element interception.
+
+**Solution:** Click "Skip for now" on the overlapping (front) modal first before trying to interact with the underlying modal.
+
+**Lesson:** Be aware of modal stacking when automating login flows. Always dismiss modals in z-index order (front to back).
+
+### Best Practices Updates
+
+29. **Test feature gating with clean identities** - For tests that verify "feature X requires prerequisite Y", use identities that don't have the prerequisite met.
+
+30. **Handle modal stacking in automation** - When multiple modals appear, they may intercept clicks on each other. Dismiss them in z-index order (front modal first).
+

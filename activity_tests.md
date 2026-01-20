@@ -2214,3 +2214,78 @@ recipientId: identifierToBase58(doc.recipientId) || '',  // Returns base58 like 
 - None - Bug fix verified via Playwright testing
 
 ---
+
+## 2026-01-19: E2E Test 1.2 - Enable Private Feed - Missing Encryption Key (COMPLETED)
+
+### Task
+Test E2E 1.2: Enable Private Feed - Missing Encryption Key (PRD §4.1)
+
+### Status
+**PASSED** - Correctly blocks enable flow and shows encryption key requirement
+
+### Prerequisites Met
+- Test identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA logged in
+- Identity has NO encryption key on identity (only 4 keys: MASTER, CRITICAL, HIGH, TRANSFER)
+- Identity has NOT enabled private feed
+
+### Test Steps Executed
+1. **Logged in as test identity without encryption key** - ✅
+   - Used identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA ("Test Owner PF")
+   - Skipped DPNS registration and key backup prompts
+
+2. **Navigate to Settings > Private Feed** - ✅
+   - URL: `/settings?section=privateFeed`
+   - Page loaded with Private Feed settings
+
+3. **Verify "Enable Private Feed" button is NOT visible** - ✅
+   - There is NO "Enable Private Feed" button
+   - Only "Add Encryption Key to Identity" button is shown
+   - This correctly blocks the enable flow
+
+4. **Verify "Encryption key required" warning is displayed** - ✅
+   - Orange/yellow warning box displayed with warning icon
+   - Text: "Encryption key required"
+   - Subtext: "To use private feeds, you need to add an encryption key to your identity first."
+
+5. **Verify guide to add encryption key is displayed** - ✅
+   - "How it works" section explains the feature
+   - Button "Add Encryption Key to Identity" is prominently displayed
+
+6. **Click "Add Encryption Key to Identity" button** - ✅
+   - Modal appears: "Add Encryption Key"
+   - Shows "Important:" warning with:
+     - "A new encryption key will be generated for you"
+     - "You must save this key securely"
+     - "Without it, you cannot access your private feed data"
+     - "This key is separate from your login key"
+   - Shows "CRITICAL Key Required:" warning explaining CRITICAL/MASTER key requirement
+   - Shows what the encryption key is used for
+   - "Generate Encryption Key" and "Cancel" buttons present
+
+7. **Cancel modal to verify enable flow remains blocked** - ✅
+   - Modal closed
+   - Settings page still shows "Encryption key required" warning
+   - Still no "Enable Private Feed" button visible
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Modal appears: "Private feeds require an encryption key" | "Add Encryption Key" modal shown with warning | ✅ |
+| Guide to add encryption key is displayed | Detailed guide with warnings and requirements shown | ✅ |
+| Enable flow is blocked until key is added | No "Enable Private Feed" button visible | ✅ |
+
+### Key Observations
+1. **Clear gating**: The UI clearly shows that an encryption key is a prerequisite for private feeds
+2. **Informative warnings**: The modal explains why the key is needed and that it must be saved securely
+3. **CRITICAL key requirement**: Users are informed upfront that they'll need their CRITICAL/MASTER key
+4. **No way to bypass**: There's no "Enable Private Feed" button without an encryption key - the only path forward is adding the key
+
+### Screenshots
+- `screenshots/e2e-test1.2-missing-encryption-key.png` - Top of Private Feed settings showing feature description
+- `screenshots/e2e-test1.2-encryption-key-required-full.png` - Warning box and "Add Encryption Key to Identity" button
+- `screenshots/e2e-test1.2-add-encryption-key-modal.png` - Modal explaining key generation and requirements
+
+### Test Result
+**PASSED** - E2E Test 1.2 completed successfully
+
+---
