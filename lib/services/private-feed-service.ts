@@ -27,6 +27,7 @@ import { privateFeedKeyStore } from './private-feed-key-store';
 import { privateFeedNotificationService } from './private-feed-notification-service';
 import { YAPPR_CONTRACT_ID, DOCUMENT_TYPES } from '../constants';
 import { queryDocuments, identifierToBase58 } from './sdk-helpers';
+import { paginateFetchAll } from './pagination-utils';
 
 // Max plaintext size per SPEC §7.5.1 (999 bytes to leave room for version prefix)
 const MAX_PLAINTEXT_SIZE = 999;
@@ -203,23 +204,29 @@ class PrivateFeedService {
     try {
       const sdk = await getEvoSdk();
 
-      const documents = await queryDocuments(sdk, {
-        dataContractId: this.contractId,
-        documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_REKEY,
-        where: [['$ownerId', '==', ownerId]],
-        orderBy: [['epoch', 'asc']],
-        limit: 100, // Should be enough for most cases
-      });
+      const { documents } = await paginateFetchAll<PrivateFeedRekeyDocument>(
+        sdk,
+        (startAfter) => ({
+          dataContractId: this.contractId,
+          documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_REKEY,
+          where: [['$ownerId', '==', ownerId]],
+          orderBy: [['epoch', 'asc']],
+          limit: 100,
+          ...(startAfter && { startAfter }),
+        }),
+        (doc) => ({
+          $id: doc.$id as string,
+          $ownerId: doc.$ownerId as string,
+          $createdAt: doc.$createdAt as number,
+          epoch: doc.epoch as number,
+          revokedLeaf: doc.revokedLeaf as number,
+          packets: this.normalizeBytes(doc.packets),
+          encryptedCEK: this.normalizeBytes(doc.encryptedCEK),
+        }),
+        { maxResults: 2000 } // SPEC allows up to 2000 epochs
+      );
 
-      return documents.map((doc) => ({
-        $id: doc.$id as string,
-        $ownerId: doc.$ownerId as string,
-        $createdAt: doc.$createdAt as number,
-        epoch: doc.epoch as number,
-        revokedLeaf: doc.revokedLeaf as number,
-        packets: this.normalizeBytes(doc.packets),
-        encryptedCEK: this.normalizeBytes(doc.encryptedCEK),
-      }));
+      return documents;
     } catch (error) {
       console.error('Error fetching rekey documents:', error);
       return [];
@@ -1094,21 +1101,26 @@ class PrivateFeedService {
     try {
       const sdk = await getEvoSdk();
 
-      // Note: Query without orderBy because the privateFeedGrant indices don't include $createdAt
-      // Sort client-side if ordering by grant date is needed
-      const documents = await queryDocuments(sdk, {
-        dataContractId: this.contractId,
-        documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_GRANT,
-        where: [['$ownerId', '==', ownerId]],
-        limit: 100,
-      });
+      const { documents } = await paginateFetchAll<{ recipientId: string; leafIndex: number; grantedAt: number }>(
+        sdk,
+        (startAfter) => ({
+          dataContractId: this.contractId,
+          documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_GRANT,
+          where: [['$ownerId', '==', ownerId]],
+          orderBy: [['leafIndex', 'asc']],
+          limit: 100,
+          ...(startAfter && { startAfter }),
+        }),
+        (doc) => ({
+          // Convert recipientId from base64 bytes (SDK format) to base58 string (identity ID format)
+          recipientId: identifierToBase58(doc.recipientId) || '',
+          leafIndex: doc.leafIndex as number,
+          grantedAt: doc.$createdAt as number,
+        }),
+        { maxResults: 1024 } // SPEC allows up to 1024 followers
+      );
 
-      return documents.map((doc) => ({
-        // Convert recipientId from base64 bytes (SDK format) to base58 string (identity ID format)
-        recipientId: identifierToBase58(doc.recipientId) || '',
-        leafIndex: doc.leafIndex as number,
-        grantedAt: doc.$createdAt as number,
-      }));
+      return documents;
     } catch (error) {
       console.error('Error fetching private followers:', error);
       return [];

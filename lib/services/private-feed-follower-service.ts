@@ -28,6 +28,7 @@ import type { PrivateFeedRekeyDocument } from './private-feed-service';
 import type { NodeKey } from './private-feed-crypto-service';
 import { YAPPR_CONTRACT_ID, DOCUMENT_TYPES } from '../constants';
 import { queryDocuments, identifierToBase58 } from './sdk-helpers';
+import { paginateFetchAll } from './pagination-utils';
 
 /**
  * FollowRequest document from platform
@@ -238,21 +239,27 @@ class PrivateFeedFollowerService {
     try {
       const sdk = await getEvoSdk();
 
-      const documents = await queryDocuments(sdk, {
-        dataContractId: this.contractId,
-        documentTypeName: DOCUMENT_TYPES.FOLLOW_REQUEST,
-        where: [['$ownerId', '==', myId]],
-        orderBy: [['$createdAt', 'desc']],
-        limit: 100,
-      });
+      const { documents } = await paginateFetchAll<FollowRequestDocument>(
+        sdk,
+        (startAfter) => ({
+          dataContractId: this.contractId,
+          documentTypeName: DOCUMENT_TYPES.FOLLOW_REQUEST,
+          where: [['$ownerId', '==', myId]],
+          orderBy: [['$createdAt', 'desc']],
+          limit: 100,
+          ...(startAfter && { startAfter }),
+        }),
+        (doc) => ({
+          $id: doc.$id as string,
+          $ownerId: doc.$ownerId as string,
+          $createdAt: doc.$createdAt as number,
+          targetId: doc.targetId as string,
+          publicKey: doc.publicKey ? this.normalizeBytes(doc.publicKey) : undefined,
+        }),
+        { maxResults: 1024 } // SPEC allows up to 1024 followers
+      );
 
-      return documents.map((doc) => ({
-        $id: doc.$id as string,
-        $ownerId: doc.$ownerId as string,
-        $createdAt: doc.$createdAt as number,
-        targetId: doc.targetId as string,
-        publicKey: doc.publicKey ? this.normalizeBytes(doc.publicKey) : undefined,
-      }));
+      return documents;
     } catch (error) {
       console.error('Error fetching pending requests:', error);
       return [];
@@ -268,27 +275,32 @@ class PrivateFeedFollowerService {
     try {
       const sdk = await getEvoSdk();
 
-      const documents = await queryDocuments(sdk, {
-        dataContractId: this.contractId,
-        documentTypeName: DOCUMENT_TYPES.FOLLOW_REQUEST,
-        where: [['targetId', '==', ownerId]],
-        orderBy: [['$createdAt', 'desc']],
-        limit: 100,
-      });
+      const { documents: allDocs } = await paginateFetchAll<FollowRequestDocument>(
+        sdk,
+        (startAfter) => ({
+          dataContractId: this.contractId,
+          documentTypeName: DOCUMENT_TYPES.FOLLOW_REQUEST,
+          where: [['targetId', '==', ownerId]],
+          orderBy: [['$createdAt', 'desc']],
+          limit: 100,
+          ...(startAfter && { startAfter }),
+        }),
+        (doc) => ({
+          $id: doc.$id as string,
+          $ownerId: doc.$ownerId as string,
+          $createdAt: doc.$createdAt as number,
+          targetId: doc.targetId as string,
+          publicKey: doc.publicKey ? this.normalizeBytes(doc.publicKey) : undefined,
+        }),
+        { maxResults: 1024 } // SPEC allows up to 1024 followers
+      );
 
       // Filter out requests where a grant already exists (stale requests)
       const requests: FollowRequestDocument[] = [];
-      for (const doc of documents) {
-        const requesterId = doc.$ownerId as string;
-        const existingGrant = await this.getGrant(ownerId, requesterId);
+      for (const doc of allDocs) {
+        const existingGrant = await this.getGrant(ownerId, doc.$ownerId);
         if (!existingGrant) {
-          requests.push({
-            $id: doc.$id as string,
-            $ownerId: requesterId,
-            $createdAt: doc.$createdAt as number,
-            targetId: doc.targetId as string,
-            publicKey: doc.publicKey ? this.normalizeBytes(doc.publicKey) : undefined,
-          });
+          requests.push(doc);
         }
       }
 
@@ -679,26 +691,32 @@ class PrivateFeedFollowerService {
     try {
       const sdk = await getEvoSdk();
 
-      const documents = await queryDocuments(sdk, {
-        dataContractId: this.contractId,
-        documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_REKEY,
-        where: [
-          ['$ownerId', '==', ownerId],
-          ['epoch', '>', afterEpoch],
-        ],
-        orderBy: [['epoch', 'asc']],
-        limit: 100,
-      });
+      const { documents } = await paginateFetchAll<PrivateFeedRekeyDocument>(
+        sdk,
+        (startAfter) => ({
+          dataContractId: this.contractId,
+          documentTypeName: DOCUMENT_TYPES.PRIVATE_FEED_REKEY,
+          where: [
+            ['$ownerId', '==', ownerId],
+            ['epoch', '>', afterEpoch],
+          ],
+          orderBy: [['epoch', 'asc']],
+          limit: 100,
+          ...(startAfter && { startAfter }),
+        }),
+        (doc) => ({
+          $id: doc.$id as string,
+          $ownerId: doc.$ownerId as string,
+          $createdAt: doc.$createdAt as number,
+          epoch: doc.epoch as number,
+          revokedLeaf: doc.revokedLeaf as number,
+          packets: this.normalizeBytes(doc.packets),
+          encryptedCEK: this.normalizeBytes(doc.encryptedCEK),
+        }),
+        { maxResults: 2000 } // SPEC allows up to 2000 epochs
+      );
 
-      return documents.map((doc) => ({
-        $id: doc.$id as string,
-        $ownerId: doc.$ownerId as string,
-        $createdAt: doc.$createdAt as number,
-        epoch: doc.epoch as number,
-        revokedLeaf: doc.revokedLeaf as number,
-        packets: this.normalizeBytes(doc.packets),
-        encryptedCEK: this.normalizeBytes(doc.encryptedCEK),
-      }));
+      return documents;
     } catch (error) {
       console.error('Error fetching rekey documents:', error);
       return [];
