@@ -51,7 +51,7 @@ Track implementation progress against e2e_prd.md phases.
 - [x] 10-replies-quotes.spec.ts
 - [x] 11-notifications.spec.ts
 - [x] 14-key-management.spec.ts
-- [ ] 15-multi-device.spec.ts
+- [x] 15-multi-device.spec.ts
 
 ---
 
@@ -495,3 +495,33 @@ Running 5 tests using 1 worker
 - Key persistence across browser refresh works correctly (session storage used, not just memory)
 - The app remains usable for public features when encryption key is not entered (deferred entry pattern)
 - No explicit "Lost key" link found in the encryption key modal, but help text exists
+
+### 2026-01-20 - 15-multi-device.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/15-multi-device.spec.ts` test suite
+- Implemented 3 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §15:
+  - 15.1 Sync Before Write Operation - Tests two browser contexts as same user, verifying eventual consistency
+  - 15.2 Sync Indicator During Recovery - Tests recovery process when keys/state are cleared
+  - Bonus: Cross-Device State Visibility - Verifies both devices see same state from chain
+
+**Files created:**
+- `e2e/tests/15-multi-device.spec.ts`
+
+**Test results:**
+```
+Running 3 tests using 1 worker
+  ✓ 15.1 Sync Before Write Operation (1.4m)
+  ✓ 15.2 Sync Indicator During Recovery (28.5s)
+  ✓ Bonus: Cross-Device State Visibility (34.2s)
+3 passed (2.6m)
+```
+
+**Key learnings:**
+- Multi-device simulation achieved by creating separate browser contexts for the same identity
+- Each browser context has isolated localStorage, simulating device state isolation
+- Epoch tracking is NOT stored in localStorage in expected patterns (returns null), but the app still functions correctly
+- The app does not show explicit sync indicators during recovery - sync is silent/background
+- Both devices achieve eventual consistency through on-chain state, not explicit sync protocols
+- Dashboard becomes visible after recovery without explicit user-facing sync indicators
+- Cross-device state is consistent because both devices read from the same blockchain state
