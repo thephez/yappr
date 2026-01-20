@@ -2417,3 +2417,92 @@ Test E2E 3.3: Cancel Pending Request (PRD §4.7)
 **PASSED** - E2E Test 3.3 completed successfully
 
 ---
+
+## 2026-01-19: E2E Test 4.1 - View Pending Requests (COMPLETED)
+
+### Task
+Test E2E 4.1: View Pending Requests (PRD §4.5)
+
+### Status
+**PASSED** - Pending requests are correctly displayed with Approve/Ignore buttons
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (owner) logged in
+- Private feed enabled with 2 existing followers
+- Created a new pending request from identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA ("Test Owner PF")
+
+### Test Steps Executed
+
+#### Part 1: Create a Pending Request (Setup)
+1. **Logged in as follower identity (Test Owner PF)** - ✅
+   - Used identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA
+   - Already following the owner from previous tests (Test 3.2)
+   - Has encryption key on identity (from Test 3.3)
+
+2. **Navigate to owner's profile** - ✅
+   - URL: `/user/?id=9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+   - "Following" button visible
+   - "Request Access" button visible
+
+3. **Click "Request Access" button** - ✅
+   - Button changed to "Requesting..."
+   - Console: `Creating followRequest document with data: {targetId: 9qRC7aPC...}`
+   - Console: `Document creation submitted successfully`
+   - Console: `Follow request created successfully`
+   - Button changed to "Pending..."
+
+#### Part 2: Verify Owner Can View Pending Requests
+1. **Logged in as owner (Test User 1)** - ✅
+   - Used identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2
+
+2. **Navigate to Settings > Private Feed** - ✅
+   - Dashboard correctly loads
+
+3. **Verify dashboard stats** - ✅
+   - Shows **1 Pending** in yellow stat card
+   - Shows **2/1024 Followers**
+   - Shows **5 Private Posts**
+
+4. **Verify "View Requests" button has notification badge** - ✅
+   - Button shows "View Requests" with orange "1" badge
+   - Badge correctly indicates 1 pending request
+
+5. **Verify "Private Feed Requests" section** - ✅
+   - Section header shows "Private Feed Requests" with "1" badge
+   - Description: "Approve or ignore requests to access your private feed"
+
+6. **Verify request details** - ✅
+   - Request from "Test Owner PF" visible
+   - User avatar displayed
+   - Timestamp shown: "Requested 1 minute ago"
+
+7. **Verify action buttons** - ✅
+   - **"Approve" button** (green with checkmark icon)
+   - **"Ignore" button** (gray with X icon)
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Requests visible with usernames and timestamps | "Test Owner PF", "Requested 1 minute ago" | ✅ |
+| Each request has [Approve] [Ignore] buttons | Both buttons visible with icons | ✅ |
+| Notification badge shows count | "1" badge on View Requests button | ✅ |
+| Pending count in dashboard | "1 Pending" in stat card | ✅ |
+
+### Key Observations
+1. **Notification badge on button**: The "View Requests" button shows a notification badge with the pending count
+2. **Section header badge**: "Private Feed Requests" section also shows the count badge
+3. **Clear action options**: Approve (green) and Ignore (gray) buttons are clearly differentiated
+4. **Timestamp tracking**: Shows how long ago the request was made
+5. **Profile link**: Clicking the requester's name/avatar navigates to their profile
+
+### Screenshots
+- `screenshots/e2e-test4.1-dashboard-with-pending.png` - Private Feed settings top section
+- `screenshots/e2e-test4.1-pending-count-and-buttons.png` - Dashboard showing "1 Pending" and "View Requests" button with badge
+- `screenshots/e2e-test4.1-pending-request-with-approve-ignore.png` - View Requests button with badge, Recent Activity
+- `screenshots/e2e-test4.1-request-approve-ignore-buttons.png` - Request from "Test Owner PF" with Approve/Ignore buttons
+- `screenshots/e2e-test4.1-request-created-pending.png` - Follower's view showing "Pending..." after request
+
+### Test Result
+**PASSED** - E2E Test 4.1 completed successfully
+
+---

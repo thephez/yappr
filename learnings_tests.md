@@ -1393,3 +1393,21 @@ These modals can overlay each other, causing Playwright click timeouts due to el
 
 32. **Verify persistence from both perspectives** - When testing multi-user flows, verify the action persisted by checking from the other user's view (e.g., owner seeing no pending requests after follower cancels).
 
+### Issue 79: View Pending Requests UI Components
+**Observation:** The View Pending Requests (Test 4.1) UI has multiple visual indicators for pending request counts:
+
+**Key Details:**
+- Dashboard stat card shows "1 Pending" with clock icon
+- "View Requests" button has a notification badge showing the count
+- "Private Feed Requests" section header also shows badge with count
+- Each request shows: User avatar, username, timestamp ("Requested X minutes ago")
+- Action buttons: Green "Approve" with checkmark, Gray "Ignore" with X
+
+**Test Setup Note:** To test view pending requests, you need to:
+1. First create a pending request from another identity
+2. That identity must be following the owner (regular follow)
+3. That identity must have an encryption key (required since BUG-005 fix)
+4. Then log in as owner to verify the request appears
+
+**Lesson:** When testing "view" functionality, make sure to set up the preconditions first. Document the setup steps as they're part of the test.
+
