@@ -44,6 +44,7 @@
       font-variant-numeric: tabular-nums;
     }
     .summary-value.posts { color: #3b82f6; }
+    .summary-value.posters { color: #f59e0b; }
     .summary-value.users { color: #22c55e; }
     .summary-label {
       font-size: 0.75rem;
@@ -300,6 +301,10 @@
       <div class="summary-label">Total Posts</div>
     </div>
     <div class="summary-card">
+      <div class="summary-value posters" id="total-posters">-</div>
+      <div class="summary-label">Users Who Posted</div>
+    </div>
+    <div class="summary-card">
       <div class="summary-value users" id="total-users">-</div>
       <div class="summary-label">Total Users</div>
     </div>
@@ -550,10 +555,22 @@
     const totalPosts = days.reduce((sum, d) => sum + (d.posts || 0), 0);
     const totalUsers = days.reduce((sum, d) => sum + (d.newUsers || 0), 0);
 
+    // Count unique users who have posted (deduplicate by ownerId across all posts)
+    const uniquePosters = new Set();
+    days.forEach(d => {
+      (d.postList || []).forEach(p => {
+        if (p.ownerId) {
+          uniquePosters.add(p.ownerId);
+        }
+      });
+    });
+    const totalPosters = uniquePosters.size;
+
     // Render
     document.getElementById('last-updated').textContent =
       DATA.lastUpdated ? `Last updated: ${formatDateTime(DATA.lastUpdated)}` : '';
     document.getElementById('total-posts').textContent = totalPosts.toLocaleString();
+    document.getElementById('total-posters').textContent = totalPosters.toLocaleString();
     document.getElementById('total-users').textContent = totalUsers.toLocaleString();
 
     renderChart('posts-chart', days, 'posts', 'posts', 'posts');
