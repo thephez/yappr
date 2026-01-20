@@ -1362,7 +1362,34 @@ These modals can overlay each other, causing Playwright click timeouts due to el
 2. The UI doesn't get stuck in a loading state
 3. The button/form returns to a usable state after the error
 
+### Issue 77: Cancel Pending Request Flow - Two-Step Confirmation
+**Observation:** The cancel pending request flow uses a two-step confirmation pattern. Users must first click "Pending..." to reveal the Cancel button, then click Cancel.
+
+**Key Details:**
+- Clicking "Pending..." button shows: Cancel button (red) + Dismiss button (X)
+- This prevents accidental cancellation
+- The dismiss button allows users to close the cancel option without taking action
+- On confirmation, the FollowRequest document is deleted from the chain
+- UI updates immediately: "Request cancelled" toast appears, button changes back to "Request Access"
+
+**Lesson:** Two-step confirmation patterns are good UX for destructive actions. Also verify that the action actually persists by checking from the other user's perspective (owner's pending list).
+
+### Issue 78: Adding Encryption Key Requires MASTER Key
+**Observation:** Adding an encryption key to an identity requires a MASTER key, not a CRITICAL key.
+
+**Error Message:** "Identity modifications require a MASTER key. You provided a CRITICAL key."
+
+**Key Details:**
+- Initially attempted with CRITICAL key - failed
+- Succeeded with MASTER key
+- This is a Dash Platform security requirement for identity modifications
+- The modal clearly states "CRITICAL or MASTER key" but MASTER is actually required
+
+**Lesson:** When testing identity modification flows, use the MASTER key. The UI says "CRITICAL or MASTER" but in practice only MASTER works for adding new keys.
+
 ### Best Practices Updates
 
 31. **Test error paths explicitly** - Error flows are often overlooked in testing. Make sure to test what happens when prerequisites aren't met (like missing encryption keys).
+
+32. **Verify persistence from both perspectives** - When testing multi-user flows, verify the action persisted by checking from the other user's view (e.g., owner seeing no pending requests after follower cancels).
 

@@ -2341,3 +2341,79 @@ Test E2E 1.2: Enable Private Feed - Missing Encryption Key (PRD §4.1)
 **PASSED** - E2E Test 1.2 completed successfully
 
 ---
+
+## 2026-01-19: E2E Test 3.3 - Cancel Pending Request (COMPLETED)
+
+### Task
+Test E2E 3.3: Cancel Pending Request (PRD §4.7)
+
+### Status
+**PASSED** - Cancel pending request flow works correctly
+
+### Prerequisites Setup
+- Test identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (Test Owner PF) was used
+- Identity follows the owner (9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2)
+- Identity required an encryption key to request access - Added during test setup:
+  - Generated new encryption key via Settings > Private Feed > Add Encryption Key to Identity
+  - Used MASTER key to authorize identity modification
+  - Encryption key added successfully (identity now has 5 public keys)
+
+### Test Steps Executed
+1. **Logged in as follower identity** - ✅
+   - Used identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA ("Test Owner PF")
+   - Already following the owner from Test 3.2
+
+2. **Navigate to owner's profile** - ✅
+   - URL: `/user/?id=9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+   - "Following" button and "Request Access" button visible
+   - "Private Feed" badge visible
+
+3. **Click "Request Access" button** - ✅
+   - Button changed to "Requesting..."
+   - Console: `Creating followRequest document with data: {targetId: 9qRC7aPC...}`
+   - Console: `Document creation submitted successfully`
+   - Console: `Follow request created successfully`
+   - Button changed to "Pending..."
+
+4. **Click "Pending..." button** - ✅
+   - Cancel option appeared with red X icon
+   - Small X button also visible to dismiss cancel option
+
+5. **Click "Cancel" button** - ✅
+   - Console: `Deleting followRequest document 5idEDKeYD1J2t4AnxbsxgCnf8P1HTivLqofNFfEX2d8C...`
+   - Console: `Document deletion submitted successfully`
+   - Console: `Follow request cancelled successfully`
+   - Toast: "Request cancelled"
+   - Button changed back to "Request Access"
+
+6. **Verified request was deleted from owner's pending requests** - ✅
+   - Logged in as owner (9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2)
+   - Navigated to Settings > Private Feed
+   - Dashboard shows: 0 Pending, 2 Followers
+   - Private Feed Requests section shows: "No pending requests"
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| FollowRequest document deleted | Document 5idEDKeY... deleted from chain | ✅ |
+| Button returns to [Request Access] | Button changed from "Pending..." back to "Request Access" | ✅ |
+| No longer visible in owner's pending list | Owner's dashboard shows 0 Pending requests | ✅ |
+| Toast confirmation shown | "Request cancelled" toast displayed | ✅ |
+
+### Key Observations
+1. **Two-step cancel flow**: User must first click "Pending..." to reveal the Cancel button, then click Cancel - this prevents accidental cancellation
+2. **Dismiss option**: Small X button allows dismissing the cancel option without canceling
+3. **On-chain deletion**: The FollowRequest document is properly deleted from the chain
+4. **Immediate UI feedback**: Button state changes immediately after cancellation
+5. **Owner verification**: Confirmed the request no longer appears in owner's pending list
+
+### Screenshots
+- `screenshots/e2e-test3.3-pending-request-before-cancel.png` - Profile showing "Pending..." button
+- `screenshots/e2e-test3.3-cancel-option-shown.png` - Cancel button revealed after clicking Pending
+- `screenshots/e2e-test3.3-request-cancelled-success.png` - Profile showing "Request Access" button after cancel
+- `screenshots/e2e-test3.3-owner-no-pending-requests.png` - Owner's settings showing 0 pending requests
+
+### Test Result
+**PASSED** - E2E Test 3.3 completed successfully
+
+---
