@@ -2,11 +2,88 @@
 
 ## Active Bugs
 
-*No active bugs*
+### BUG-014: Private feed request notifications missing action button
+
+**Status:** OPEN
+
+**Description:** Private feed request notifications in the notifications page do not have an action button to view or manage the request, as specified in PRD §7.4.
+
+**Observed Behavior:**
+- Notification shows "Test Owner PF requested access to your private feed 19m"
+- Clicking the notification only marks it as read
+- No `[View Requests]` button is present
+- No inline `[Approve]` / `[Ignore]` buttons are present
+
+**Expected Behavior (per PRD §7.4):**
+```
+┌─────────────────────────────────────────────────────┐
+│ 🔒 @alice requested access to your private feed     │
+│ 2 hours ago                      [View Requests]    │
+└─────────────────────────────────────────────────────┘
+```
+
+**PRD References:**
+- PRD §7.4: Shows notification UI mockup with `[View Requests]` button
+- PRD §7.5: States notification can navigate to requests page OR show inline approve/ignore
+
+**Impact:** Medium - Users can still manage requests via Settings > Private Feed, but the notification doesn't provide a direct path there.
+
+**Location:** `app/notifications/page.tsx` - the notification rendering doesn't include action buttons for `privateFeedRequest` type notifications
+
+**Suggested Fix:**
+1. Add a `[View Requests]` button that links to `/settings?section=privateFeed` for `privateFeedRequest` notifications
+2. OR implement inline `[Approve]` / `[Ignore]` buttons directly in the notification
+
+**Screenshot:** `screenshots/e2e-test4.4-notification-private-feed-tab.png`
+
+**Date Reported:** 2026-01-19
 
 ---
 
 ## Resolved Bugs
+
+### BUG-013: Followers fail to fetch latest keys after revocation (RESOLVED)
+
+**Status:** RESOLVED
+
+**Description:** After a user revokes a follower (which creates a new epoch via rekey document), other approved followers could not decrypt new posts encrypted at the new epoch.
+
+**Scenario:**
+- User A has private feed
+- Users B and C are both approved followers
+- A revokes B (creates rekey document, epoch advances from 1 to 2)
+- B correctly can no longer read (revoked)
+- C could not read posts at epoch 2 (BUG)
+
+**Root Cause:** The follower service's `applyRekey()` method used `deriveRekeyNonceFollower()` which derived the nonce with an **empty salt**, while the owner's `deriveRekeyNonce()` used `wrapNonceSalt` derived from `feedSeed`. This nonce mismatch caused the XChaCha20-Poly1305 decryption of rekey packets to fail for followers.
+
+Followers don't have access to `feedSeed` (by design - that's the owner's secret), so they couldn't derive the same `wrapNonceSalt` that the owner used when creating the rekey packets.
+
+**Fix Applied:**
+1. Added `wrapNonceSalt` field to `GrantPayload` interface in `private-feed-crypto-service.ts`
+2. Updated `encodeGrantPayload()` to include `wrapNonceSalt` (32 bytes at end)
+3. Updated `decodeGrantPayload()` to read `wrapNonceSalt` (optional for backwards compatibility)
+4. Updated `approveFollower()` in `private-feed-service.ts` to derive and include `wrapNonceSalt` in grant payload
+5. Updated `initializeFollowerState()` in `private-feed-key-store.ts` to accept and store `wrapNonceSalt`
+6. Added `storeWrapNonceSalt()` and `getWrapNonceSalt()` methods to key store
+7. Updated `applyRekey()` in `private-feed-follower-service.ts` to use stored `wrapNonceSalt` for proper nonce derivation
+8. Added `applyRekeyLegacy()` fallback for grants created before this fix
+
+**Files Modified:**
+- `lib/services/private-feed-crypto-service.ts` - Extended GrantPayload with wrapNonceSalt
+- `lib/services/private-feed-service.ts` - Include wrapNonceSalt in grant creation
+- `lib/services/private-feed-key-store.ts` - Store and retrieve wrapNonceSalt
+- `lib/services/private-feed-follower-service.ts` - Use proper nonce derivation in applyRekey
+
+**Verification:**
+- Built successfully with no lint errors
+- Tested revocation flow: successfully created epoch 2 after revoking a follower
+- UI correctly shows epoch 2/2000 and 1/1999 revocations used
+- Screenshot: `screenshots/bug013-epoch2-confirmed.png`
+
+**Note:** Grants created before this fix won't have `wrapNonceSalt` and will use the legacy (broken) nonce derivation. Those followers will need to be re-approved to receive a new grant with the salt included.
+
+**Date Resolved:** 2026-01-19
 
 ### BUG-012: followers listed in Private Feed page is incorrect (RESOLVED)
 

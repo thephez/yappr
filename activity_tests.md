@@ -2578,3 +2578,89 @@ The "Ignore" functionality appears to work via client-side state (likely localSt
 **PASSED** - E2E Test 4.3 completed successfully
 
 ---
+
+## 2026-01-19: E2E Test 4.4 - Approve from Notification (BUG FOUND)
+
+### Task
+Test E2E 4.4: Approve from Notification (PRD §7.4, §7.5)
+
+### Status
+**BLOCKED** - BUG-014 discovered: Private feed request notifications missing action button
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (owner) logged in
+- Test identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (Test Owner PF) has pending request
+- Private feed enabled
+
+### Test Steps Executed
+1. **Logged in as owner** - ✅
+   - Used identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2
+   - Skipped DPNS registration
+
+2. **Navigate to Notifications page** - ✅
+   - URL: `/notifications`
+   - Notifications page loaded correctly
+
+3. **Click "Private Feed" filter tab** - ✅
+   - Tab switched to show only private feed notifications
+   - "Mark all as read" button appeared (indicating unread notifications)
+
+4. **Verify request notification displays** - ✅
+   - Notification visible: "Test Owner PF requested access to your private feed 19m"
+   - Lock icon (🔒) displayed
+   - Blue unread indicator dot shown
+   - Timestamp displayed correctly
+
+5. **Look for inline [Approve] action** - ❌ **NOT FOUND**
+   - No `[Approve]` button present
+   - No `[Ignore]` button present
+   - No `[View Requests]` button present
+   - Clicking notification only marks it as read, doesn't navigate or show actions
+
+### Bug Found
+**BUG-014: Private feed request notifications missing action button**
+
+Per PRD §7.4, notifications should have a `[View Requests]` action button:
+```
+┌─────────────────────────────────────────────────────┐
+│ 🔒 @alice requested access to your private feed     │
+│ 2 hours ago                      [View Requests]    │
+└─────────────────────────────────────────────────────┘
+```
+
+Per PRD §7.5, the notification can alternatively show inline `[Approve]` / `[Ignore]` buttons.
+
+The current implementation has neither - it just shows the notification text with no action mechanism.
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Find request notification | Notification displayed correctly | ✅ |
+| Click inline [Approve] action | No [Approve] button exists | ❌ |
+| OR Click [View Requests] to navigate to settings | No [View Requests] button exists | ❌ |
+| Grant created successfully | Cannot test - no approval mechanism | ❌ |
+| Notification marked as read | Works when clicked (but no action taken) | ✅ |
+
+### Code Analysis
+In `app/notifications/page.tsx`, the notification rendering (lines 140-199) shows:
+- User avatar
+- User name with link
+- Notification message text
+- Timestamp
+- Unread indicator dot
+
+**Missing:**
+- Action button for `privateFeedRequest` type
+- Link to settings/requests page
+- Inline approve/ignore buttons
+
+### Screenshots
+- `screenshots/e2e-test4.4-notification-private-feed-tab.png` - Notifications page showing private feed request without action button
+
+### Test Result
+**BLOCKED** - BUG-014 prevents completion of Test 4.4. The inline approval feature is not implemented.
+
+### Re-test Required
+- [ ] E2E Test 4.4: Approve from Notification (after BUG-014 is fixed)
+
+---

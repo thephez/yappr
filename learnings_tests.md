@@ -1446,3 +1446,27 @@ The ignore state appears to be stored client-side (localStorage/sessionStorage) 
 
 34. **Dashboard should reflect on-chain reality**: Even when UI elements are hidden/dismissed, stats and counts should reflect the actual on-chain state to avoid confusion.
 
+---
+
+## 2026-01-19: E2E Test 4.4 - Missing Notification Actions
+
+### Issue 81: Notification Actions Not Implemented (BUG-014)
+**Problem:** Private feed request notifications don't have any action buttons (Approve, Ignore, or View Requests), despite the PRD §7.4 showing a mockup with `[View Requests]` button.
+
+**Context:**
+- Notifications page correctly displays private feed request notifications
+- Lock icon, username, timestamp, and unread indicator all work
+- But clicking the notification only marks it as read - no navigation or action occurs
+
+**PRD References:**
+- §7.4 shows `[View Requests]` button in notification mockup
+- §7.5 mentions two options: navigate to requests page OR show inline approve/ignore
+
+**Lesson:** When testing features that involve multiple UI entry points (settings page, notification page, profile page), verify that actions are available from ALL expected entry points. The settings page has working approve/ignore, but the notification page lacks any action mechanism.
+
+### Best Practices Updates
+
+35. **Test all UI entry points for actions**: If a PRD specifies an action can be performed from multiple locations (e.g., approve from settings AND from notifications), test each entry point separately. Don't assume one working means all work.
+
+36. **Check PRD mockups against implementation**: PRD mockups often show UI elements that may not have been implemented. Compare the actual UI against PRD mockups to identify missing features.
+
