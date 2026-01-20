@@ -3199,3 +3199,94 @@ Revoked follower 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (leaf 1), new epoc
 **PASSED** - E2E Test 6.1 completed successfully. The revocation flow works correctly, creating the PrivateFeedRekey document, deleting the follower's grant, and sending a notification.
 
 ---
+
+## 2026-01-19: E2E Test 6.2 - Verify Revoked Follower Cannot Decrypt New Posts (COMPLETED)
+
+### Task
+Test E2E 6.2: Verify Revoked Follower Cannot Decrypt New Posts (PRD §4.6, §5.3)
+
+### Status
+**PASSED** - Revoked follower correctly cannot decrypt posts created after revocation
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (owner) logged in
+- Test identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (Test Owner PF) was revoked in Test 6.1
+- Private feed at epoch 3 (after revocation)
+- Owner has 1 remaining follower (Testing User 1 @maybetestprivfeed3.dash)
+
+### Test Steps Executed
+
+#### Part 1: Create New Private Post (as Owner)
+1. **Logged in as feed owner** - ✅
+   - Used identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2
+   - Set encryption key in localStorage
+   - Navigated to profile page
+
+2. **Open compose modal and select Private visibility** - ✅
+   - Clicked compose button
+   - Selected "Private" from visibility dropdown
+   - Encryption info shown: "This post will be encrypted and only visible to your private followers"
+   - Follower count shown: "Visible to 1 private follower" (confirms revocation worked)
+
+3. **Created new private post** - ✅
+   - Content: "E2E Test 6.2: This is a NEW private post created AFTER revoking Test Owner PF. This post is encrypted at epoch 3. The revoked follower should NOT be able to decrypt this content!"
+   - Console confirmed: `Creating private post: {hasTeaser: false, encryptedContentLength: 195, epoch: 3, nonceLength: ...}`
+   - Post created successfully: `4maTBjSXRFT4pCX7zriMo4sdF7TNduW3X4LqmLWN46TQ`
+
+4. **Verified owner can decrypt** - ✅
+   - Navigated to post detail page
+   - Full decrypted content visible
+   - "Visible to 1 private follower" indicator shown
+
+#### Part 2: Verify Revoked Follower Cannot Decrypt
+1. **Logged in as revoked follower** - ✅
+   - Cleared session storage
+   - Logged in as identity 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (Test Owner PF)
+   - Skipped DPNS and key backup modals
+
+2. **Navigated to the new private post** - ✅
+   - URL: `/post/?id=4maTBjSXRFT4pCX7zriMo4sdF7TNduW3X4LqmLWN46TQ`
+
+3. **Verified post is NOT decrypted** - ✅
+   - Shows 🔒 lock icon
+   - Shows "**Private Content**" heading
+   - Shows "**Only approved followers can see this content**" message
+   - Shows "**Request Access**" button
+   - **NO decrypted content visible** - encrypted text completely hidden
+
+4. **Verified profile view** - ✅
+   - Navigated to owner's profile
+   - All private posts show only 🔒 (no decryption)
+   - Public posts are visible normally
+   - "Following" button still shown (regular follow remains)
+   - "Pending..." button shown (old request still exists)
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Post created at new epoch (epoch 3) | epoch: 3 confirmed in console logs | ✅ |
+| Owner can decrypt their own post | Full content visible to owner | ✅ |
+| Revoked follower sees locked state | "Private Content" + "Request Access" shown | ✅ |
+| No decrypted content visible to revoked follower | Only 🔒 placeholder, no text | ✅ |
+| Revoked user can re-request access | "Request Access" button available | ✅ |
+
+### Key Observations
+1. **Epoch-based encryption works**: The new post at epoch 3 uses a CEK that the revoked follower (who was revoked before epoch 3) cannot derive
+2. **Grant deletion is enforced**: Without a valid PrivateFeedGrant document, the follower cannot query for rekey packets to catch up
+3. **UI correctly reflects revoked state**: The revoked follower sees the standard "locked content" UI, not a special "revoked" message
+4. **Re-request is possible**: The "Request Access" button is shown, allowing the revoked user to request access again if desired
+
+### Console Logs (Revoked Follower View)
+```
+PrivateFeedSync: No followed private feeds to sync
+```
+Note: The sync doesn't attempt to sync this feed because there's no grant for this user.
+
+### Screenshots
+- `screenshots/e2e-test6.2-revoked-follower-cannot-decrypt.png` - Post detail showing "Private Content" and "Request Access" for revoked follower
+- `screenshots/e2e-test6.2-revoked-follower-profile-view.png` - Owner's profile as seen by revoked follower
+
+### Test Result
+**PASSED** - E2E Test 6.2 completed successfully. The revocation cryptographically prevents the revoked follower from decrypting new posts created after revocation.
+
+---

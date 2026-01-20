@@ -1771,3 +1771,38 @@ privateFeedRevoked notification created successfully
 Each revocation increments the epoch by 1. The rekey packets allow remaining followers to derive the new CEK without needing a new grant.
 
 **Lesson:** The epoch counter tracks total revocations, not current follower count.
+
+---
+
+## 2026-01-19: E2E Test 6.2 - Revocation Cryptographic Verification
+
+### Observation 1: Epoch-Based Access Control Works
+**Test:** Created a new private post at epoch 3 after revoking a follower, then verified the revoked follower cannot decrypt it.
+
+**How It Works:**
+1. Each epoch has a different CEK (Content Encryption Key) derived from the feed seed
+2. When a follower is revoked, their grant document is deleted
+3. Without a grant, the revoked follower cannot retrieve rekey packets to derive the new epoch's CEK
+4. Posts at the new epoch are cryptographically inaccessible to revoked users
+
+**Verification:** The revoked follower saw "Private Content - Only approved followers can see this content" instead of the decrypted post text.
+
+### Observation 2: PrivateFeedSync Doesn't Attempt Invalid Syncs
+**Console Log from Revoked User:**
+```
+PrivateFeedSync: No followed private feeds to sync
+```
+
+**Insight:** The sync mechanism correctly recognizes that the revoked user doesn't have an active grant, so it doesn't attempt to sync keys for that feed. This prevents wasted network calls and potential error conditions.
+
+### Observation 3: Revoked Users Can Re-Request Access
+**Observation:** When the revoked follower views the locked post, a "Request Access" button is shown.
+
+**Implication:** The system allows for reconciliation - a revoked user can request access again, and if the owner approves, they'll get a new grant at the current epoch.
+
+### Observation 4: Regular Follow Relationship Remains
+**Observation:** After revocation, the revoked user still shows "Following" status on the owner's profile.
+
+**Explanation:** Private feed revocation only affects the PrivateFeedGrant document, not the regular `follow` document. The user still follows the owner for public content.
+
+**Lesson:** Private feed access and regular following are separate relationships with independent document types.
