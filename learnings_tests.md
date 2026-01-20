@@ -1907,3 +1907,44 @@ Both cases have: no grant + FollowRequest exists
 
 ### Key Takeaway
 When designing state tracking for multi-party workflows, consider that some state transitions leave no direct evidence. Temporal analysis of related documents can fill in the gaps.
+
+---
+
+## 2026-01-19 - BUG-017: wrapNonceSalt and Legacy Grant Compatibility
+
+### Issue
+Followers approved before the BUG-013 fix could not decrypt posts after any revocation occurred because their grants didn't contain the `wrapNonceSalt` field needed to derive rekey nonces.
+
+### Key Learning
+**Cryptographic protocol changes require migration paths** - When BUG-013 added wrapNonceSalt to grants, it broke compatibility for existing followers. The fix added the salt to NEW grants but left existing followers stranded.
+
+### Technical Details
+
+1. **The rekey nonce derivation requires wrapNonceSalt:**
+   ```typescript
+   deriveRekeyNonce(wrapNonceSalt, epoch, targetNodeId, ...)
+   ```
+
+2. **Without wrapNonceSalt, followers cannot decrypt rekey packets:**
+   - The nonce won't match what the owner used when encrypting
+   - XChaCha20-Poly1305 decryption fails
+   - The error "Failed to derive new root key" occurs
+
+3. **Legacy grants (pre-BUG-013) are permanently incompatible:**
+   - The grant itself is encrypted and stored on-chain
+   - We cannot retroactively add wrapNonceSalt to existing grants
+   - The only solution is re-approval with a new grant
+
+### Solution Applied
+
+1. **Don't silently fail** - Return a specific error code instead of a misleading "may be revoked"
+2. **Trigger recovery attempt** - The UI tries to re-recover keys from the grant
+3. **Clear error message** - If recovery fails because grant is legacy, tell the user they need re-approval
+
+### Implications for Future Development
+
+When adding new fields to cryptographic protocols:
+1. Consider backward compatibility
+2. Plan migration paths for existing users
+3. Version the protocol explicitly
+4. Test with both old and new data formats

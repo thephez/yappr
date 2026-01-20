@@ -310,6 +310,21 @@ export function PrivatePostContent({
       if (result.success && result.content) {
         setState({ status: 'decrypted', content: result.content })
       } else {
+        // BUG-017 fix: Check if we need to trigger key recovery due to missing wrapNonceSalt
+        if (result.error?.startsWith('REKEY_RECOVERY_NEEDED:')) {
+          console.log('BUG-017: Triggering key recovery due to missing wrapNonceSalt')
+          // Check if we have encryption key in session to auto-recover
+          const encryptionKeyHex = getEncryptionKey(user.identityId)
+          if (encryptionKeyHex) {
+            // Key is available - attempt recovery automatically
+            void attemptRecovery()
+          } else {
+            // Need to prompt user for encryption key
+            setState({ status: 'locked', reason: 'approved-no-keys' })
+          }
+          return
+        }
+
         // Decryption failed - show error state with Retry button (Test 5.7)
         console.error('Decryption failed:', result.error || 'Unknown error')
         setState({

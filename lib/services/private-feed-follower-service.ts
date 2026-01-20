@@ -430,6 +430,15 @@ class PrivateFeedFollowerService {
       if (postEpoch > cachedEpoch) {
         const catchUpResult = await this.catchUp(ownerId);
         if (!catchUpResult.success) {
+          // BUG-017 fix: If recovery is needed (missing wrapNonceSalt), propagate special error
+          // The UI layer can detect this and prompt the user to enter their encryption key
+          // to re-recover from the grant document
+          if (catchUpResult.error?.startsWith('RECOVERY_NEEDED:')) {
+            return {
+              success: false,
+              error: 'REKEY_RECOVERY_NEEDED:Your access keys need to be refreshed. Please enter your encryption key to sync.'
+            };
+          }
           return { success: false, error: catchUpResult.error || 'Failed to catch up on rekeys' };
         }
       }
@@ -546,9 +555,16 @@ class PrivateFeedFollowerService {
       // 1.5. BUG-013 fix: Get wrapNonceSalt (required for proper nonce derivation)
       const wrapNonceSalt = privateFeedKeyStore.getWrapNonceSalt(ownerId);
       if (!wrapNonceSalt) {
-        // Grant was created before BUG-013 fix, fall back to legacy nonce derivation
-        console.warn('No wrapNonceSalt found for owner', ownerId, '- using legacy nonce derivation');
-        return this.applyRekeyLegacy(ownerId, rekey, pathKeys);
+        // BUG-017 fix: Grant was created before BUG-013 fix. Return a specific error
+        // that tells the caller to trigger a key recovery. The recovery will:
+        // 1. Re-fetch the grant from chain
+        // 2. If the grant was re-created after BUG-013 fix, it will have wrapNonceSalt
+        // 3. If not, the user needs to request re-approval from the owner
+        console.warn('No wrapNonceSalt found for owner', ownerId, '- triggering recovery');
+        return {
+          success: false,
+          error: 'RECOVERY_NEEDED:Missing key data. Please wait while we sync your access.'
+        };
       }
 
       // 2. Build key lookup from current path keys
@@ -982,9 +998,24 @@ class PrivateFeedFollowerService {
         payload.wrapNonceSalt // BUG-013 fix: store salt for rekey support
       );
 
+      // BUG-017 fix: Check if wrapNonceSalt is available after recovery
+      // If not, this is a legacy grant that can't process rekeys
+      if (!payload.wrapNonceSalt) {
+        console.warn('BUG-017: Grant does not contain wrapNonceSalt - this is a legacy grant');
+        console.warn('BUG-017: User may not be able to decrypt posts after revocations');
+      }
+
       // 6. Catch up on any rekeys since grant epoch
       const catchUpResult = await this.catchUp(ownerId);
       if (!catchUpResult.success) {
+        // BUG-017 fix: Provide better error message for legacy grants
+        if (catchUpResult.error?.startsWith('RECOVERY_NEEDED:') && !payload.wrapNonceSalt) {
+          console.error('BUG-017: Legacy grant without wrapNonceSalt cannot process rekeys');
+          return {
+            success: false,
+            error: 'Your access grant is outdated and cannot sync with recent changes. Please ask the feed owner to re-approve your access.'
+          };
+        }
         // Log but don't fail - we have initial keys at least
         console.warn('Failed to catch up after recovery:', catchUpResult.error);
       }

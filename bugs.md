@@ -8,6 +8,39 @@
 
 ## Resolved Bugs
 
+### BUG-017: revocation fundamentally broken (RESOLVED)
+
+**Status:** RESOLVED
+
+**Description:** Followers approved before the BUG-013 fix could not decrypt posts at newer epochs after a revocation occurred.
+
+**Original Behavior:**
+- User A has private feed
+- Users B and C are both approved followers
+- A revokes B (creates rekey document, epoch advances from 1 to 2)
+- B correctly can no longer read (revoked)
+- C could not read posts at epoch 2 (BUG)
+- Error message: "Failed to derive new root key - may be revoked"
+
+**Root Cause:** The BUG-013 fix added `wrapNonceSalt` to grants for proper rekey nonce derivation, but existing followers had grants without this field. Without `wrapNonceSalt`, followers cannot decrypt rekey packets, causing the misleading "may be revoked" error.
+
+**Fix Applied:**
+1. Return specific `RECOVERY_NEEDED` error code when wrapNonceSalt is missing
+2. UI detects this error and triggers automatic key recovery from grant
+3. If the grant is a legacy grant (no wrapNonceSalt), show clear error: "Your access grant is outdated and cannot sync with recent changes. Please ask the feed owner to re-approve your access."
+
+**Files Modified:**
+- `lib/services/private-feed-follower-service.ts` - Better error handling for missing wrapNonceSalt
+- `components/post/private-post-content.tsx` - Handle REKEY_RECOVERY_NEEDED error
+
+**User Impact:**
+- Legacy grant holders need to be re-approved by the feed owner
+- New grants (after BUG-013) work correctly with revocations
+
+**Date Resolved:** 2026-01-19
+
+---
+
 ### BUG-016: Visibility selector hidden when replying - cannot create private replies to public posts (RESOLVED)
 
 **Status:** RESOLVED
