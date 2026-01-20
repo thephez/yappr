@@ -2923,6 +2923,100 @@ This logic means:
 **PASSED** - BUG-016 resolved. E2E Test 10.1 can now be re-tested.
 
 ### Re-test Required
-- [ ] E2E Test 10.1: Private Reply to Public Post (BUG-016 fixed, needs re-verification)
+- [x] E2E Test 10.1: Private Reply to Public Post (BUG-016 fixed, needs re-verification) - **RE-VERIFIED 2026-01-19**
+
+---
+
+## 2026-01-19: E2E Test 10.1 - Private Reply to Public Post (RE-VERIFIED)
+
+### Task
+Re-verify E2E 10.1: Private Reply to Public Post after BUG-016 fix (PRD §5.5)
+
+### Status
+**PASSED** - BUG-016 fix verified; private replies to public posts working correctly
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (Test User 1) logged in
+- Private feed enabled with 1 private follower
+- Encryption key stored in session
+- User has a public post ("Test post after SDK upgrade fix v2!")
+
+### Test Steps Executed
+1. **Navigate to public post** - ✅
+   - URL: `/post/?id=DqL9BjouLa952DAWobGqyEHtr2vN7egMgJXuYAUGgZzE`
+   - Post content: "Test post after SDK upgrade fix v2!"
+   - Post is PUBLIC (no encryption indicators)
+
+2. **Click "Post your reply" button** - ✅
+   - Reply dialog opened correctly
+   - Shows "Replying to Test User 1"
+   - Text input area is available
+
+3. **Verify visibility selector is now available** - ✅
+   - Visibility selector shows "Public" as default with dropdown arrow
+   - Clicked dropdown to reveal all options:
+     - **Public** - "Visible to everyone" (currently selected with checkmark)
+     - **Private** - "Only private followers" (with lock icon)
+     - **Private with Teaser** - "Teaser public, full content private" (with lock icon)
+   - Screenshot: `e2e-test10.1-reply-visibility-options.png`
+
+4. **Select "Private" visibility** - ✅
+   - Clicked "Private" option
+   - Visibility selector changed to show lock icon with "Private" text
+   - Orange banner appeared: "This post will be encrypted and only visible to your private followers"
+   - Footer shows: "Visible to 1 private follower"
+   - Screenshot: `e2e-test10.1-private-reply-selected.png`
+
+5. **Enter reply content** - ✅
+   - Typed: "E2E Test 10.1: This is a PRIVATE reply to a PUBLIC post. Only private followers should be able to see this encrypted content!"
+
+6. **Submit the reply** - ✅
+   - Clicked "Reply" button
+   - Loading state: "Encrypting and creating private post 1..."
+   - Console logs:
+     - `Creating post 1/1... (private: true, inherited: false)`
+     - `Creating private post: {hasTeaser: false, encryptedContentLength: 142, epoch: 2, nonceLength: 24}`
+     - `Document creation submitted successfully`
+     - `Private post created successfully: 2CPYZ9vUhrda2MQmBgsKo7XALbtLK6oUBvGW52bjDkJp`
+
+7. **Verify private reply was created** - ✅
+   - Navigated to reply post: `/post/?id=2CPYZ9vUhrda2MQmBgsKo7XALbtLK6oUBvGW52bjDkJp`
+   - Post shows:
+     - 🔒 lock icon indicating private post
+     - Decrypted content visible to owner
+     - "Visible to 1 private follower" indicator
+   - Screenshot: `e2e-test10.1-private-reply-success.png`
+
+8. **Verify post count increased** - ✅
+   - Navigated to user profile
+   - Post count increased from 8 to 9 posts
+   - New private reply visible in feed with 🔒 icon
+   - Screenshot: `e2e-test10.1-profile-9-posts.png`
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Visibility selector shows when replying to public post | Selector shows with 3 options | ✅ |
+| Can select "Private" visibility | Selected successfully, UI updated | ✅ |
+| Reply encrypted with owner's CEK | encryptedContentLength: 142 bytes, epoch: 2 | ✅ |
+| Reply appears in thread | Post created with ID 2CPYZ9vUhrda2MQmBgsKo7XALbtLK6oUBvGW52bjDkJp | ✅ |
+| Owner can decrypt their own reply | Content visible with decryption | ✅ |
+| "Visible to X private followers" shown | "Visible to 1 private follower" | ✅ |
+
+### Key Observations
+1. **BUG-016 fix working**: The visibility selector now correctly appears when replying to PUBLIC posts
+2. **Correct encryption behavior**: Reply uses owner's own CEK (private: true, inherited: false), not inherited encryption
+3. **Epoch advanced**: Post encrypted at epoch 2 (after prior revocation)
+4. **Private reply to public parent**: The reply is encrypted but linked to the public parent post as expected per PRD §5.5
+
+### Screenshots
+- `screenshots/e2e-test10.1-reply-visibility-selector-visible.png` - Reply dialog showing visibility selector
+- `screenshots/e2e-test10.1-reply-visibility-options.png` - All 3 visibility options in dropdown
+- `screenshots/e2e-test10.1-private-reply-selected.png` - Private visibility selected with encryption banner
+- `screenshots/e2e-test10.1-private-reply-success.png` - Decrypted private reply post
+- `screenshots/e2e-test10.1-profile-9-posts.png` - Profile showing 9 posts after reply created
+
+### Test Result
+**PASSED** - E2E Test 10.1 re-verified successfully. Private replies to public posts work correctly after BUG-016 fix.
 
 ---

@@ -1649,3 +1649,21 @@ import { isPrivatePost } from '@/components/post/private-post-content'
 42. **Reuse existing type detection helpers** - Before writing new detection logic, check for existing helpers like `isPrivatePost()` that already implement the correct checks.
 
 43. **Test both directions of conditional logic** - When fixing a "hidden when it shouldn't be" bug, also verify the inverse: "shown when it shouldn't be" is NOT happening. The fix was verified in both directions.
+
+## 2026-01-19: E2E Test 10.1 Re-verification - Smooth Testing
+
+### Context
+Re-verified that E2E Test 10.1 (Private Reply to Public Post) works after BUG-016 fix.
+
+### Key Observations
+1. **BUG-016 fix validated**: The visibility selector correctly appears when replying to public posts but is hidden when replying to private posts (inherited encryption)
+2. **Testnet state propagation**: After creating a post, it may take a few seconds for the document to appear in queries. Direct navigation to the post ID worked immediately, while the parent post reply list needed more time to update.
+3. **Private replies use own CEK**: When creating a private reply to a public post, the system correctly uses the repliers own CEK (not inherited), as evidenced by console logs showing `private: true, inherited: false`
+
+### Testing Tips
+- When testing post creation, capture the post ID from console logs (`Private post created successfully: <ID>`) to verify the post was created even if UI does not immediately reflect it
+- Testnet queries for document relationships (like replies to a post) may lag behind direct document queries
+
+### No Issues Encountered
+This test completed without encountering new bugs - the BUG-016 fix is working as intended.
+
