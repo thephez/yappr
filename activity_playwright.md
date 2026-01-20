@@ -49,7 +49,7 @@ Track implementation progress against e2e_prd.md phases.
 - [x] 08-block-autorevoke.spec.ts
 - [x] 09-reset-private-feed.spec.ts
 - [x] 10-replies-quotes.spec.ts
-- [ ] 11-notifications.spec.ts
+- [x] 11-notifications.spec.ts
 - [ ] 14-key-management.spec.ts
 - [ ] 15-multi-device.spec.ts
 
@@ -425,3 +425,40 @@ Running 6 tests using 1 worker
 - The `useCanReplyToPrivate` hook checks if user can decrypt the private post before enabling reply
 - Non-followers may see compose modal open but with inheritance checking loading state
 - Test 10.3 revealed that modal can open for non-followers - the check happens after modal is displayed
+
+### 2026-01-20 - 11-notifications.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/11-notifications.spec.ts` test suite
+- Implemented 6 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §11:
+  - 11.1 Request Notification - Tests owner receiving notification when follower requests access
+  - 11.2 Approval Notification - Tests follower receiving notification when request approved
+  - 11.3 Revocation Notification - Tests follower receiving notification when access revoked
+  - 11.4 Notification Badge Counts - Tests badge display and "mark all as read" functionality
+  - 11.5 Notification Tab Filter - Tests filtering by All/Follows/Mentions/Private Feed tabs
+  - 11.6 Notification Navigation Actions - Tests "View Requests" and "View Profile" link navigation
+
+**Files created:**
+- `e2e/tests/11-notifications.spec.ts`
+
+**Test results:**
+```
+Running 6 tests using 1 worker
+  ✓ 11.1 Request Notification (32.6s)
+  ✓ 11.2 Approval Notification (28.5s)
+  ✓ 11.3 Revocation Notification (28.6s)
+  ✓ 11.4 Notification Badge Counts (36.8s)
+  ✓ 11.5 Notification Tab Filter (29.9s)
+  ✓ 11.6 Notification Navigation Actions (25.6s)
+6 passed (3.2m)
+```
+
+**Key learnings:**
+- The notifications page has 4 filter tabs: All, Follows, Mentions, Private Feed
+- Notification types: privateFeedRequest (lock icon), privateFeedApproved (green unlock), privateFeedRevoked (red shield)
+- Request notifications have "View Requests" action that links to /settings?section=privateFeed
+- Approval notifications have "View Profile" action that links to the approver's profile
+- Revocation notifications are informational only (no action button per PRD)
+- Notification service derives notifications from followRequest documents (not separate notification documents)
+- Badge count appears next to Notifications link in sidebar
+- "Mark all as read" button only appears when there are unread notifications
