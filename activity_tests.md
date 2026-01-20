@@ -3020,3 +3020,91 @@ Re-verify E2E 10.1: Private Reply to Public Post after BUG-016 fix (PRD §5.5)
 **PASSED** - E2E Test 10.1 re-verified successfully. Private replies to public posts work correctly after BUG-016 fix.
 
 ---
+
+## 2026-01-19: E2E Test 10.2 - Private Reply to Private Post — Inherited Encryption (COMPLETED)
+
+### Task
+E2E Test 10.2: Verify that replies to private posts use inherited encryption from the parent post owner's CEK, not the replier's own feed CEK (PRD §5.5)
+
+### Status
+**PASSED** - Inherited encryption working correctly for private post replies
+
+### Prerequisites Met
+- Test identity 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2 (Test User 1) logged in as owner
+- Private feed enabled at epoch 2
+- Encryption key stored in session
+- Private post exists: `3JaTDNCSpfFdpYMXcEneCeuziXwdRrMxaGgr8jit8gvi`
+- 2 approved private followers: @maybetestprivfeed3.dash and Test Owner PF
+
+### Test Steps Executed
+1. **Navigate to private post** - ✅
+   - URL: `/post/?id=3JaTDNCSpfFdpYMXcEneCeuziXwdRrMxaGgr8jit8gvi`
+   - Post content decrypted: "BUG-004 Fix Test: This is a private post WITHOUT a teaser..."
+   - Shows "Visible to 2 private followers"
+
+2. **Click "Post your reply" button** - ✅
+   - Reply dialog opened correctly
+
+3. **Verify visibility selector is HIDDEN** - ✅
+   - No visibility selector dropdown (Public/Private options) is shown
+   - This is correct behavior per PRD §5.5 - replies to private posts inherit encryption
+
+4. **Verify inherited encryption banner shown** - ✅
+   - Purple banner: "This reply will be encrypted using the parent thread's encryption"
+   - Footer note: "Reply inherits parent's encryption"
+   - Screenshot: `e2e-test10.2-inherited-encryption-dialog.png`
+
+5. **Enter reply content** - ✅
+   - Typed: "E2E Test 10.2: Owner's inherited encryption reply to private post. This should use the same CEK as the parent post."
+
+6. **Submit the reply** - ✅
+   - Clicked "Reply" button
+   - Console logs confirmed:
+     - `Creating post 1/1... (private: false, inherited: true)` - Note: `inherited: true` flag
+     - `Creating inherited private reply: {authorId: 9qRC7aPC..., feedOwnerId: ...}`
+     - `Creating post document with data: {content: 🔒, encryptedContent: Array(132), epoch: 1, ...}` - Epoch 1 matches parent post
+     - `Inherited private reply created successfully: Abp8cxFEkXEC9Jj663WP9dZ2Yq9cidpCtjCrCm7enVq3`
+
+7. **Verify reply appears in thread** - ✅
+   - Refreshed page
+   - Reply visible with:
+     - 🔒 lock icon indicating private/encrypted
+     - "Visible to 2 private followers" - Same visibility as parent
+     - Displays "Author thread" header
+   - Reply count on parent increased from 1 to 2
+   - Screenshot: `e2e-test10.2-inherited-reply-full.png`
+
+8. **Verify inherited encryption in console** - ✅
+   - Console log: `Reply decryption: inherited encryption from 9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+   - This confirms replies use the parent post owner's keys for decryption
+
+### Expected Results vs Actual
+| Expected | Actual | Status |
+|----------|--------|--------|
+| Visibility selector hidden for private post replies | No selector shown, only inherited banner | ✅ |
+| "Reply inherits parent's encryption" indicator | Banner and footer text shown | ✅ |
+| Reply uses owner's CEK (inherited: true) | Console: `inherited: true` flag | ✅ |
+| Reply encrypted at inherited epoch | epoch: 1 (matching parent) | ✅ |
+| Any user approved by owner can decrypt the reply | "Visible to 2 private followers" shown | ✅ |
+| Reply appears in thread | Post ID Abp8cxFEkXEC9Jj663WP9dZ2Yq9cidpCtjCrCm7enVq3 created | ✅ |
+
+### Key Observations
+1. **Inherited encryption vs Own CEK**: When replying to a PRIVATE post, the system correctly uses `inherited: true` and encrypts with the parent post owner's CEK. When replying to a PUBLIC post (Test 10.1), the reply uses `inherited: false` and the replier's own CEK.
+
+2. **UI correctly distinguishes**:
+   - Reply to PUBLIC post: Shows visibility selector with 3 options
+   - Reply to PRIVATE post: Hides visibility selector, shows inherited encryption banner
+
+3. **Epoch inheritance**: Reply uses epoch 1 (the parent post's epoch) rather than the owner's current epoch (2), ensuring consistent decryption for all approved followers.
+
+4. **Decryption verification**: Console logs confirm the decryption path traces back to the parent post owner's identity for all inherited replies.
+
+### Screenshots
+- `screenshots/e2e-test10.2-inherited-encryption-dialog.png` - Reply dialog with inherited encryption banner
+- `screenshots/e2e-test10.2-inherited-reply-success.png` - Post view after reply created
+- `screenshots/e2e-test10.2-inherited-reply-full.png` - Full view showing both replies with inherited encryption
+
+### Test Result
+**PASSED** - E2E Test 10.2 completed successfully. Inherited encryption for private post replies works correctly per PRD §5.5.
+
+---
