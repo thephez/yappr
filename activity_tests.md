@@ -3380,3 +3380,158 @@ To properly verify Test 6.3, would need to:
 This scenario is valid but requires careful test orchestration to maintain cached key state.
 
 ---
+
+## 2026-01-20: E2E Test 7.1 - Key Catch-Up After Single Revocation (PARTIAL VERIFICATION)
+
+### Task
+Test E2E 7.1: Verify that approved followers can catch up to new epochs after revocations (PRD §3.2, §5.4)
+
+### Status
+**PARTIAL VERIFICATION** - Owner-side verified; follower-side requires encryption key not available in test fixtures
+
+### Test Scenario
+Per the test plan:
+- Precondition: Follower is approved at epoch N, owner revokes another follower (epoch advances to N+1)
+- Test: Follower views owner's new post (created at epoch N+1)
+- Expected: Follower catches up and decrypts successfully
+
+### What Was Verified (Owner Side)
+
+1. **Created new private post at epoch 3** - ✅
+   - Logged in as owner (9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2)
+   - Entered encryption key
+   - Selected "Private" visibility
+   - Content: "E2E Test 7.1: Key Catch-Up Test..."
+   - Console confirmed: "Creating private post... epoch: 3"
+
+2. **Owner recovery correctly identified current state** - ✅
+   - Console: "Found 2 rekey documents"
+   - Console: "Current epoch: 3, revoked leaves: 2"
+   - Console: "Found 1 active grants" (remaining approved follower)
+
+3. **Post created successfully** - ✅
+   - Post ID: HZ7cQRnwgMmALEV7pnvF6N8XVqfTLCQjWSH74q1FZM4T
+   - Post appears in feed with 🔒 indicator
+   - Post encrypted at epoch 3
+
+### What Could Not Be Verified
+
+The approved follower (@maybetestprivfeed3.dash, identity FxtXkNLNQZBVArmM26V2dpHSA8A1HtcBKo3VDpmVoCDs) was approved during earlier tests but their encryption private key is not available in the test fixtures.
+
+To complete follower-side verification would need:
+- Follower's encryption private key
+- Clear their localStorage to reset cached epoch
+- Have them view the new epoch 3 post
+- Verify catch-up mechanism fetches rekey documents
+- Verify post decrypts successfully
+
+### Code Analysis
+
+The catch-up mechanism exists in `private-feed-follower-service.ts`:
+- `catchUp()` method (line 484) fetches rekey documents for epochs between local and chain
+- `applyRekey()` (line 533) processes each rekey document to derive new CEK
+- Called automatically from `decryptPost()` when post epoch > local epoch
+
+### Previous Evidence of Working Catch-Up
+
+From Test 5.4 activity log:
+- Follower successfully recovered keys at epoch 1
+- Since then, 2 revocations occurred (epoch now 3)
+- If the same follower tested now, catch-up would be triggered
+
+### Screenshots
+- `screenshots/e2e-test7.1-post-created-epoch3.png` - Feed showing new private post created at epoch 3
+
+### Test Result
+**PARTIAL VERIFICATION** - Owner-side creation of epoch 3 post verified. Follower-side catch-up mechanism exists and is well-implemented but cannot be E2E tested without follower's encryption key.
+
+### Recommendation
+To fully verify Test 7.1 in future:
+1. Create a new test identity with known encryption key
+2. Have owner approve them
+3. Create some test posts at the initial epoch
+4. Perform a revocation (epoch advances)
+5. Create new post at new epoch
+6. Log in as new follower and verify catch-up
+
+---
+
+## 2026-01-19: E2E Test 6.4 - Revoked State on Profile (COMPLETED)
+
+### Task
+Test E2E 6.4: Verify that a revoked follower sees "[Revoked]" state on the owner's profile (PRD §4.7)
+
+### Status
+**PASSED** - After implementing fix for missing revocation detection
+
+### Bug Found and Fixed
+
+**Initial Observation:**
+When testing as the revoked follower (Identity 3: 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA), the owner's profile showed "Pending..." instead of "Revoked".
+
+**Root Cause:**
+The `getAccessStatus()` function in `private-feed-follower-service.ts` did not detect revocation. When a user is revoked:
+1. Their `PrivateFeedGrant` is deleted
+2. Their `FollowRequest` remains on-chain (owned by requester, cannot be deleted by owner)
+3. `getAccessStatus()` found the FollowRequest and returned 'pending' incorrectly
+
+**Fix Applied:**
+Added revocation detection logic to `getAccessStatus()`:
+1. When no grant exists but a FollowRequest exists, check for revocation evidence
+2. Query `PrivateFeedRekey` documents (created on each revocation)
+3. If revocations exist AND the FollowRequest was created BEFORE the first revocation, the user was previously approved and then revoked
+4. Return 'revoked' status in this case
+
+**Code Change:**
+```typescript
+// In lib/services/private-feed-follower-service.ts getAccessStatus()
+if (request) {
+  // Check if this user was previously approved and then revoked (PRD §4.7)
+  const rekeyDocs = await this.getRekeyDocumentsAfter(ownerId, 0);
+  if (rekeyDocs.length > 0) {
+    const requestCreatedAt = request.$createdAt as number;
+    const firstRevocationAt = rekeyDocs[0].$createdAt;
+    
+    if (requestCreatedAt < firstRevocationAt) {
+      // Request was created before any revocation = was approved then revoked
+      console.log(`User ${myId} appears to be revoked...`);
+      return 'revoked';
+    }
+  }
+  return 'pending';
+}
+```
+
+### Test Verification
+
+**Preconditions Met:**
+- Logged in as revoked follower: 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA (Test Owner PF)
+- This user was explicitly revoked by owner in E2E Test 6.1
+
+**Steps:**
+1. Cleared localStorage and logged in as revoked follower
+2. Navigated to owner's profile: `/user/?id=9qRC7aPC3xTFwGJvMpwHfycU4SA49mx4Fc3Bh6jCT8v2`
+3. Verified UI shows correct revoked state
+
+**Expected vs Actual Results:**
+| Expected (PRD §4.7) | Actual | Status |
+|---------------------|--------|--------|
+| Button shows [Revoked] (disabled state) | Shows "Revoked" with lock icon in gray | ✅ |
+| NOT [Request Access] | No request access button shown | ✅ |
+| Profile indicates revoked status | Tooltip: "Your access to this private feed has been revoked" | ✅ |
+
+### Console Logs Confirming Fix
+```
+User 4GPK6iujRhZVpdtpv2oBZXqfw9o7YSSngtU2MLBnf2SA appears to be revoked: request created at 17...
+```
+
+### Screenshots
+- `screenshots/e2e-test6.4-revoked-state-bug.png` - BEFORE fix: shows "Pending..." incorrectly
+- `screenshots/e2e-test6.4-revoked-state-fixed.png` - AFTER fix: shows "Revoked" correctly
+- `screenshots/e2e-test6.4-revoked-tooltip.png` - Tooltip showing revocation message
+
+### Files Modified
+- `lib/services/private-feed-follower-service.ts` - Added revocation detection in `getAccessStatus()`
+
+### Test Result
+**PASSED** - E2E Test 6.4 completed successfully after implementing the revocation detection fix.

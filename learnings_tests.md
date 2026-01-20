@@ -1852,3 +1852,58 @@ The PRD should clarify:
 > "Revoked followers can decrypt posts from when they had access **only if they retain their cached encryption keys locally**. If local key storage is lost, access to all posts (including historical ones) is permanently revoked."
 
 This aligns the documentation with the cryptographic reality.
+
+## 2026-01-20: Test 7.1 Key Catch-Up Verification Limitation
+
+### Issue: Missing Test Follower Encryption Keys
+**Problem:** E2E Test 7.1 (Key Catch-Up) requires logging in as an approved follower with their encryption key. The approved follower (@maybetestprivfeed3.dash) was created during earlier tests but their encryption private key was not saved to a test fixture file.
+
+**Impact:** Could only verify the owner-side of the test (creating a post at epoch 3), not the follower-side catch-up mechanism.
+
+### Lesson Learned
+When testing multi-identity scenarios (owner + follower), always save ALL test identity credentials including:
+- Identity ID
+- Auth keys (master, critical, high)
+- **Encryption private key** (critical for private feed testing)
+
+### Workaround Applied
+Documented test as "PARTIAL VERIFICATION" with:
+1. Owner-side creation verified
+2. Code analysis confirming catch-up mechanism exists
+3. Reference to Test 5.4 where follower decryption worked at epoch 1
+4. Recommendation for future complete verification
+
+### Future Testing Setup
+For complete key catch-up testing:
+1. Use faucet to create fresh test identities
+2. Save ALL credentials to testing-identity-X.json
+3. Include encryption key in the JSON fixture
+4. Maintain test fixtures for entire test suite lifecycle
+
+## 2026-01-19: E2E Test 6.4 - Revocation State Detection
+
+### Learning: Revocation State Requires Explicit Detection Logic
+
+**Issue:** The `getAccessStatus()` function could not distinguish between:
+- A user with a pending request (never approved)
+- A user who was approved and then revoked
+
+Both cases have: no grant + FollowRequest exists
+
+**Solution:** Use temporal analysis of documents:
+1. Query `PrivateFeedRekey` documents (created on each revocation)
+2. Compare `FollowRequest.$createdAt` with `firstRekeyDocument.$createdAt`
+3. If request predates first revocation → user was approved then revoked
+
+**Why this works:**
+- Approval always happens AFTER a request is made
+- Revocation creates a `PrivateFeedRekey` document with a timestamp
+- If request timestamp < first revocation timestamp, the user must have been approved (otherwise how would they be revoked?) and then later revoked
+
+**Edge cases handled:**
+- Multiple revocations: Check against FIRST revocation (user was approved before any revocations)
+- New request after revocation: Request timestamp > revocation timestamp → 'pending' (genuinely new request)
+- No revocations ever: No rekey docs → 'pending' (normal flow)
+
+### Key Takeaway
+When designing state tracking for multi-party workflows, consider that some state transitions leave no direct evidence. Temporal analysis of related documents can fill in the gaps.
