@@ -1,0 +1,13 @@
+{
+  "name": "yappr-stats",
+  "version": "1.0.0",
+  "description": "Daily activity statistics collector for Yappr platform",
+  "type": "module",
+  "scripts": {
+    "collect": "node collect-stats.js",
+    "collect:backfill": "node collect-stats.js --backfill 20"
+  },
+  "dependencies": {
+    "@dashevo/evo-sdk": "3.0.0-dev.11"
+  }
+}
