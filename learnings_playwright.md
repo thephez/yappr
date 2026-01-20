@@ -1193,3 +1193,137 @@ const revokedIndicator = page.locator('div').filter({
 - The pending button is clickable to show cancel option
 - Button only appears when user is following the profile owner
 - Loading state shows a pulsing gray skeleton
+
+---
+
+### 2026-01-20 - Private Feed Dashboard Structure
+
+**Issue:** Needed to understand the dashboard component structure for testing.
+
+**Finding:** The `PrivateFeedDashboard` component (`components/settings/private-feed-dashboard.tsx`) loads async data and displays:
+
+1. **Stats Grid**: Three cards in a 3-column grid:
+   - Followers: blue gradient, shows `count / 1024`
+   - Pending: amber gradient, shows pending request count
+   - Private Posts: purple gradient, shows private post count
+
+2. **Epoch Usage**: Progress bar with color coding:
+   - Green: < 50% usage
+   - Amber: 50-90% usage
+   - Red: > 90% usage
+   - Warning text appears only when > 90%
+
+3. **Quick Actions**: Two buttons that scroll to sections:
+   - "View Requests" scrolls to `#private-feed-requests`
+   - "Manage Followers" scrolls to `#private-feed-followers`
+
+4. **Recent Activity**: Shows last 5 activities:
+   - Approvals: green checkmark + "@username approved"
+   - Revocations: red X + "Leaf X revoked"
+   - Time ago display
+
+**Key selectors:**
+```typescript
+// Dashboard card
+const dashboardCard = page.locator('text=Your Private Feed');
+
+// Stats grid
+const statsGrid = page.locator('.grid.grid-cols-3');
+
+// Stat cards
+const followersCard = page.getByText('Followers');
+const pendingCard = page.getByText('Pending');
+const postsCard = page.getByText('Private Posts');
+
+// Epoch usage
+const epochLabel = page.getByText('Epoch Usage');
+const revocationsText = page.getByText(/\d+\/\d+\s*revocations?/i);
+
+// Quick action buttons
+const viewRequestsBtn = page.locator('button').filter({ hasText: /View Requests/i });
+const manageFollowersBtn = page.locator('button').filter({ hasText: /Manage Followers/i });
+
+// Recent Activity
+const activityHeader = page.getByText('Recent Activity');
+const approvedEntries = page.locator('div').filter({
+  has: page.locator('svg.text-green-500')
+}).filter({ hasText: /approved/i });
+const revokedEntries = page.locator('div').filter({
+  has: page.locator('svg.text-red-500')
+}).filter({ hasText: /revoked/i });
+```
+
+**Tips:**
+- Dashboard loads async - wait 5-7 seconds after navigation for data to populate
+- Loading skeleton uses `.animate-pulse` class
+- Epoch usage calculation: `(currentEpoch - 1) / (MAX_EPOCH - 1) * 100`
+- Warning only appears when usage > 90%
+
+---
+
+### 2026-01-20 - Dashboard Async Loading Pattern
+
+**Issue:** Tests needed to wait for dashboard data to load before checking elements.
+
+**Finding:** The dashboard fetches multiple pieces of data asynchronously:
+1. Check if private feed is enabled
+2. Get follower count from grants
+3. Get pending request count
+4. Get current epoch
+5. Count private posts
+6. Build recent activity from grants and rekeys
+
+**Resolution:** Wait for dashboard to fully load before assertions:
+
+```typescript
+// Navigate to settings
+await goToPrivateFeedSettings(page);
+await page.waitForLoadState('networkidle');
+
+// Handle encryption key modal if needed
+await handleEncryptionKeyModal(page, identity);
+
+// Wait for async data to load
+await page.waitForTimeout(5000);
+
+// Now check for dashboard elements
+const dashboardCard = page.locator('text=Your Private Feed').first();
+const hasDashboard = await dashboardCard.isVisible({ timeout: 10000 }).catch(() => false);
+```
+
+**Tips:**
+- The dashboard returns `null` if private feed is not enabled
+- Loading state shows skeleton with `.animate-pulse` class
+- Stats may show 0 initially, then update as data arrives
+- Recent activity section only appears if there are activities
+
+---
+
+### 2026-01-20 - Epoch Progress Bar Color Detection
+
+**Issue:** Needed to verify progress bar color changes based on epoch usage.
+
+**Finding:** The progress bar uses CSS gradient classes based on usage percentage:
+- `from-green-400 to-green-500` for < 50%
+- `from-amber-400 to-amber-500` for 50-90%
+- `from-red-500 to-red-600` for > 90%
+
+**Detection pattern:**
+```typescript
+const progressFill = page.locator('div[class*="h-full"][class*="rounded-full"]');
+const fillClasses = await progressFill.first().getAttribute('class').catch(() => '');
+
+let progressColor = 'unknown';
+if (fillClasses?.includes('red')) {
+  progressColor = 'red (warning)';
+} else if (fillClasses?.includes('amber')) {
+  progressColor = 'amber (caution)';
+} else if (fillClasses?.includes('green')) {
+  progressColor = 'green (healthy)';
+}
+```
+
+**Tips:**
+- Can't easily simulate high epoch usage in tests
+- Focus on observing current state and verifying UI responds correctly
+- Warning text "approaching its revocation limit" only appears when `isEpochWarning` is true

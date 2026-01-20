@@ -58,7 +58,7 @@ Track implementation progress against e2e_prd.md phases.
 ## Phase 4: P2 Test Suites
 
 - [x] 12-profile-indicators.spec.ts
-- [ ] 13-dashboard.spec.ts
+- [x] 13-dashboard.spec.ts
 - [ ] 16-hashtags-search.spec.ts
 - [ ] 17-error-scenarios.spec.ts
 - [ ] 18-performance.spec.ts
@@ -559,3 +559,38 @@ Running 5 tests using 1 worker
 - Access button states are handled by `PrivateFeedAccessButton` component
 - Revoked users may still see "Private Follower" badge due to cached UI state (potential minor bug)
 - The generic post count ("X posts") is always visible in the profile header
+
+### 2026-01-20 - 13-dashboard.spec.ts Complete
+
+**What was done:**
+- Created `e2e/tests/13-dashboard.spec.ts` test suite
+- Implemented 5 test scenarios from YAPPR_PRIVATE_FEED_E2E_TESTS.md §13:
+  - 13.1 Dashboard Stats Display - Verifies followers, pending, and posts stat cards with epoch usage bar
+  - 13.2 Epoch Usage Warning - Tests epoch progress bar colors and warning states based on revocation count
+  - 13.3 Recent Activity Display - Tests chronological activity list with approval/revocation entries
+  - Bonus: Quick Action Button Functionality - Tests View Requests and Manage Followers button scrolling
+  - Bonus: Dashboard Loading State - Tests skeleton loading state while async data loads
+
+**Files created:**
+- `e2e/tests/13-dashboard.spec.ts`
+
+**Test results:**
+```
+Running 5 tests using 1 worker
+  ✓ 13.1 Dashboard Stats Display (32.4s)
+  ✓ 13.2 Epoch Usage Warning (27.0s)
+  ✓ 13.3 Recent Activity Display (28.5s)
+  ✓ Bonus: Quick Action Button Functionality (31.3s)
+  ✓ Bonus: Dashboard Loading State (25.6s)
+5 passed (2.6m)
+```
+
+**Key learnings:**
+- The `PrivateFeedDashboard` component loads data asynchronously - need 5-7s wait for data to populate
+- Stats grid uses `grid-cols-3` layout with styled gradient cards (blue/amber/purple backgrounds)
+- Epoch usage shows `currentEpoch - 1` / `MAX_EPOCH - 1` as revocations count
+- Progress bar color changes: green (<50%), amber (50-90%), red (>90%)
+- Warning text only appears when usage > 90%: "approaching its revocation limit"
+- Recent Activity shows up to 5 items: approvals have green checkmark, revocations have red X
+- Quick action buttons scroll to `#private-feed-requests` and `#private-feed-followers` sections
+- Loading skeleton uses `.animate-pulse` class on placeholder divs
