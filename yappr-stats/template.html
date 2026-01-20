@@ -164,6 +164,28 @@
       padding-bottom: 1rem;
       border-bottom: 1px solid #333;
     }
+    .modal-nav {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+    .modal-nav-btn {
+      background: #222;
+      border: none;
+      color: #888;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.25rem 0.5rem;
+      border-radius: 4px;
+    }
+    .modal-nav-btn:hover:not(:disabled) {
+      background: #333;
+      color: #fff;
+    }
+    .modal-nav-btn:disabled {
+      opacity: 0.3;
+      cursor: not-allowed;
+    }
     .modal-title {
       font-size: 1.25rem;
       font-weight: 600;
@@ -210,6 +232,15 @@
       background: #222;
       border-radius: 8px;
       padding: 0.75rem 1rem;
+      transition: background 0.15s ease;
+    }
+    a.item-link {
+      text-decoration: none;
+      color: inherit;
+      display: block;
+    }
+    a.item-link:hover .item-card {
+      background: #2a2a2a;
     }
     .item-meta {
       font-size: 0.75rem;
@@ -264,7 +295,11 @@
   <div class="modal-overlay" id="modal-overlay">
     <div class="modal">
       <div class="modal-header">
-        <div class="modal-title" id="modal-title">Details</div>
+        <div class="modal-nav">
+          <button class="modal-nav-btn" id="prev-day" title="Previous day">&larr;</button>
+          <div class="modal-title" id="modal-title">Details</div>
+          <button class="modal-nav-btn" id="next-day" title="Next day">&rarr;</button>
+        </div>
         <button class="modal-close" id="modal-close">&times;</button>
       </div>
       <div class="modal-tabs">
@@ -301,7 +336,9 @@
     function formatTime(timestamp) {
       if (!timestamp) return '';
       const date = new Date(timestamp);
-      return date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+      const utc = date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
+      const local = date.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+      return `${utc} UTC <span style="color:#555;font-size:0.65rem">(${local} local)</span>`;
     }
 
     function truncateId(id) {
@@ -309,13 +346,34 @@
       return id.substring(0, 8) + '...';
     }
 
-    function openModal(dateStr) {
+    function openModal(dateStr, tab) {
       currentDay = days.find(d => d.date === dateStr);
       if (!currentDay) return;
 
       document.getElementById('modal-title').textContent = `${dateStr}`;
       document.getElementById('modal-overlay').classList.add('active');
-      setActiveTab('posts');
+      updateNavButtons();
+      setActiveTab(tab || currentTab || 'posts');
+    }
+
+    function updateNavButtons() {
+      const currentIndex = days.findIndex(d => d.date === currentDay?.date);
+      document.getElementById('prev-day').disabled = currentIndex <= 0;
+      document.getElementById('next-day').disabled = currentIndex >= days.length - 1;
+    }
+
+    function goToPrevDay() {
+      const currentIndex = days.findIndex(d => d.date === currentDay?.date);
+      if (currentIndex > 0) {
+        openModal(days[currentIndex - 1].date);
+      }
+    }
+
+    function goToNextDay() {
+      const currentIndex = days.findIndex(d => d.date === currentDay?.date);
+      if (currentIndex < days.length - 1) {
+        openModal(days[currentIndex + 1].date);
+      }
     }
 
     function closeModal() {
@@ -345,11 +403,13 @@
           return;
         }
         content.innerHTML = '<div class="item-list">' + posts.map(p => `
-          <div class="item-card">
-            <div class="item-meta">${formatTime(p.createdAt)}</div>
-            <div class="item-content">${escapeHtml(p.content || '(no content)')}</div>
-            <div class="item-owner">by ${truncateId(p.ownerId)}</div>
-          </div>
+          <a class="item-link" href="https://yap.pr/post/?id=${p.id}" target="_blank" rel="noopener">
+            <div class="item-card">
+              <div class="item-meta">${formatTime(p.createdAt)}</div>
+              <div class="item-content">${escapeHtml(p.content || '(no content)')}</div>
+              <div class="item-owner">by ${truncateId(p.ownerId)}</div>
+            </div>
+          </a>
         `).join('') + '</div>';
       } else {
         const users = currentDay.userList || [];
@@ -358,11 +418,13 @@
           return;
         }
         content.innerHTML = '<div class="item-list">' + users.map(u => `
-          <div class="item-card">
-            <div class="item-meta">${formatTime(u.createdAt)}</div>
-            <div class="item-content">${escapeHtml(u.displayName || '(unnamed)')}</div>
-            <div class="item-owner">${truncateId(u.ownerId)}</div>
-          </div>
+          <a class="item-link" href="https://yap.pr/user/?id=${u.ownerId}" target="_blank" rel="noopener">
+            <div class="item-card">
+              <div class="item-meta">${formatTime(u.createdAt)}</div>
+              <div class="item-content">${escapeHtml(u.displayName || '(unnamed)')}</div>
+              <div class="item-owner">${truncateId(u.ownerId)}</div>
+            </div>
+          </a>
         `).join('') + '</div>';
       }
     }
@@ -373,7 +435,7 @@
       return div.innerHTML;
     }
 
-    function renderChart(containerId, data, key, cssClass) {
+    function renderChart(containerId, data, key, cssClass, defaultTab) {
       const container = document.getElementById(containerId);
       if (!data.length) {
         container.innerHTML = '<div class="empty">No data</div>';
@@ -386,7 +448,7 @@
         const value = d[key] || 0;
         const height = Math.max((value / maxValue) * 180, 2);
         return `
-          <div class="bar-group clickable" onclick="openModal('${d.date}')">
+          <div class="bar-group clickable" onclick="openModal('${d.date}', '${defaultTab}')">
             <div class="bar ${cssClass}" style="height: ${height}px">
               <span class="bar-value">${value}</span>
             </div>
@@ -439,8 +501,8 @@
     document.getElementById('last-updated').textContent =
       DATA.lastUpdated ? `Last updated: ${formatDateTime(DATA.lastUpdated)}` : '';
 
-    renderChart('posts-chart', days, 'posts', 'posts');
-    renderChart('users-chart', days, 'newUsers', 'users');
+    renderChart('posts-chart', days, 'posts', 'posts', 'posts');
+    renderChart('users-chart', days, 'newUsers', 'users', 'users');
     renderTable(days);
 
     // Modal event listeners
@@ -450,8 +512,12 @@
     });
     document.getElementById('tab-posts').addEventListener('click', () => setActiveTab('posts'));
     document.getElementById('tab-users').addEventListener('click', () => setActiveTab('users'));
+    document.getElementById('prev-day').addEventListener('click', goToPrevDay);
+    document.getElementById('next-day').addEventListener('click', goToNextDay);
     document.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') closeModal();
+      if (e.key === 'ArrowLeft' && currentDay) goToPrevDay();
+      if (e.key === 'ArrowRight' && currentDay) goToNextDay();
     });
   </script>
 </body>
