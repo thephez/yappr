@@ -673,10 +673,6 @@ class PrivateFeedService {
         cek = chain[localEpoch];
       }
 
-      // 6.5. Derive wrapNonceSalt from feedSeed (BUG-013 fix)
-      // Followers need this to apply rekey documents
-      const wrapNonceSalt = privateFeedCryptoService.deriveWrapNonceSalt(feedSeed);
-
       // 7. Build grant payload
       const grantPayload = {
         version: PROTOCOL_VERSION,
@@ -684,7 +680,6 @@ class PrivateFeedService {
         leafIndex,
         pathKeys,
         currentCEK: cek,
-        wrapNonceSalt, // BUG-013 fix: include salt so followers can apply rekeys
       };
 
       // 8. Encode grant payload
@@ -871,8 +866,7 @@ class PrivateFeedService {
         newKeys.set(nodeId, privateFeedCryptoService.deriveNodeKey(feedSeed, nodeId, newVersion));
       }
 
-      // 9. Derive wrap nonce salt
-      const wrapNonceSalt = privateFeedCryptoService.deriveWrapNonceSalt(feedSeed);
+      // 9. Get owner ID bytes for nonce derivation (SPEC §10)
       const ownerIdBytes = identifierToBytes(ownerId);
 
       // 10. Create rekey packets (bottom-up per SPEC §8.5 step 7)
@@ -907,7 +901,7 @@ class PrivateFeedService {
         );
         const wrapKeyA = privateFeedCryptoService.deriveWrapKey(siblingKey);
         const nonceA = privateFeedCryptoService.deriveRekeyNonce(
-          wrapNonceSalt,
+          ownerIdBytes,
           newEpoch,
           nodeId,
           targetVersion,
@@ -942,7 +936,7 @@ class PrivateFeedService {
           }
           const wrapKeyB = privateFeedCryptoService.deriveWrapKey(childNewKey);
           const nonceB = privateFeedCryptoService.deriveRekeyNonce(
-            wrapNonceSalt,
+            ownerIdBytes,
             newEpoch,
             nodeId,
             targetVersion,
