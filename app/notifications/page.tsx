@@ -91,7 +91,7 @@ function NotificationsPage() {
           <div className="flex items-center justify-between px-4 py-3">
             <h1 className="text-xl font-bold">Notifications</h1>
             <Link
-              href="/settings"
+              href="/settings?section=notifications"
               className="p-2 hover:bg-gray-100 dark:hover:bg-gray-900 rounded-full"
             >
               <Cog6ToothIcon className="h-5 w-5" />
