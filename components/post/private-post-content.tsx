@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { LockClosedIcon, LockOpenIcon, ExclamationTriangleIcon, KeyIcon, ArrowPathIcon } from '@heroicons/react/24/outline'
+import { LockClosedIcon, LockOpenIcon, ExclamationTriangleIcon, KeyIcon, ArrowPathIcon, ClockIcon, XMarkIcon } from '@heroicons/react/24/outline'
 import { LockClosedIcon as LockClosedIconSolid } from '@heroicons/react/24/solid'
 import { Post } from '@/lib/types'
 import { PostContent } from './post-content'
@@ -10,6 +10,9 @@ import { useAuth } from '@/contexts/auth-context'
 import { HashtagValidationStatus } from '@/hooks/use-hashtag-validation'
 import { MentionValidationStatus } from '@/hooks/use-mention-validation'
 import { useEncryptionKeyModal } from '@/hooks/use-encryption-key-modal'
+import { usePrivateFeedRequest } from '@/hooks/use-private-feed-request'
+import { useLoginPromptModal } from '@/hooks/use-login-prompt-modal'
+import { AddEncryptionKeyModal } from '@/components/auth/add-encryption-key-modal'
 import { getEncryptionKey } from '@/lib/secure-storage'
 
 interface PrivatePostContentProps {
@@ -19,6 +22,7 @@ interface PrivatePostContentProps {
   onFailedHashtagClick?: (hashtag: string) => void
   mentionValidations?: Map<string, MentionValidationStatus>
   onFailedMentionClick?: (username: string) => void
+  /** @deprecated Use authorId instead. This prop is kept for backwards compatibility. */
   onRequestAccess?: () => void
 }
 
@@ -27,8 +31,83 @@ type DecryptionState =
   | { status: 'loading' }
   | { status: 'recovering' }
   | { status: 'decrypted'; content: string; followerCount?: number }
-  | { status: 'locked'; reason: 'no-keys' | 'no-auth' | 'revoked' | 'approved-no-keys' }
+  | { status: 'locked'; reason: 'no-keys' | 'no-auth' | 'revoked' | 'approved-no-keys' | 'pending' }
   | { status: 'error'; message: string }
+
+type PrivateContentCardStatus = 'loading' | 'recovering' | 'decrypted' | 'locked' | 'error'
+
+interface PrivateContentCardProps {
+  children: React.ReactNode
+  status: PrivateContentCardStatus
+  statusText?: string
+  footer?: React.ReactNode
+}
+
+/**
+ * Wrapper component for private post content that provides consistent
+ * "card-within-card" styling with a colored header indicating encryption status.
+ */
+function PrivateContentCard({ children, status, statusText, footer }: PrivateContentCardProps) {
+  const config = {
+    loading: {
+      headerBg: 'bg-gray-100 dark:bg-gray-800',
+      headerText: 'text-gray-600 dark:text-gray-400',
+      border: 'border-gray-200 dark:border-gray-700',
+      icon: <LockOpenIcon className="h-4 w-4 animate-pulse" />,
+      defaultText: 'Decrypting...',
+    },
+    recovering: {
+      headerBg: 'bg-blue-100 dark:bg-blue-900/40',
+      headerText: 'text-blue-600 dark:text-blue-400',
+      border: 'border-blue-200 dark:border-blue-700',
+      icon: <KeyIcon className="h-4 w-4 animate-pulse" />,
+      defaultText: 'Recovering keys...',
+    },
+    decrypted: {
+      headerBg: 'bg-gray-50 dark:bg-gray-800/50',
+      headerText: 'text-gray-500 dark:text-gray-400',
+      border: 'border-gray-200 dark:border-gray-700/50',
+      icon: <LockOpenIcon className="h-4 w-4 text-green-500 dark:text-green-400" />,
+      defaultText: 'Private Content',
+    },
+    locked: {
+      headerBg: 'bg-gray-100 dark:bg-gray-800',
+      headerText: 'text-gray-600 dark:text-gray-400',
+      border: 'border-gray-200 dark:border-gray-700',
+      icon: <LockClosedIconSolid className="h-4 w-4" />,
+      defaultText: 'Private Content',
+    },
+    error: {
+      headerBg: 'bg-red-100 dark:bg-red-900/40',
+      headerText: 'text-red-600 dark:text-red-400',
+      border: 'border-red-200 dark:border-red-700',
+      icon: <ExclamationTriangleIcon className="h-4 w-4" />,
+      defaultText: 'Decryption Failed',
+    },
+  }
+
+  const { headerBg, headerText, border, icon, defaultText } = config[status]
+
+  return (
+    <div className={cn('rounded-xl border overflow-hidden', border)}>
+      {/* Header bar */}
+      <div className={cn('px-3 py-2 flex items-center gap-2', headerBg, headerText)}>
+        {icon}
+        <span className="text-sm font-medium">{statusText || defaultText}</span>
+      </div>
+      {/* Content area */}
+      <div className="bg-white dark:bg-gray-950 p-3">
+        {children}
+      </div>
+      {/* Optional footer */}
+      {footer && (
+        <div className={cn('px-3 py-2 border-t', border, 'bg-gray-50 dark:bg-gray-900/50')}>
+          {footer}
+        </div>
+      )}
+    </div>
+  )
+}
 
 /**
  * Renders private post content based on user's access status.
@@ -44,14 +123,34 @@ export function PrivatePostContent({
   onFailedHashtagClick,
   mentionValidations,
   onFailedMentionClick,
-  onRequestAccess,
 }: PrivatePostContentProps) {
   const { user } = useAuth()
   const [state, setState] = useState<DecryptionState>({ status: 'idle' })
   const { open: openEncryptionKeyModal } = useEncryptionKeyModal()
+  const { open: openLoginPrompt } = useLoginPromptModal()
+
+  // Use the private feed request hook for requesting access from feed posts
+  const {
+    status: requestStatus,
+    isProcessing: isRequestProcessing,
+    needsEncryptionKey,
+    requestAccess,
+    cancelRequest,
+    onKeyAdded,
+    dismissKeyModal,
+  } = usePrivateFeedRequest({
+    ownerId: post.author.id,
+    currentUserId: user?.identityId ?? null,
+    onRequireAuth: () => openLoginPrompt('generic'),
+  })
+
+  // State for showing cancel option when pending is clicked
+  const [showCancelOption, setShowCancelOption] = useState(false)
 
   const isOwner = user?.identityId === post.author.id
-  const hasTeaser = post.content && post.content.length > 0
+  // Skip rendering teaser if it's just the lock emoji placeholder
+  const teaserContent = post.content?.trim()
+  const hasTeaser = teaserContent && teaserContent.length > 0 && teaserContent !== ':lock:' && teaserContent !== '🔒'
 
   // Attempt follower key recovery using encryption key
   const attemptRecovery = useCallback(async () => {
@@ -282,6 +381,11 @@ export function PrivatePostContent({
 
         if (accessStatus === 'revoked') {
           setState({ status: 'locked', reason: 'revoked' })
+        } else if (accessStatus === 'pending') {
+          // User has a pending request - seed the shared cache so other posts show pending too
+          const { setPrivateFeedRequestStatus } = await import('@/lib/caches/user-status-cache')
+          setPrivateFeedRequestStatus(`${user.identityId}:${encryptionSourceOwnerId}`, 'pending')
+          setState({ status: 'locked', reason: 'pending' })
         } else if (accessStatus === 'approved-no-keys') {
           // User has a grant but no local keys - needs to recover
           // Check if we already have an encryption key in session
@@ -367,17 +471,13 @@ export function PrivatePostContent({
             onFailedMentionClick={onFailedMentionClick}
           />
         )}
-        {/* Decrypting skeleton */}
-        <div className="border border-gray-200 dark:border-gray-700 rounded-lg p-3 bg-gray-50 dark:bg-gray-900/50">
-          <div className="flex items-center gap-2 text-gray-500 mb-2">
-            <LockOpenIcon className="h-4 w-4 animate-pulse" />
-            <span className="text-sm">Decrypting...</span>
-          </div>
+        {/* Decrypting skeleton in card */}
+        <PrivateContentCard status="loading">
           <div className="space-y-2">
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-full" />
             <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse w-3/4" />
           </div>
-        </div>
+        </PrivateContentCard>
       </div>
     )
   }
@@ -396,25 +496,30 @@ export function PrivatePostContent({
             onFailedMentionClick={onFailedMentionClick}
           />
         )}
-        {/* Recovering keys skeleton */}
-        <div className="border border-blue-200 dark:border-blue-700 rounded-lg p-3 bg-blue-50 dark:bg-blue-900/20">
-          <div className="flex items-center gap-2 text-blue-600 dark:text-blue-400 mb-2">
-            <KeyIcon className="h-4 w-4 animate-pulse" />
-            <span className="text-sm">Recovering access keys...</span>
-          </div>
+        {/* Recovering keys skeleton in card */}
+        <PrivateContentCard status="recovering">
           <div className="space-y-2">
             <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded animate-pulse w-full" />
             <div className="h-4 bg-blue-200 dark:bg-blue-800 rounded animate-pulse w-3/4" />
           </div>
-        </div>
+        </PrivateContentCard>
       </div>
     )
   }
 
   // Decrypted state - show full content
   if (state.status === 'decrypted') {
+    const followerFooter = isOwner && state.followerCount !== undefined ? (
+      <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400">
+        <LockClosedIcon className="h-3 w-3" />
+        <span>
+          Visible to {state.followerCount} private follower{state.followerCount !== 1 ? 's' : ''}
+        </span>
+      </div>
+    ) : undefined
+
     return (
-      <div data-testid="decrypted-content" className={cn('space-y-1', className)}>
+      <div data-testid="decrypted-content" className={cn('space-y-2', className)}>
         {/* Show teaser with muted style if present */}
         {hasTeaser && (
           <div className="text-gray-500 dark:text-gray-400 text-sm">
@@ -428,8 +533,8 @@ export function PrivatePostContent({
             />
           </div>
         )}
-        {/* Decrypted content with private indicator */}
-        <div className="relative">
+        {/* Decrypted content in card */}
+        <PrivateContentCard status="decrypted" footer={followerFooter}>
           <PostContent
             content={state.content}
             hashtagValidations={hashtagValidations}
@@ -437,16 +542,7 @@ export function PrivatePostContent({
             mentionValidations={mentionValidations}
             onFailedMentionClick={onFailedMentionClick}
           />
-        </div>
-        {/* Show follower visibility count for owner (PRD §4.8) */}
-        {isOwner && state.followerCount !== undefined && (
-          <div className="flex items-center gap-1.5 text-xs text-gray-500 dark:text-gray-400 mt-1">
-            <LockClosedIcon className="h-3 w-3" />
-            <span>
-              Visible to {state.followerCount} private follower{state.followerCount !== 1 ? 's' : ''}
-            </span>
-          </div>
-        )}
+        </PrivateContentCard>
       </div>
     )
   }
@@ -456,51 +552,121 @@ export function PrivatePostContent({
     // Determine the message and action based on reason
     const isApprovedNoKeys = state.reason === 'approved-no-keys'
 
-    return (
-      <div data-testid="encrypted-content" className={cn('space-y-2', className)}>
-        {/* Show teaser if available */}
-        {hasTeaser && (
-          <PostContent
-            content={post.content}
-            hashtagValidations={hashtagValidations}
-            onFailedHashtagClick={onFailedHashtagClick}
-            mentionValidations={mentionValidations}
-            onFailedMentionClick={onFailedMentionClick}
-          />
-        )}
-        {/* Locked content box */}
-        <div className={cn(
-          'border rounded-lg p-4',
-          isApprovedNoKeys
-            ? 'border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20'
-            : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50'
-        )}>
-          <div className="flex flex-col items-center justify-center text-center gap-2">
-            <div className={cn(
-              'w-10 h-10 rounded-full flex items-center justify-center',
-              isApprovedNoKeys
-                ? 'bg-blue-200 dark:bg-blue-700'
-                : 'bg-gray-200 dark:bg-gray-700'
-            )}>
-              {isApprovedNoKeys ? (
-                <KeyIcon className="h-5 w-5 text-blue-600 dark:text-blue-300" />
-              ) : (
-                <LockClosedIconSolid className="h-5 w-5 text-gray-500" />
-              )}
+    // Check if pending - use hook status (which reads from shared cache)
+    // Don't use state.reason since it doesn't update when request is cancelled
+    const isPending = requestStatus === 'pending'
+
+    // Compact status text with explanation inline
+    // For pending, keep text subtle - the badge on the right indicates status
+    const statusText = state.reason === 'revoked'
+      ? 'Access revoked'
+      : state.reason === 'no-auth'
+      ? 'Log in to view'
+      : state.reason === 'approved-no-keys'
+      ? 'Key recovery required'
+      : 'Private content'
+
+    // Render the Request Access button based on current state
+    const renderRequestButton = () => {
+      // Show pending state with cancel option
+      if (isPending) {
+        if (showCancelOption) {
+          return (
+            <div className="flex items-center gap-2">
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  cancelRequest()
+                  setShowCancelOption(false)
+                }}
+                disabled={isRequestProcessing}
+                className="px-3 py-1 bg-red-500 hover:bg-red-600 text-white rounded-full text-xs font-medium transition-colors disabled:opacity-50"
+              >
+                {isRequestProcessing ? 'Cancelling...' : 'Cancel'}
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setShowCancelOption(false)
+                }}
+                className="p-1 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300"
+              >
+                <XMarkIcon className="h-3.5 w-3.5" />
+              </button>
             </div>
-            <div>
-              <p className="font-medium text-gray-900 dark:text-gray-100">
-                {isApprovedNoKeys ? 'Key Recovery Required' : 'Private Content'}
-              </p>
-              <p className="text-sm text-gray-500 dark:text-gray-400">
-                {state.reason === 'revoked'
-                  ? 'Your access to this private feed has been revoked'
-                  : state.reason === 'no-auth'
-                  ? 'Log in to request access to this private content'
-                  : state.reason === 'approved-no-keys'
-                  ? 'You have access but need to enter your encryption key to view this content'
-                  : 'Only approved followers can see this content'}
-              </p>
+          )
+        }
+        return (
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setShowCancelOption(true)
+            }}
+            className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-500 hover:bg-amber-600 text-white rounded-full text-xs font-medium transition-colors"
+          >
+            <ClockIcon className="h-3.5 w-3.5" />
+            Pending
+          </button>
+        )
+      }
+
+      // Show loading state
+      if (requestStatus === 'loading' || isRequestProcessing) {
+        return (
+          <span className="inline-flex items-center gap-1.5 px-3 py-1 bg-yappr-500 text-white rounded-full text-xs font-medium">
+            <span className="h-3 w-3 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            Requesting...
+          </span>
+        )
+      }
+
+      // Show request button
+      return (
+        <button
+          onClick={(e) => {
+            e.stopPropagation()
+            requestAccess()
+          }}
+          className="px-3 py-1 bg-yappr-500 hover:bg-yappr-600 text-white rounded-full text-xs font-medium transition-colors"
+        >
+          Request Access
+        </button>
+      )
+    }
+
+    return (
+      <>
+        <div data-testid="encrypted-content" className={cn('space-y-2', className)}>
+          {/* Show teaser if available */}
+          {hasTeaser && (
+            <PostContent
+              content={post.content}
+              hashtagValidations={hashtagValidations}
+              onFailedHashtagClick={onFailedHashtagClick}
+              mentionValidations={mentionValidations}
+              onFailedMentionClick={onFailedMentionClick}
+            />
+          )}
+          {/* Compact locked content card */}
+          <div className={cn(
+            'rounded-lg border flex items-center justify-between px-3 py-2',
+            isApprovedNoKeys
+              ? 'border-blue-200 dark:border-blue-700 bg-blue-50 dark:bg-blue-900/20'
+              : 'border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50'
+          )}>
+            <div className="flex items-center gap-2">
+              {isApprovedNoKeys
+                ? <KeyIcon className="h-4 w-4 text-blue-500 dark:text-blue-400" />
+                : <LockClosedIconSolid className="h-4 w-4 text-gray-500 dark:text-gray-400" />
+              }
+              <span className={cn(
+                'text-sm',
+                isApprovedNoKeys
+                  ? 'text-blue-600 dark:text-blue-400'
+                  : 'text-gray-500 dark:text-gray-400'
+              )}>
+                {statusText}
+              </span>
             </div>
             {/* Recover Access button for approved-no-keys */}
             {isApprovedNoKeys && (
@@ -509,27 +675,23 @@ export function PrivatePostContent({
                   e.stopPropagation()
                   handleRecoverAccess()
                 }}
-                className="mt-2 px-4 py-2 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+                className="px-3 py-1 bg-blue-500 hover:bg-blue-600 text-white rounded-full text-xs font-medium transition-colors"
               >
-                <KeyIcon className="h-4 w-4" />
-                Recover Access
+                Recover
               </button>
             )}
-            {/* Request Access button for no-keys (no grant) */}
-            {state.reason === 'no-keys' && onRequestAccess && (
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  onRequestAccess()
-                }}
-                className="mt-2 px-4 py-2 bg-yappr-500 hover:bg-yappr-600 text-white rounded-full text-sm font-medium transition-colors"
-              >
-                Request Access
-              </button>
-            )}
+            {/* Request Access button for no-keys, or pending badge for pending requests */}
+            {(state.reason === 'no-keys' || state.reason === 'pending' || isPending) && renderRequestButton()}
           </div>
         </div>
-      </div>
+
+        {/* Encryption key modal for users who need to add a key first */}
+        <AddEncryptionKeyModal
+          isOpen={needsEncryptionKey}
+          onClose={dismissKeyModal}
+          onSuccess={onKeyAdded}
+        />
+      </>
     )
   }
 
@@ -545,27 +707,22 @@ export function PrivatePostContent({
           onFailedMentionClick={onFailedMentionClick}
         />
       )}
-      <div className="border border-red-200 dark:border-red-800 rounded-lg p-4 bg-red-50 dark:bg-red-900/20">
-        <div className="flex flex-col items-center justify-center text-center gap-2">
-          <div className="w-10 h-10 rounded-full bg-red-200 dark:bg-red-800 flex items-center justify-center">
-            <ExclamationTriangleIcon className="h-5 w-5 text-red-600 dark:text-red-300" />
-          </div>
-          <div>
-            <p className="font-medium text-red-700 dark:text-red-300">Decryption Failed</p>
-            <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
-          </div>
+      {/* Error content in card */}
+      <PrivateContentCard status="error">
+        <div className="flex flex-col items-center justify-center text-center gap-2 py-2">
+          <p className="text-sm text-red-600 dark:text-red-400">{state.message}</p>
           <button
             onClick={(e) => {
               e.stopPropagation()
               handleRetry()
             }}
-            className="mt-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2"
+            className="mt-1 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-full text-sm font-medium transition-colors flex items-center gap-2"
           >
             <ArrowPathIcon className="h-4 w-4" />
             Retry
           </button>
         </div>
-      </div>
+      </PrivateContentCard>
     </div>
   )
 }

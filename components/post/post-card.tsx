@@ -663,9 +663,6 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
               onFailedHashtagClick={handleFailedHashtagClick}
               mentionValidations={mentionValidations}
               onFailedMentionClick={handleFailedMentionClick}
-              onRequestAccess={() => {
-                router.push(`/user?id=${post.author.id}`)
-              }}
             />
           ) : (
             <PostContent
