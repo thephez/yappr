@@ -56,100 +56,6 @@
     "description": "A like on a post",
     "additionalProperties": false
   },
-  "list": {
-    "type": "object",
-    "indices": [
-      {
-        "name": "ownerLists",
-        "properties": [
-          {
-            "$ownerId": "asc"
-          },
-          {
-            "$createdAt": "asc"
-          }
-        ]
-      }
-    ],
-    "required": [
-      "$createdAt",
-      "name"
-    ],
-    "properties": {
-      "name": {
-        "type": "string",
-        "position": 0,
-        "maxLength": 50,
-        "minLength": 1,
-        "description": "Name of the list"
-      },
-      "private": {
-        "type": "boolean",
-        "position": 2,
-        "description": "Whether the list is private"
-      },
-      "description": {
-        "type": "string",
-        "position": 1,
-        "maxLength": 160,
-        "description": "Description of the list"
-      }
-    },
-    "description": "A user-created list",
-    "additionalProperties": false
-  },
-  "mute": {
-    "type": "object",
-    "indices": [
-      {
-        "name": "ownerAndMuted",
-        "unique": true,
-        "properties": [
-          {
-            "$ownerId": "asc"
-          },
-          {
-            "mutedId": "asc"
-          }
-        ]
-      },
-      {
-        "name": "ownerMutes",
-        "properties": [
-          {
-            "$ownerId": "asc"
-          },
-          {
-            "$createdAt": "asc"
-          }
-        ]
-      }
-    ],
-    "mutable": false,
-    "required": [
-      "$createdAt",
-      "mutedId"
-    ],
-    "properties": {
-      "mutedId": {
-        "type": "array",
-        "maxItems": 32,
-        "minItems": 32,
-        "position": 0,
-        "byteArray": true,
-        "description": "Identity ID of the muted user",
-        "contentMediaType": "application/x.dash.dpp.identifier"
-      },
-      "untilTimestamp": {
-        "type": "integer",
-        "minimum": 0,
-        "position": 1,
-        "description": "Unix timestamp when mute expires (optional)"
-      }
-    },
-    "description": "A mute relationship",
-    "additionalProperties": false
-  },
   "post": {
     "type": "object",
     "indices": [
@@ -177,6 +83,17 @@
         "properties": [
           {
             "replyToPostId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "languageTimeline",
+        "properties": [
+          {
+            "language": "asc"
           },
           {
             "$createdAt": "asc"
@@ -221,39 +138,23 @@
         "description": "ID of quoted post",
         "contentMediaType": "application/x.dash.dpp.identifier"
       },
-      "firstMentionId": {
-        "type": "array",
-        "maxItems": 32,
-        "minItems": 32,
-        "position": 4,
-        "byteArray": true,
-        "description": "First mentioned user ID (temporary field - will support multiple mentions in future)",
-        "contentMediaType": "application/x.dash.dpp.identifier"
-      },
-      "primaryHashtag": {
-        "type": "string",
-        "pattern": "^[a-zA-Z0-9_]{1,100}$",
-        "position": 5,
-        "maxLength": 100,
-        "description": "Primary hashtag for the post (temporary field - will support multiple hashtags in future)"
-      },
       "language": {
         "type": "string",
         "pattern": "^[a-z]{2}$",
-        "position": 6,
+        "position": 4,
         "maxLength": 2,
         "description": "Language code of the post"
       },
       "sensitive": {
         "type": "boolean",
-        "position": 7,
+        "position": 5,
         "description": "Whether post contains sensitive content"
       },
       "encryptedContent": {
         "type": "array",
         "maxItems": 1024,
         "minItems": 1,
-        "position": 8,
+        "position": 6,
         "byteArray": true,
         "description": "Encrypted private post content (AEAD ciphertext). Presence indicates private post."
       },
@@ -261,14 +162,14 @@
         "type": "integer",
         "minimum": 1,
         "maximum": 4294967295,
-        "position": 9,
+        "position": 7,
         "description": "Epoch number for private post key derivation"
       },
       "nonce": {
         "type": "array",
         "maxItems": 24,
         "minItems": 24,
-        "position": 10,
+        "position": 8,
         "byteArray": true,
         "description": "24-byte nonce for XChaCha20-Poly1305 encryption"
       }
@@ -608,62 +509,6 @@
       }
     },
     "description": "A bookmarked post",
-    "additionalProperties": false
-  },
-  "listMember": {
-    "type": "object",
-    "indices": [
-      {
-        "name": "listAndMember",
-        "unique": true,
-        "properties": [
-          {
-            "listId": "asc"
-          },
-          {
-            "memberId": "asc"
-          }
-        ]
-      },
-      {
-        "name": "listMembers",
-        "properties": [
-          {
-            "listId": "asc"
-          },
-          {
-            "$createdAt": "asc"
-          }
-        ]
-      }
-    ],
-    "mutable": false,
-    "required": [
-      "$createdAt",
-      "listId",
-      "memberId"
-    ],
-    "properties": {
-      "listId": {
-        "type": "array",
-        "maxItems": 32,
-        "minItems": 32,
-        "position": 0,
-        "byteArray": true,
-        "description": "ID of the list",
-        "contentMediaType": "application/x.dash.dpp.identifier"
-      },
-      "memberId": {
-        "type": "array",
-        "maxItems": 32,
-        "minItems": 32,
-        "position": 1,
-        "byteArray": true,
-        "description": "Identity ID of the list member",
-        "contentMediaType": "application/x.dash.dpp.identifier"
-      }
-    },
-    "description": "A member of a list",
     "additionalProperties": false
   },
   "notification": {
