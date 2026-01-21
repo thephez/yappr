@@ -86,17 +86,6 @@ export function ResetPrivateFeedDialog({
     }
   }, [open])
 
-  const validateAndParseKey = async (keyInput: string): Promise<Uint8Array | null> => {
-    try {
-      const { parsePrivateKey } = await import('@/lib/crypto/wif')
-      const parsed = parsePrivateKey(keyInput.trim())
-      return parsed.privateKey
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Invalid key format')
-      return null
-    }
-  }
-
   const handleReset = async () => {
     if (!user) return
 
@@ -106,27 +95,24 @@ export function ResetPrivateFeedDialog({
       return
     }
 
-    // Validate encryption key
-    const encryptionKey = await validateAndParseKey(encryptionKeyInput)
-    if (!encryptionKey) return
-
     setIsResetting(true)
     setError(null)
 
     try {
-      const { privateFeedService, privateFeedCryptoService } = await import('@/lib/services')
+      // Validate the key matches the encryption key on identity
+      const { validateEncryptionKey } = await import('@/lib/crypto/encryption-key-validation')
+      const validation = await validateEncryptionKey(encryptionKeyInput, user.identityId)
 
-      // Verify the key by deriving its public key
-      try {
-        privateFeedCryptoService.getPublicKey(encryptionKey)
-      } catch {
-        setError('Invalid private key format')
+      if (!validation.isValid || !validation.privateKey) {
+        setError(validation.error || 'Invalid key')
         setIsResetting(false)
         return
       }
 
+      const { privateFeedService } = await import('@/lib/services')
+
       // Perform the reset
-      const result = await privateFeedService.resetPrivateFeed(user.identityId, encryptionKey)
+      const result = await privateFeedService.resetPrivateFeed(user.identityId, validation.privateKey)
 
       if (result.success) {
         toast.success('Private feed has been reset')

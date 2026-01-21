@@ -38,88 +38,17 @@ export function EncryptionKeyModal() {
     setError(null)
 
     try {
-      // Parse the key (accepts both WIF and hex formats)
-      const { parsePrivateKey } = await import('@/lib/crypto/wif')
-      let keyBytes: Uint8Array
+      // Validate the key matches the encryption key on identity
+      const { validateEncryptionKey } = await import('@/lib/crypto/encryption-key-validation')
+      const validation = await validateEncryptionKey(encryptionKeyInput, user.identityId)
 
-      try {
-        const parsed = parsePrivateKey(encryptionKeyInput.trim())
-        keyBytes = parsed.privateKey
-      } catch (parseError) {
-        setError(parseError instanceof Error ? parseError.message : 'Invalid key format')
-        setIsValidating(false)
-        return
-      }
-
-      // Verify the key by deriving its public key and checking against identity
-      const { privateFeedCryptoService } = await import('@/lib/services')
-      const { identityService } = await import('@/lib/services/identity-service')
-
-      // Derive public key from private key
-      let derivedPubKey: Uint8Array
-      try {
-        derivedPubKey = privateFeedCryptoService.getPublicKey(keyBytes)
-      } catch {
-        setError('Invalid private key format')
-        setIsValidating(false)
-        return
-      }
-
-      // Fetch user's identity to check for encryption key
-      const identityData = await identityService.getIdentity(user.identityId)
-      if (!identityData) {
-        setError('Could not fetch identity data')
-        setIsValidating(false)
-        return
-      }
-
-      // Find encryption key on identity (purpose = 1 for ENCRYPTION)
-      const encryptionPubKey = identityData.publicKeys.find(
-        (key) => key.purpose === 1 && key.type === 0
-      )
-
-      if (!encryptionPubKey) {
-        setError('No encryption key found on your identity.')
-        setNoKeyOnIdentity(true)
-        setIsValidating(false)
-        return
-      }
-
-      // Verify the derived public key matches the on-chain key
-      // Public key data can be in different formats
-      let onChainPubKeyBytes: Uint8Array | null = null
-      if (encryptionPubKey.data) {
-        if (encryptionPubKey.data instanceof Uint8Array) {
-          onChainPubKeyBytes = encryptionPubKey.data
-        } else if (typeof encryptionPubKey.data === 'string') {
-          // Could be hex or base64
-          if (/^[0-9a-fA-F]+$/.test(encryptionPubKey.data)) {
-            // Hex
-            onChainPubKeyBytes = new Uint8Array(encryptionPubKey.data.length / 2)
-            for (let i = 0; i < onChainPubKeyBytes.length; i++) {
-              onChainPubKeyBytes[i] = parseInt(encryptionPubKey.data.substr(i * 2, 2), 16)
-            }
-          } else {
-            // Assume base64
-            const binary = atob(encryptionPubKey.data)
-            onChainPubKeyBytes = new Uint8Array(binary.length)
-            for (let i = 0; i < binary.length; i++) {
-              onChainPubKeyBytes[i] = binary.charCodeAt(i)
-            }
-          }
+      if (!validation.isValid) {
+        setError(validation.error || 'Invalid key')
+        if (validation.noKeyOnIdentity) {
+          setNoKeyOnIdentity(true)
         }
-      }
-
-      if (onChainPubKeyBytes) {
-        // Compare public keys (compressed format is 33 bytes)
-        const matches = derivedPubKey.length === onChainPubKeyBytes.length &&
-          derivedPubKey.every((b, i) => b === onChainPubKeyBytes[i])
-
-        if (!matches) {
-          setError('This key does not match the encryption key on your identity')
-          setIsValidating(false)
-          return
-        }
+        setIsValidating(false)
+        return
       }
 
       // Key is valid - store it (storeEncryptionKey handles conversion to WIF)

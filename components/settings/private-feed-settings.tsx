@@ -134,40 +134,31 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
     setKeyError(null)
   }
 
-  const validateAndParseKey = async (keyInput: string): Promise<Uint8Array | null> => {
-    try {
-      const { parsePrivateKey } = await import('@/lib/crypto/wif')
-      const parsed = parsePrivateKey(keyInput.trim())
-      return parsed.privateKey
-    } catch (err) {
-      setKeyError(err instanceof Error ? err.message : 'Invalid key format')
-      return null
-    }
-  }
-
   const handleEnablePrivateFeed = async () => {
     if (!user) return
-
-    const encryptionKey = await validateAndParseKey(encryptionKeyInput)
-    if (!encryptionKey) return
 
     setIsEnabling(true)
     setKeyError(null)
 
     try {
-      const { privateFeedService, privateFeedCryptoService } = await import('@/lib/services')
+      // Validate the key matches the encryption key on identity
+      const { validateEncryptionKey } = await import('@/lib/crypto/encryption-key-validation')
+      const validation = await validateEncryptionKey(encryptionKeyInput, user.identityId)
 
-      // Verify the key by deriving its public key
-      try {
-        privateFeedCryptoService.getPublicKey(encryptionKey)
-      } catch {
-        setKeyError('Invalid private key format')
+      if (!validation.isValid || !validation.privateKey) {
+        setKeyError(validation.error || 'Invalid key')
+        if (validation.noKeyOnIdentity) {
+          setHasEncryptionKeyOnIdentity(false)
+          setShowKeyInput(false)
+        }
         setIsEnabling(false)
         return
       }
 
+      const { privateFeedService } = await import('@/lib/services')
+
       // Enable private feed
-      const result = await privateFeedService.enablePrivateFeed(user.identityId, encryptionKey)
+      const result = await privateFeedService.enablePrivateFeed(user.identityId, validation.privateKey)
 
       if (result.success) {
         toast.success('Private feed enabled successfully!')
