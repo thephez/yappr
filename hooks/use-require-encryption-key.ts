@@ -44,22 +44,14 @@ export function useRequireEncryptionKey() {
 
   /**
    * Get the stored encryption key as bytes
+   * Handles both WIF and legacy hex formats automatically
    */
   const getEncryptionKeyBytes = useCallback((): Uint8Array | null => {
     if (typeof window === 'undefined' || !user) return null
 
     try {
-      const { getEncryptionKey } = require('@/lib/secure-storage')
-      const keyHex = getEncryptionKey(user.identityId)
-      if (!keyHex) return null
-
-      // Parse hex to bytes
-      const cleanHex = keyHex.startsWith('0x') ? keyHex.slice(2) : keyHex
-      const bytes = new Uint8Array(32)
-      for (let i = 0; i < 32; i++) {
-        bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16)
-      }
-      return bytes
+      const { getEncryptionKeyBytes: getKeyBytes } = require('@/lib/secure-storage')
+      return getKeyBytes(user.identityId)
     } catch {
       return null
     }

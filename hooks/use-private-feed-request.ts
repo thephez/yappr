@@ -105,18 +105,15 @@ export function usePrivateFeedRequest({
     try {
       const { privateFeedFollowerService, privateFeedCryptoService, identityService } = await import('@/lib/services')
       const { followService } = await import('@/lib/services/follow-service')
-      const { getEncryptionKey } = await import('@/lib/secure-storage')
+      const { getEncryptionKeyBytes } = await import('@/lib/secure-storage')
 
       // Get the requester's encryption public key
       // First try to derive from stored private key, then fall back to identity
       let encryptionPublicKey: Uint8Array | undefined
 
-      const storedKeyHex = getEncryptionKey(currentUserId)
-      if (storedKeyHex) {
+      const privateKeyBytes = getEncryptionKeyBytes(currentUserId)
+      if (privateKeyBytes) {
         // Derive public key from stored private key
-        const privateKeyBytes = new Uint8Array(
-          storedKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-        )
         encryptionPublicKey = privateFeedCryptoService.getPublicKey(privateKeyBytes)
       } else {
         // Try to get from identity
@@ -219,11 +216,11 @@ export function usePrivateFeedRequest({
     try {
       const { privateFeedFollowerService, privateFeedCryptoService } = await import('@/lib/services')
       const { followService } = await import('@/lib/services/follow-service')
-      const { getEncryptionKey } = await import('@/lib/secure-storage')
+      const { getEncryptionKeyBytes } = await import('@/lib/secure-storage')
 
-      // Get the newly stored encryption key
-      const storedKeyHex = getEncryptionKey(currentUserId)
-      if (!storedKeyHex) {
+      // Get the newly stored encryption key bytes
+      const privateKeyBytes = getEncryptionKeyBytes(currentUserId)
+      if (!privateKeyBytes) {
         toast.error('Encryption key not found. Please try again.')
         setIsProcessing(false)
         setStatus('none')
@@ -231,9 +228,6 @@ export function usePrivateFeedRequest({
       }
 
       // Derive public key from stored private key
-      const privateKeyBytes = new Uint8Array(
-        storedKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-      )
       const encryptionPublicKey = privateFeedCryptoService.getPublicKey(privateKeyBytes)
 
       // Auto-follow the owner if not already following

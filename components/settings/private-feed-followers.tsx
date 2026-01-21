@@ -161,16 +161,10 @@ export function PrivateFeedFollowers() {
 
     try {
       const { privateFeedService } = await import('@/lib/services')
-      const { getEncryptionKey } = await import('@/lib/secure-storage')
+      const { getEncryptionKeyBytes } = await import('@/lib/secure-storage')
 
-      // Try to get encryption key for automatic sync/recovery
-      const storedKeyHex = getEncryptionKey(user.identityId)
-      let encryptionPrivateKey: Uint8Array | undefined
-      if (storedKeyHex) {
-        encryptionPrivateKey = new Uint8Array(
-          storedKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-        )
-      }
+      // Try to get encryption key for automatic sync/recovery (handles WIF and hex)
+      const encryptionPrivateKey = getEncryptionKeyBytes(user.identityId) ?? undefined
 
       const result = await privateFeedService.revokeFollower(
         user.identityId,

@@ -22,7 +22,7 @@ import toast from 'react-hot-toast'
 export function EncryptionKeyModal() {
   const { user } = useAuth()
   const { isOpen, action, onSuccess, close } = useEncryptionKeyModal()
-  const [encryptionKeyHex, setEncryptionKeyHex] = useState('')
+  const [encryptionKeyInput, setEncryptionKeyInput] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showAddKeyModal, setShowAddKeyModal] = useState(false)
@@ -34,32 +34,21 @@ export function EncryptionKeyModal() {
   const validateAndStoreKey = useCallback(async () => {
     if (!user) return
 
-    // Remove 0x prefix if present
-    let cleanHex = encryptionKeyHex.trim()
-    if (cleanHex.startsWith('0x')) {
-      cleanHex = cleanHex.slice(2)
-    }
-
-    // Check length (32 bytes = 64 hex chars)
-    if (cleanHex.length !== 64) {
-      setError(`Key must be 64 hex characters (32 bytes), got ${cleanHex.length}`)
-      return
-    }
-
-    // Check valid hex
-    if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
-      setError('Key must contain only hexadecimal characters (0-9, a-f)')
-      return
-    }
-
     setIsValidating(true)
     setError(null)
 
     try {
-      // Parse to Uint8Array
-      const keyBytes = new Uint8Array(32)
-      for (let i = 0; i < 32; i++) {
-        keyBytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16)
+      // Parse the key (accepts both WIF and hex formats)
+      const { parsePrivateKey } = await import('@/lib/crypto/wif')
+      let keyBytes: Uint8Array
+
+      try {
+        const parsed = parsePrivateKey(encryptionKeyInput.trim())
+        keyBytes = parsed.privateKey
+      } catch (parseError) {
+        setError(parseError instanceof Error ? parseError.message : 'Invalid key format')
+        setIsValidating(false)
+        return
       }
 
       // Verify the key by deriving its public key and checking against identity
@@ -133,12 +122,12 @@ export function EncryptionKeyModal() {
         }
       }
 
-      // Key is valid - store it
+      // Key is valid - store it (storeEncryptionKey handles conversion to WIF)
       const { storeEncryptionKey } = await import('@/lib/secure-storage')
-      storeEncryptionKey(user.identityId, cleanHex)
+      storeEncryptionKey(user.identityId, encryptionKeyInput.trim())
 
       toast.success('Encryption key saved')
-      setEncryptionKeyHex('')
+      setEncryptionKeyInput('')
       close()
 
       // Call success callback if provided
@@ -151,10 +140,10 @@ export function EncryptionKeyModal() {
     } finally {
       setIsValidating(false)
     }
-  }, [user, encryptionKeyHex, close, onSuccess])
+  }, [user, encryptionKeyInput, close, onSuccess])
 
   const handleClose = useCallback(() => {
-    setEncryptionKeyHex('')
+    setEncryptionKeyInput('')
     setError(null)
     setNoKeyOnIdentity(false)
     setShowLostKeyModal(false)
@@ -239,14 +228,14 @@ export function EncryptionKeyModal() {
                     <div className="space-y-3 mb-4">
                       <div className="space-y-2">
                         <label className="text-sm font-medium">
-                          Encryption Private Key (hex)
+                          Encryption Private Key
                         </label>
                         <Input
                           type="password"
-                          placeholder="Enter 64 hex characters (e.g., 0xabc123...)"
-                          value={encryptionKeyHex}
+                          placeholder="WIF (cXyz...) or hex (64 chars)"
+                          value={encryptionKeyInput}
                           onChange={(e) => {
-                            setEncryptionKeyHex(e.target.value)
+                            setEncryptionKeyInput(e.target.value)
                             setError(null)
                           }}
                           className="font-mono text-sm"
@@ -280,7 +269,7 @@ export function EncryptionKeyModal() {
                     <div className="flex flex-col gap-3">
                       <Button
                         onClick={validateAndStoreKey}
-                        disabled={isValidating || !encryptionKeyHex.trim()}
+                        disabled={isValidating || !encryptionKeyInput.trim()}
                         className="w-full"
                       >
                         {isValidating ? (

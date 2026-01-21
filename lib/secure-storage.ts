@@ -1,5 +1,7 @@
 'use client'
 
+import { parsePrivateKey, privateKeyToWif, isLikelyWif } from '@/lib/crypto/wif'
+
 /**
  * Secure storage for sensitive data like private keys
  * Supports two modes:
@@ -188,13 +190,50 @@ export const isRememberMe = (): boolean => {
 }
 
 // Encryption key storage for private feed operations
+// Keys are stored in WIF format for consistency with other private keys
+
+/**
+ * Store encryption key in WIF format.
+ * Accepts both WIF and hex formats - converts hex to WIF before storing.
+ */
 export const storeEncryptionKey = (identityId: string, encryptionKey: string) => {
-  secureStorage.set(`ek_${identityId}`, encryptionKey)
+  // If already WIF, store as-is
+  if (isLikelyWif(encryptionKey)) {
+    secureStorage.set(`ek_${identityId}`, encryptionKey)
+    return
+  }
+
+  // Parse the key (handles both hex and WIF)
+  const parsed = parsePrivateKey(encryptionKey)
+
+  // Convert to WIF for storage (testnet by default, compressed)
+  const wif = privateKeyToWif(parsed.privateKey, 'testnet', true)
+  secureStorage.set(`ek_${identityId}`, wif)
 }
 
+/**
+ * Get encryption key as raw string (for display/backup purposes).
+ * Returns the stored format (WIF for new keys, possibly hex for legacy).
+ */
 export const getEncryptionKey = (identityId: string): string | null => {
   const value = secureStorage.get(`ek_${identityId}`)
   return typeof value === 'string' ? value : null
+}
+
+/**
+ * Get encryption key as Uint8Array bytes.
+ * Handles both WIF and legacy hex formats automatically.
+ */
+export const getEncryptionKeyBytes = (identityId: string): Uint8Array | null => {
+  const value = getEncryptionKey(identityId)
+  if (!value) return null
+
+  try {
+    const parsed = parsePrivateKey(value)
+    return parsed.privateKey
+  } catch {
+    return null
+  }
 }
 
 export const hasEncryptionKey = (identityId: string): boolean => {

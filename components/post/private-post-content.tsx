@@ -13,7 +13,7 @@ import { useEncryptionKeyModal } from '@/hooks/use-encryption-key-modal'
 import { usePrivateFeedRequest } from '@/hooks/use-private-feed-request'
 import { useLoginPromptModal } from '@/hooks/use-login-prompt-modal'
 import { AddEncryptionKeyModal } from '@/components/auth/add-encryption-key-modal'
-import { getEncryptionKey } from '@/lib/secure-storage'
+import { getEncryptionKeyBytes } from '@/lib/secure-storage'
 
 interface PrivatePostContentProps {
   post: Post
@@ -159,18 +159,13 @@ export function PrivatePostContent({
     setState({ status: 'recovering' })
 
     try {
-      // Get encryption key from session storage
-      const encryptionKeyHex = getEncryptionKey(user.identityId)
-      if (!encryptionKeyHex) {
+      // Get encryption key bytes from session storage (handles both WIF and hex formats)
+      const encryptionPrivateKey = getEncryptionKeyBytes(user.identityId)
+      if (!encryptionPrivateKey) {
         // Key not in session storage - should have been entered via modal
         setState({ status: 'locked', reason: 'approved-no-keys' })
         return
       }
-
-      // Convert hex to bytes
-      const encryptionPrivateKey = new Uint8Array(
-        encryptionKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-      )
 
       // For replies, determine the encryption source owner (PRD §5.5)
       let encryptionSourceOwnerId = post.author.id
@@ -281,15 +276,10 @@ export function PrivatePostContent({
 
         // BUG-011 fix: If owner has no local keys but has encryption key, attempt auto-recovery
         if (!feedSeed) {
-          const encryptionKeyHex = getEncryptionKey(user.identityId)
-          if (encryptionKeyHex) {
+          const encryptionPrivateKey = getEncryptionKeyBytes(user.identityId)
+          if (encryptionPrivateKey) {
             console.log('Owner auto-recovery: no local feed seed, attempting recovery with encryption key')
             setState({ status: 'recovering' })
-
-            // Convert hex to bytes
-            const encryptionPrivateKey = new Uint8Array(
-              encryptionKeyHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []
-            )
 
             // Attempt to recover owner state from chain
             const { privateFeedService } = await import('@/lib/services')
@@ -389,8 +379,8 @@ export function PrivatePostContent({
         } else if (accessStatus === 'approved-no-keys') {
           // User has a grant but no local keys - needs to recover
           // Check if we already have an encryption key in session
-          const encryptionKeyHex = getEncryptionKey(user.identityId)
-          if (encryptionKeyHex) {
+          const encryptionKeyBytes = getEncryptionKeyBytes(user.identityId)
+          if (encryptionKeyBytes) {
             // Key is available - attempt recovery automatically
             void attemptRecovery()
           } else {
@@ -423,8 +413,8 @@ export function PrivatePostContent({
         if (result.error?.startsWith('REKEY_RECOVERY_NEEDED:')) {
           console.log('BUG-017: Triggering key recovery due to missing wrapNonceSalt')
           // Check if we have encryption key in session to auto-recover
-          const encryptionKeyHex = getEncryptionKey(user.identityId)
-          if (encryptionKeyHex) {
+          const encryptionKeyBytes = getEncryptionKeyBytes(user.identityId)
+          if (encryptionKeyBytes) {
             // Key is available - attempt recovery automatically
             void attemptRecovery()
           } else {

@@ -39,7 +39,7 @@ export function ResetPrivateFeedDialog({
   const [isLoadingStats, setIsLoadingStats] = useState(true)
 
   // Form state
-  const [encryptionKeyHex, setEncryptionKeyHex] = useState('')
+  const [encryptionKeyInput, setEncryptionKeyInput] = useState('')
   const [confirmText, setConfirmText] = useState('')
   const [isResetting, setIsResetting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -79,39 +79,22 @@ export function ResetPrivateFeedDialog({
   // Reset form when dialog closes
   useEffect(() => {
     if (!open) {
-      setEncryptionKeyHex('')
+      setEncryptionKeyInput('')
       setConfirmText('')
       setError(null)
       setIsResetting(false)
     }
   }, [open])
 
-  const validateAndParseKey = (hexKey: string): Uint8Array | null => {
-    // Remove 0x prefix if present
-    let cleanHex = hexKey.trim()
-    if (cleanHex.startsWith('0x')) {
-      cleanHex = cleanHex.slice(2)
-    }
-
-    // Check length (32 bytes = 64 hex chars)
-    if (cleanHex.length !== 64) {
-      setError(`Key must be 64 hex characters (32 bytes), got ${cleanHex.length}`)
+  const validateAndParseKey = async (keyInput: string): Promise<Uint8Array | null> => {
+    try {
+      const { parsePrivateKey } = await import('@/lib/crypto/wif')
+      const parsed = parsePrivateKey(keyInput.trim())
+      return parsed.privateKey
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Invalid key format')
       return null
     }
-
-    // Check valid hex
-    if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
-      setError('Key must contain only hexadecimal characters (0-9, a-f)')
-      return null
-    }
-
-    // Parse to Uint8Array
-    const bytes = new Uint8Array(32)
-    for (let i = 0; i < 32; i++) {
-      bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16)
-    }
-
-    return bytes
   }
 
   const handleReset = async () => {
@@ -124,7 +107,7 @@ export function ResetPrivateFeedDialog({
     }
 
     // Validate encryption key
-    const encryptionKey = validateAndParseKey(encryptionKeyHex)
+    const encryptionKey = await validateAndParseKey(encryptionKeyInput)
     if (!encryptionKey) return
 
     setIsResetting(true)
@@ -163,7 +146,8 @@ export function ResetPrivateFeedDialog({
     }
   }
 
-  const isValid = confirmText === 'RESET' && encryptionKeyHex.trim().length >= 64
+  // WIF is 51-52 chars, hex is 64 chars - accept minimum of 50 to cover both
+  const isValid = confirmText === 'RESET' && encryptionKeyInput.trim().length >= 50
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
@@ -242,14 +226,14 @@ export function ResetPrivateFeedDialog({
                     {/* Encryption key input */}
                     <div className="space-y-2 mb-4">
                       <label className="text-sm font-medium">
-                        Enter your encryption private key (hex)
+                        Enter your encryption private key
                       </label>
                       <Input
                         type="password"
-                        placeholder="64 hex characters (e.g., 0xabc123...)"
-                        value={encryptionKeyHex}
+                        placeholder="WIF (cXyz...) or hex (64 chars)"
+                        value={encryptionKeyInput}
                         onChange={(e) => {
-                          setEncryptionKeyHex(e.target.value)
+                          setEncryptionKeyInput(e.target.value)
                           setError(null)
                         }}
                         className="font-mono text-sm"

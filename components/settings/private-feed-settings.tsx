@@ -37,7 +37,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
 
   // Encryption key input state
   const [showKeyInput, setShowKeyInput] = useState(false)
-  const [encryptionKeyHex, setEncryptionKeyHex] = useState('')
+  const [encryptionKeyInput, setEncryptionKeyInput] = useState('')
   const [keyError, setKeyError] = useState<string | null>(null)
 
   // Reset dialog state
@@ -121,7 +121,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
       const storedKey = getEncryptionKey(user.identityId)
       if (storedKey) {
         // Pre-populate the key field with the stored key
-        setEncryptionKeyHex(storedKey)
+        setEncryptionKeyInput(storedKey)
       }
     }
     setShowKeyInput(true)
@@ -130,42 +130,25 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
 
   const handleCancelEnable = () => {
     setShowKeyInput(false)
-    setEncryptionKeyHex('')
+    setEncryptionKeyInput('')
     setKeyError(null)
   }
 
-  const validateAndParseKey = (hexKey: string): Uint8Array | null => {
-    // Remove 0x prefix if present
-    let cleanHex = hexKey.trim()
-    if (cleanHex.startsWith('0x')) {
-      cleanHex = cleanHex.slice(2)
-    }
-
-    // Check length (32 bytes = 64 hex chars)
-    if (cleanHex.length !== 64) {
-      setKeyError(`Key must be 64 hex characters (32 bytes), got ${cleanHex.length}`)
+  const validateAndParseKey = async (keyInput: string): Promise<Uint8Array | null> => {
+    try {
+      const { parsePrivateKey } = await import('@/lib/crypto/wif')
+      const parsed = parsePrivateKey(keyInput.trim())
+      return parsed.privateKey
+    } catch (err) {
+      setKeyError(err instanceof Error ? err.message : 'Invalid key format')
       return null
     }
-
-    // Check valid hex
-    if (!/^[0-9a-fA-F]+$/.test(cleanHex)) {
-      setKeyError('Key must contain only hexadecimal characters (0-9, a-f)')
-      return null
-    }
-
-    // Parse to Uint8Array
-    const bytes = new Uint8Array(32)
-    for (let i = 0; i < 32; i++) {
-      bytes[i] = parseInt(cleanHex.substr(i * 2, 2), 16)
-    }
-
-    return bytes
   }
 
   const handleEnablePrivateFeed = async () => {
     if (!user) return
 
-    const encryptionKey = validateAndParseKey(encryptionKeyHex)
+    const encryptionKey = await validateAndParseKey(encryptionKeyInput)
     if (!encryptionKey) return
 
     setIsEnabling(true)
@@ -191,7 +174,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
         setIsEnabled(true)
         setEnabledDate(new Date())
         setShowKeyInput(false)
-        setEncryptionKeyHex('')
+        setEncryptionKeyInput('')
       } else {
         setKeyError(result.error || 'Failed to enable private feed')
         toast.error(result.error || 'Failed to enable private feed')
@@ -456,7 +439,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
                         Encryption key required
                       </p>
                       <p className="text-sm text-amber-700 dark:text-amber-300">
-                        Enter your identity encryption private key (32 bytes in hex format).
+                        Enter your identity encryption private key (WIF or hex format).
                         This key is used to encrypt and decrypt your private feed data.
                       </p>
                     </div>
@@ -465,14 +448,14 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
 
                 <div className="space-y-2">
                   <label className="text-sm font-medium">
-                    Encryption Private Key (hex)
+                    Encryption Private Key
                   </label>
                   <Input
                     type="password"
-                    placeholder="Enter 64 hex characters (e.g., 0xabc123...)"
-                    value={encryptionKeyHex}
+                    placeholder="WIF (cXyz...) or hex (64 chars)"
+                    value={encryptionKeyInput}
                     onChange={(e) => {
-                      setEncryptionKeyHex(e.target.value)
+                      setEncryptionKeyInput(e.target.value)
                       setKeyError(null)
                     }}
                     className="font-mono text-sm"
@@ -496,7 +479,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
                   <Button
                     className="flex-1"
                     onClick={handleEnablePrivateFeed}
-                    disabled={isEnabling || !encryptionKeyHex.trim()}
+                    disabled={isEnabling || !encryptionKeyInput.trim()}
                   >
                     {isEnabling ? (
                       <>
