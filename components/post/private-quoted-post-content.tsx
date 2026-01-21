@@ -34,7 +34,6 @@ export function PrivateQuotedPostContent({
   const { user } = useAuth()
   const [state, setState] = useState<DecryptionState>({ status: 'idle' })
 
-  const isOwner = user?.identityId === quotedPost.author.id
   // Skip rendering teaser if it's just the lock emoji placeholder
   const teaserContent = quotedPost.content?.trim()
   const hasTeaser = teaserContent && teaserContent.length > 0 && teaserContent !== ':lock:' && teaserContent !== '🔒'
@@ -61,8 +60,27 @@ export function PrivateQuotedPostContent({
       const { privateFeedFollowerService } = await import('@/lib/services')
       const { privateFeedKeyStore } = await import('@/lib/services')
 
-      // Check if user is the owner
-      if (isOwner) {
+      // For replies to private posts, we need to find the encryption source owner
+      // (PRD §5.5 - inherited encryption)
+      // The quotedPost.author.id is the reply author, but encryption may have been done
+      // with a different user's CEK (the root private post owner)
+      let encryptionSourceOwnerId = quotedPost.author.id
+
+      if (quotedPost.replyToId) {
+        // This is a reply - check if encryption was inherited from parent
+        const { getEncryptionSource } = await import('@/lib/services/post-service')
+        const encryptionSource = await getEncryptionSource(quotedPost.replyToId)
+        if (encryptionSource) {
+          // Encryption is inherited from parent thread
+          encryptionSourceOwnerId = encryptionSource.ownerId
+          console.log('Quoted post decryption: inherited encryption from', encryptionSourceOwnerId)
+        }
+      }
+
+      // Check if user is the encryption source owner (can decrypt with their own feed keys)
+      const isEncryptionSourceOwner = user.identityId === encryptionSourceOwnerId
+
+      if (isEncryptionSourceOwner) {
         const feedSeed = privateFeedKeyStore.getFeedSeed()
         if (!feedSeed) {
           setState({ status: 'locked' })
@@ -71,7 +89,7 @@ export function PrivateQuotedPostContent({
 
         const { privateFeedCryptoService, MAX_EPOCH } = await import('@/lib/services')
 
-        const cached = privateFeedKeyStore.getCachedCEK(quotedPost.author.id)
+        const cached = privateFeedKeyStore.getCachedCEK(encryptionSourceOwnerId)
         let cek: Uint8Array
 
         if (cached && cached.epoch === quotedPost.epoch) {
@@ -83,7 +101,7 @@ export function PrivateQuotedPostContent({
           cek = chain[quotedPost.epoch]
         }
 
-        const ownerIdBytes = identifierToBytes(quotedPost.author.id)
+        const ownerIdBytes = identifierToBytes(encryptionSourceOwnerId)
 
         const decryptedContent = privateFeedCryptoService.decryptPostContent(
           cek,
@@ -99,20 +117,20 @@ export function PrivateQuotedPostContent({
         return
       }
 
-      // Check if follower can decrypt
-      const canDecrypt = await privateFeedFollowerService.canDecrypt(quotedPost.author.id)
+      // Check if follower can decrypt using encryption source owner's keys
+      const canDecrypt = await privateFeedFollowerService.canDecrypt(encryptionSourceOwnerId)
 
       if (!canDecrypt) {
         setState({ status: 'locked' })
         return
       }
 
-      // Attempt to decrypt
+      // Attempt to decrypt using encryption source owner's keys
       const result = await privateFeedFollowerService.decryptPost({
         encryptedContent: quotedPost.encryptedContent,
         epoch: quotedPost.epoch,
         nonce: quotedPost.nonce,
-        $ownerId: quotedPost.author.id,
+        $ownerId: encryptionSourceOwnerId,
       }, user?.identityId)
 
       if (result.success && result.content) {
@@ -124,7 +142,7 @@ export function PrivateQuotedPostContent({
       console.error('Error decrypting quoted private post:', error)
       setState({ status: 'error' })
     }
-  }, [quotedPost, user, isOwner])
+  }, [quotedPost, user])
 
   // Attempt decryption on mount
   useEffect(() => {
