@@ -1,0 +1,49 @@
+{
+  "date": "2026-01-01",
+  "collectedAt": "2026-01-20T20:56:27.110Z",
+  "posts": [
+    {
+      "id": "EwQErvEa2x3tV6XgDA3qLCSj865kUNLG7ynDTeRnBMPT",
+      "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
+      "content": "Hey!",
+      "createdAt": 1767254125499
+    },
+    {
+      "id": "EfD71zwhDUYiJZ4owyWA5CDcRCex2KdASdiWmCYFk1QF",
+      "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
+      "content": "Test message",
+      "createdAt": 1767255540711
+    },
+    {
+      "id": "Di18ZtpTGRYCpdjm7g2scbcCxQuwh9uy1RQnZDwPoUQC",
+      "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
+      "content": "it's turtles all the way down man... all the way down...",
+      "createdAt": 1767258240505
+    },
+    {
+      "id": "5ZdnTrUfXYYgoxDjJnmQ9Lp6XMNdb9XCNCDVoLu84pKc",
+      "ownerId": "AZ7YQpvFZ9nmZpexrWFUgVt1J3ToAr6pVNBxh3sXbWu8",
+      "content": "Hey; ho!",
+      "createdAt": 1767289041326
+    },
+    {
+      "id": "7UcZYgMdaAUZ5o5DTSGruqywxjqa8LtkztAR6H2uX2Pb",
+      "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
+      "content": "test post",
+      "createdAt": 1767305730402
+    },
+    {
+      "id": "EdxQ8TREwNbQjEiV8gS3yyUDVtQ3vmCA8W2nnShzREYt",
+      "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
+      "content": "test",
+      "createdAt": 1767306293903
+    },
+    {
+      "id": "7FnBw4cnqG7jokrjJFbyApqp8WnAv6D7dRegfVaXXedv",
+      "ownerId": "JA9X2HWMSV1oPLedCS69VENjjpfVR4nVjB4URzYdiyqq",
+      "content": "reply",
+      "createdAt": 1767307478202
+    }
+  ],
+  "users": []
+}

@@ -1,0 +1,55 @@
+{
+  "date": "2026-01-09",
+  "collectedAt": "2026-01-20T20:56:34.948Z",
+  "posts": [
+    {
+      "id": "AbochkLtBhSToSc67z312oA1TAYioaLwyEuuPQNksJmg",
+      "ownerId": "4VPNH3S1rpCryznciAPJgFYVhcx6YiTKqSPxvos9iris",
+      "content": "Strange; I haven't upgraded to latest macOS but I haven't seen this",
+      "createdAt": 1767971884341
+    },
+    {
+      "id": "jz3g83CdhoL7aLAv3yJ1Z1y3h1PeU6Q2cREw7xEky3N",
+      "ownerId": "EysmgsAN2KqFS7zRWwZwaN4uryFJKrcoHEE4Gam1VPWW",
+      "content": "#test reply to see if I fixed a bug where usernames weren't enriched on initial reply",
+      "createdAt": 1767972124845
+    },
+    {
+      "id": "DazQxkuZZVcY4DG1i4rzfUWbzskcjuiLgohd8DwBAVxF",
+      "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
+      "content": "Interesting",
+      "createdAt": 1767975927671
+    },
+    {
+      "id": "4MxiZEcCAhReyUPJLXA7hSNsTxNsUX7amzwmMi4a5exa",
+      "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
+      "content": "gm gm Yapprs, this is the beginning of something great",
+      "createdAt": 1767975991137
+    },
+    {
+      "id": "6tv37o4uJGB3tpWFvR6XxsgJCyy8bB535v5gpmS71jrm",
+      "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
+      "content": "tip:100000000\nI keep paying people thinking they'll pay me back. May go broke....",
+      "createdAt": 1767976060599
+    },
+    {
+      "id": "FFfyfg9EAdSf61mBWd1Z3hdsWvKzCDVaiu2U7vUrb3G3",
+      "ownerId": "4VPNH3S1rpCryznciAPJgFYVhcx6YiTKqSPxvos9iris",
+      "content": "Just shipped 6 fixes to Yappr\n\n✅ Blocked users actually stay blocked now (even on tab switch)\n✅ \"Rep",
+      "createdAt": 1767984441661
+    },
+    {
+      "id": "DDiQhMDmVrWeHtFjAKiBDzsgCQ3jt31QsMCpkpZtVMD6",
+      "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
+      "content": "Digital Cash Rundown is live in 20 minutes! Talking the #zcash drama\n\nhttps://www.youtube.com/live/-",
+      "createdAt": 1767987645234
+    },
+    {
+      "id": "DSwh7KxmAetaUFpzztD4MpJkFDtptcyrR47rUdUYU7R3",
+      "ownerId": "DFxipzHssTGLHwgUQQLxMsNMrB2hujiaJYMZfmyPMKwE",
+      "content": "Did you know that #tits and #ass are hashtags?",
+      "createdAt": 1768002227453
+    }
+  ],
+  "users": []
+}

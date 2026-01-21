@@ -1,11 +1,18 @@
 {
   "name": "yappr-stats",
-  "version": "1.0.0",
-  "description": "Daily activity statistics collector for Yappr platform",
+  "version": "2.0.0",
+  "description": "Daily activity statistics dashboard for Yappr",
   "type": "module",
   "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
     "collect": "node collect-stats.js",
-    "collect:backfill": "node collect-stats.js --backfill 20"
+    "collect:today": "node collect-stats.js --today",
+    "collect:backfill": "node collect-stats.js --backfill 30"
+  },
+  "devDependencies": {
+    "vite": "^6.0.0"
   },
   "dependencies": {
     "@dashevo/evo-sdk": "3.0.0-dev.11"

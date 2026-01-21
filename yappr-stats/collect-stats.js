@@ -1,12 +1,17 @@
 #!/usr/bin/env node
 /**
- * Daily activity statistics collector for Yappr platform.
+ * Incremental daily statistics collector for Yappr platform.
  *
  * Usage:
- *   node collect-stats.js                       # Collect stats for today
+ *   node collect-stats.js                       # Collect stats for today (default)
+ *   node collect-stats.js --today               # Same as above (explicit)
  *   node collect-stats.js --date 2026-01-15     # Collect for specific date
- *   node collect-stats.js --backfill 30         # Backfill last 30 days
- *   node collect-stats.js --backfill 30 --force # Force refresh all days
+ *   node collect-stats.js --backfill 30         # Backfill missing days (up to 30)
+ *   node collect-stats.js --force               # Force refresh all days
+ *
+ * Data format:
+ *   data/index.json      - Summary with list of days and totals
+ *   data/YYYY-MM-DD.json - Individual day files with posts/users
  */
 
 import fs from 'fs';
@@ -27,9 +32,8 @@ const DOCUMENT_TYPES = {
 };
 
 // File paths
-const DATA_FILE = path.join(__dirname, 'data', 'daily-stats.json');
-const TEMPLATE_FILE = path.join(__dirname, 'template.html');
-const OUTPUT_HTML = path.join(__dirname, 'index.html');
+const DATA_DIR = path.join(__dirname, 'data');
+const INDEX_FILE = path.join(DATA_DIR, 'index.json');
 
 // Delay between queries (ms) to avoid rate limiting
 const QUERY_DELAY = 500;
@@ -43,6 +47,7 @@ function parseArgs() {
     date: null,
     backfill: null,
     force: false,
+    today: false,
   };
 
   for (let i = 0; i < args.length; i++) {
@@ -54,6 +59,8 @@ function parseArgs() {
       i++;
     } else if (args[i] === '--force') {
       result.force = true;
+    } else if (args[i] === '--today') {
+      result.today = true;
     }
   }
 
@@ -92,28 +99,37 @@ function getBackfillDates(days) {
 }
 
 /**
- * Check if a day's stats are complete (collected after the day ended).
- * Returns false if:
- * - Day is missing from stats
- * - Day is today or in the future (always recollect)
- * - Day was collected before it ended (incomplete data)
+ * Get path to individual day file
  */
-function isDayComplete(stats, dateStr) {
-  const day = stats.days[dateStr];
-  if (!day || !day.collectedAt) return false;
+function getDayFilePath(dateStr) {
+  return path.join(DATA_DIR, `${dateStr}.json`);
+}
+
+/**
+ * Check if a day file exists and is complete
+ */
+function isDayComplete(dateStr) {
+  const dayFile = getDayFilePath(dateStr);
+  if (!fs.existsSync(dayFile)) return false;
 
   const todayStr = getTodayDateStr();
   if (dateStr >= todayStr) return false; // Today or future - always recollect
 
-  const dayEndMs = getDayBoundaries(dateStr).endMs;
-  const collectedAtMs = new Date(day.collectedAt).getTime();
+  try {
+    const dayData = JSON.parse(fs.readFileSync(dayFile, 'utf-8'));
+    if (!dayData.collectedAt) return false;
 
-  return collectedAtMs >= dayEndMs; // Collected after day ended
+    const dayEndMs = getDayBoundaries(dateStr).endMs;
+    const collectedAtMs = new Date(dayData.collectedAt).getTime();
+
+    return collectedAtMs >= dayEndMs; // Collected after day ended
+  } catch {
+    return false;
+  }
 }
 
 /**
  * Fetch documents for a specific day using time range query
- * Returns both count and document summaries
  */
 async function fetchDocumentsForDay(sdk, contractId, documentType, startMs, endMs) {
   const { documents, count, reachedLimit } = await paginateFetch(
@@ -138,12 +154,10 @@ async function fetchDocumentsForDay(sdk, contractId, documentType, startMs, endM
 }
 
 /**
- * Fetch all profiles from unified contract and group by date.
- * (unified profile contract has no $createdAt index, so we fetch all once)
- * Returns a Map of dateStr -> array of profile documents
+ * Fetch profiles for a specific day
+ * Note: Profile contract doesn't have $createdAt index, so we fetch all and filter
  */
-async function fetchAllProfilesByDate(sdk) {
-  console.log('Fetching all profiles from unified contract...');
+async function fetchProfilesForDay(sdk, startMs, endMs) {
   const { documents, reachedLimit } = await paginateFetch(
     sdk,
     () => ({
@@ -157,20 +171,11 @@ async function fetchAllProfilesByDate(sdk) {
     console.warn('  Warning: Reached count limit for profiles');
   }
 
-  console.log(`  Total profiles: ${documents.length}`);
-
-  // Group by date (YYYY-MM-DD in UTC)
-  const byDate = new Map();
-  for (const doc of documents) {
-    if (!doc.$createdAt) continue;
-    const dateStr = new Date(doc.$createdAt).toISOString().split('T')[0];
-    if (!byDate.has(dateStr)) {
-      byDate.set(dateStr, []);
-    }
-    byDate.get(dateStr).push(doc);
-  }
-
-  return byDate;
+  // Filter by date range
+  return documents.filter(doc => {
+    const createdAt = doc.$createdAt;
+    return createdAt && createdAt >= startMs && createdAt < endMs;
+  });
 }
 
 /**
@@ -197,89 +202,135 @@ function summarizeProfile(doc) {
 }
 
 /**
- * Collect stats for a single day
- * @param {object} sdk - The EvoSDK instance
- * @param {string} dateStr - Date in YYYY-MM-DD format
- * @param {Map} profilesByDate - Pre-fetched profiles grouped by date
+ * Collect stats for a single day and save to individual file
  */
-async function collectDayStats(sdk, dateStr, profilesByDate) {
+async function collectDay(sdk, dateStr, profileCache = null) {
   const { startMs, endMs } = getDayBoundaries(dateStr);
-  const stats = {};
 
   console.log(`Collecting stats for ${dateStr}...`);
 
   // Fetch posts
+  let posts = [];
+  let postCount = 0;
   try {
     const { documents, count } = await fetchDocumentsForDay(sdk, YAPPR_CONTRACT_ID, DOCUMENT_TYPES.posts, startMs, endMs);
-    stats.posts = count;
-    stats.postList = documents.map(summarizePost);
+    postCount = count;
+    posts = documents.map(summarizePost);
     console.log(`  posts: ${count}`);
     await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
   } catch (error) {
     console.error(`  Error fetching posts:`, error.message);
-    stats.posts = null;
-    stats.postList = [];
   }
 
-  // Get new users from pre-fetched profiles
-  const profiles = profilesByDate.get(dateStr) || [];
-  profiles.sort((a, b) => (a.$createdAt || 0) - (b.$createdAt || 0));
-  stats.newUsers = profiles.length;
-  stats.userList = profiles.map(summarizeProfile);
-  console.log(`  newUsers: ${stats.newUsers}`);
-
-  stats.collectedAt = new Date().toISOString();
-  return stats;
-}
-
-/**
- * Load existing stats from file
- */
-function loadStats() {
-  try {
-    if (fs.existsSync(DATA_FILE)) {
-      const data = fs.readFileSync(DATA_FILE, 'utf-8');
-      return JSON.parse(data);
+  // Fetch users (from cache or fresh)
+  let users = [];
+  if (profileCache) {
+    users = profileCache
+      .filter(doc => {
+        const createdAt = doc.$createdAt;
+        return createdAt && createdAt >= startMs && createdAt < endMs;
+      })
+      .map(summarizeProfile);
+  } else {
+    try {
+      const profiles = await fetchProfilesForDay(sdk, startMs, endMs);
+      users = profiles.map(summarizeProfile);
+      await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
+    } catch (error) {
+      console.error(`  Error fetching profiles:`, error.message);
     }
-  } catch (error) {
-    console.warn('Could not load existing stats:', error.message);
   }
+  users.sort((a, b) => (a.createdAt || 0) - (b.createdAt || 0));
+  console.log(`  newUsers: ${users.length}`);
 
-  return {
-    lastUpdated: null,
-    contractId: YAPPR_CONTRACT_ID,
-    days: {},
+  // Save day file
+  const dayData = {
+    date: dateStr,
+    collectedAt: new Date().toISOString(),
+    posts,
+    users,
   };
+
+  const dayFile = getDayFilePath(dateStr);
+  fs.writeFileSync(dayFile, JSON.stringify(dayData, null, 2));
+  console.log(`  Saved ${dateStr}.json`);
+
+  return { posts: postCount, newUsers: users.length, postList: posts };
 }
 
 /**
- * Save stats to file
+ * Rebuild index from all day files
  */
-function saveStats(stats) {
-  // Ensure data directory exists
-  const dataDir = path.dirname(DATA_FILE);
-  if (!fs.existsSync(dataDir)) {
-    fs.mkdirSync(dataDir, { recursive: true });
+function rebuildIndex() {
+  const dayFiles = fs.readdirSync(DATA_DIR)
+    .filter(f => /^\d{4}-\d{2}-\d{2}\.json$/.test(f))
+    .sort()
+    .reverse();
+
+  let totalPosts = 0;
+  const uniquePosters = new Set();
+  let totalUsers = 0;
+  const daySummaries = [];
+
+  for (const file of dayFiles) {
+    try {
+      const dayData = JSON.parse(fs.readFileSync(path.join(DATA_DIR, file), 'utf-8'));
+      const date = file.replace('.json', '');
+
+      totalPosts += dayData.posts?.length || 0;
+      totalUsers += dayData.users?.length || 0;
+
+      for (const post of dayData.posts || []) {
+        uniquePosters.add(post.ownerId);
+      }
+
+      daySummaries.push({
+        date,
+        posts: dayData.posts?.length || 0,
+        newUsers: dayData.users?.length || 0,
+      });
+    } catch (error) {
+      console.warn(`Could not read ${file}:`, error.message);
+    }
   }
 
-  stats.lastUpdated = new Date().toISOString();
-  fs.writeFileSync(DATA_FILE, JSON.stringify(stats, null, 2));
-  console.log(`Stats saved to ${DATA_FILE}`);
+  const index = {
+    lastUpdated: new Date().toISOString(),
+    contractId: YAPPR_CONTRACT_ID,
+    days: daySummaries,
+    totals: {
+      posts: totalPosts,
+      uniquePosters: uniquePosters.size,
+      users: totalUsers,
+    },
+  };
+
+  fs.writeFileSync(INDEX_FILE, JSON.stringify(index, null, 2));
+  console.log(`Updated index.json (${daySummaries.length} days)`);
+
+  return index;
 }
 
 /**
- * Generate index.html from template with embedded data
+ * Fetch all profiles once for batch operations
  */
-function generateHtml(stats) {
-  if (!fs.existsSync(TEMPLATE_FILE)) {
-    console.warn('Template file not found, skipping HTML generation');
-    return;
+async function fetchAllProfiles(sdk) {
+  console.log('Fetching all profiles...');
+  const { documents, reachedLimit } = await paginateFetch(
+    sdk,
+    () => ({
+      dataContractId: YAPPR_PROFILE_CONTRACT_ID,
+      documentTypeName: DOCUMENT_TYPES.profile,
+    }),
+    { maxResults: 100000, pageSize: 100 }
+  );
+
+  if (reachedLimit) {
+    console.warn('  Warning: Reached count limit for profiles');
   }
 
-  const template = fs.readFileSync(TEMPLATE_FILE, 'utf-8');
-  const html = template.replace('{{DATA}}', JSON.stringify(stats, null, 2));
-  fs.writeFileSync(OUTPUT_HTML, html);
-  console.log(`Generated ${OUTPUT_HTML}`);
+  console.log(`  Total profiles: ${documents.length}`);
+  return documents;
 }
 
 /**
@@ -288,26 +339,29 @@ function generateHtml(stats) {
 async function main() {
   const args = parseArgs();
 
+  // Ensure data directory exists
+  if (!fs.existsSync(DATA_DIR)) {
+    fs.mkdirSync(DATA_DIR, { recursive: true });
+  }
+
   // Determine which dates to collect
   let dates;
   if (args.backfill) {
     dates = getBackfillDates(args.backfill);
-    console.log(`Backfilling ${args.backfill} days...`);
+    console.log(`Backfilling up to ${args.backfill} days...`);
   } else if (args.date) {
     dates = [args.date];
   } else {
     dates = [getTodayDateStr()];
   }
 
-  const allStats = loadStats();
-
   // Filter out already-complete days unless --force is used
   let datesToCollect = dates;
   if (!args.force) {
-    datesToCollect = dates.filter(d => !isDayComplete(allStats, d));
+    datesToCollect = dates.filter(d => !isDayComplete(d));
     const skipped = dates.length - datesToCollect.length;
     if (skipped > 0) {
-      console.log(`Skipping ${skipped} already-collected day(s)`);
+      console.log(`Skipping ${skipped} already-complete day(s)`);
     }
   }
 
@@ -323,28 +377,29 @@ async function main() {
   try {
     sdk = await getSdk();
 
-    // Fetch all profiles once (no $createdAt index, so we can't query by date)
-    const profilesByDate = await fetchAllProfilesByDate(sdk);
-    await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
-    console.log();
-
-    for (const dateStr of datesToCollect) {
-      const dayStats = await collectDayStats(sdk, dateStr, profilesByDate);
-      allStats.days[dateStr] = dayStats;
+    // For batch operations, fetch all profiles once
+    let profileCache = null;
+    if (datesToCollect.length > 1) {
+      profileCache = await fetchAllProfiles(sdk);
+      await new Promise(resolve => setTimeout(resolve, QUERY_DELAY));
       console.log();
     }
 
-    saveStats(allStats);
-    generateHtml(allStats);
+    // Collect each day
+    for (const dateStr of datesToCollect) {
+      await collectDay(sdk, dateStr, profileCache);
+      console.log();
+    }
+
+    // Rebuild index from all day files
+    const index = rebuildIndex();
 
     // Print summary
     console.log('\n=== Summary ===');
-    for (const dateStr of datesToCollect) {
-      const day = allStats.days[dateStr];
-      if (day) {
-        console.log(`${dateStr}: ${day.posts} posts, ${day.newUsers} new users`);
-      }
-    }
+    console.log(`Total posts: ${index.totals.posts}`);
+    console.log(`Unique posters: ${index.totals.uniquePosters}`);
+    console.log(`Total users: ${index.totals.users}`);
+    console.log(`Days collected: ${datesToCollect.length}`);
 
   } catch (error) {
     console.error('Fatal error:', error);

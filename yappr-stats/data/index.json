@@ -1,0 +1,116 @@
+{
+  "lastUpdated": "2026-01-20T21:57:06.037Z",
+  "contractId": "AyWK6nDVfb8d1ZmkM5MmZZrThbUyWyso1aMeGuuVSfxf",
+  "days": [
+    {
+      "date": "2026-01-20",
+      "posts": 30,
+      "newUsers": 18
+    },
+    {
+      "date": "2026-01-19",
+      "posts": 51,
+      "newUsers": 111
+    },
+    {
+      "date": "2026-01-18",
+      "posts": 21,
+      "newUsers": 100
+    },
+    {
+      "date": "2026-01-17",
+      "posts": 26,
+      "newUsers": 35
+    },
+    {
+      "date": "2026-01-16",
+      "posts": 51,
+      "newUsers": 79
+    },
+    {
+      "date": "2026-01-15",
+      "posts": 85,
+      "newUsers": 46
+    },
+    {
+      "date": "2026-01-14",
+      "posts": 102,
+      "newUsers": 29
+    },
+    {
+      "date": "2026-01-13",
+      "posts": 179,
+      "newUsers": 20
+    },
+    {
+      "date": "2026-01-12",
+      "posts": 111,
+      "newUsers": 23
+    },
+    {
+      "date": "2026-01-11",
+      "posts": 36,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-10",
+      "posts": 13,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-09",
+      "posts": 8,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-08",
+      "posts": 30,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-07",
+      "posts": 13,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-06",
+      "posts": 21,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-05",
+      "posts": 29,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-04",
+      "posts": 12,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-03",
+      "posts": 6,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-02",
+      "posts": 12,
+      "newUsers": 0
+    },
+    {
+      "date": "2026-01-01",
+      "posts": 7,
+      "newUsers": 0
+    },
+    {
+      "date": "2025-12-31",
+      "posts": 0,
+      "newUsers": 0
+    }
+  ],
+  "totals": {
+    "posts": 843,
+    "uniquePosters": 71,
+    "users": 461
+  }
+}

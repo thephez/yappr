@@ -1,0 +1,43 @@
+{
+  "date": "2026-01-03",
+  "collectedAt": "2026-01-20T20:56:28.959Z",
+  "posts": [
+    {
+      "id": "57Zytsyx67kPXw4Qj3AG42YVZp5zh6gnPzLkY7iRNwhv",
+      "ownerId": "7R7GLLDf7dcV6eZ8byZdbcyziNg3NbJa5qNqH8EisJgV",
+      "content": "test",
+      "createdAt": 1767455793012
+    },
+    {
+      "id": "EjsdQdS2PDnjQLzatzK3CqZixw9hMMUArqbebHWbA95m",
+      "ownerId": "7R7GLLDf7dcV6eZ8byZdbcyziNg3NbJa5qNqH8EisJgV",
+      "content": "test response to test",
+      "createdAt": 1767455803579
+    },
+    {
+      "id": "8EWVMsHZDQ3eo7hru5uXQizPftXjn1mVkoDbKGVA66c6",
+      "ownerId": "5AtWqx56QGyg7nEUJT7uMpLf9vFQsjL4yYcPEEAoR9u6",
+      "content": "test response to test response to test",
+      "createdAt": 1767465112740
+    },
+    {
+      "id": "38XzB2M8fpfbVa4PpQMRLwwftcbaNppR5Qd5efPLbrXH",
+      "ownerId": "EJ537SPAqUrEpFD7v6uA2WracFsSB7vnJkZ6pnrZNJcX",
+      "content": "Hello DM Test 1",
+      "createdAt": 1767474201454
+    },
+    {
+      "id": "EWXrxTKPk4eQAiqVcrxdWWXVTeNfCojFZFn9vLJVP7jK",
+      "ownerId": "BbAkuXDGe6T2s8srfSffHUwrrg5CBePiDdVFd7WSPjcu",
+      "content": "Hello DM Test 2",
+      "createdAt": 1767474208401
+    },
+    {
+      "id": "ESrGkMiwVjBYtSd6H5fotKzsNiVPeQ8R4uvmP5d4DoSA",
+      "ownerId": "7vvVKUFra7N6GejhwMaUBPrt53JePBc1gCPZdAPvicmG",
+      "content": "Test post",
+      "createdAt": 1767475574874
+    }
+  ],
+  "users": []
+}
