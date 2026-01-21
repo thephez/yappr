@@ -18,6 +18,7 @@ export interface PostDocument {
   content: string;
   mediaUrl?: string;
   replyToId?: string;
+  replyToPostOwnerId?: string;
   quotedPostId?: string;
   firstMentionId?: string;
   primaryHashtag?: string;
@@ -372,6 +373,9 @@ class PostService extends BaseDocumentService<Post> {
 
   /**
    * Create a new post
+   * @param ownerId - Identity ID of the post author
+   * @param content - Post content
+   * @param options - Optional fields including replyToPostOwnerId for notification queries
    */
   async createPost(
     ownerId: string,
@@ -379,6 +383,7 @@ class PostService extends BaseDocumentService<Post> {
     options: {
       mediaUrl?: string;
       replyToId?: string;
+      replyToPostOwnerId?: string;
       quotedPostId?: string;
       firstMentionId?: string;
       primaryHashtag?: string;
@@ -393,6 +398,7 @@ class PostService extends BaseDocumentService<Post> {
     // Add optional fields (use contract field names)
     if (options.mediaUrl) data.mediaUrl = options.mediaUrl;
     if (options.replyToId) data.replyToPostId = options.replyToId;
+    if (options.replyToPostOwnerId) data.replyToPostOwnerId = options.replyToPostOwnerId;
     if (options.quotedPostId) data.quotedPostId = options.quotedPostId;
     if (options.firstMentionId) data.firstMentionId = options.firstMentionId;
     if (options.primaryHashtag) data.primaryHashtag = options.primaryHashtag;
@@ -1360,6 +1366,38 @@ class PostService extends BaseDocumentService<Post> {
       return quotePosts.slice(0, limit);
     } catch (error) {
       console.error('Error getting quote posts:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get replies to posts owned by a specific user (for notification queries).
+   * Uses the replyToPostOwner index: [replyToPostOwnerId, $createdAt]
+   * @param userId - Identity ID of the post owner
+   * @param since - Only return replies created after this timestamp (optional)
+   */
+  async getRepliesToMyPosts(userId: string, since?: Date): Promise<Post[]> {
+    try {
+      const { getEvoSdk } = await import('./evo-sdk-service');
+      const sdk = await getEvoSdk();
+
+      const sinceTimestamp = since?.getTime() || 0;
+
+      const response = await sdk.documents.query({
+        dataContractId: this.contractId,
+        documentTypeName: 'post',
+        where: [
+          ['replyToPostOwnerId', '==', userId],
+          ['$createdAt', '>', sinceTimestamp]
+        ],
+        orderBy: [['replyToPostOwnerId', 'asc'], ['$createdAt', 'desc']],
+        limit: 100
+      });
+
+      const documents = normalizeSDKResponse(response);
+      return documents.map(doc => this.transformDocument(doc));
+    } catch (error) {
+      console.error('Error getting replies to my posts:', error);
       return [];
     }
   }

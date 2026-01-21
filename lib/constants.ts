@@ -3,14 +3,13 @@
  */
 
 // Contract IDs
-export const YAPPR_CONTRACT_ID = 'FNDUsTkqMQ1Wv4qhvg25VqHRnLLfCwwvw1YFMUL9iQ7e' // Testnet - v2 with private feed support
+export const YAPPR_CONTRACT_ID = 'ANn45rpp7du8MtVYzF1P6VRvaBo5auiZABd9ddoiBYdo' // Testnet - v4 with postHashtag and postMention consolidated
 export const YAPPR_PROFILE_CONTRACT_ID = 'FZSnZdKsLAuWxE7iZJq12eEz6xfGTgKPxK7uZJapTQxe' // Unified profile contract
 export const YAPPR_DM_CONTRACT_ID = 'J7MP9YU1aEGNAe7bjB45XdrjDLBsevFLPK1t1YwFS4ck' // Testnet - DM contract v3 (simplified readReceipt)
 export const YAPPR_BLOCK_CONTRACT_ID = 'DCLfH2tgyQhyaFeQigFk8ptC1MjQgsDghkYDvDrLMF3m' // Enhanced blocking contract with bloom filters
 export const DPNS_CONTRACT_ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec' // Testnet
 export const ENCRYPTED_KEY_BACKUP_CONTRACT_ID = '8fmYhuM2ypyQ9GGt4KpxMc9qe5mLf55i8K3SZbHvS9Ts' // Testnet - Encrypted key backup contract (1B max iterations)
-export const HASHTAG_CONTRACT_ID = '82kvJWPsaMouoQjKYeqmkm6eYu5UEJquWrGzJFuiSErs' // Testnet - Hashtag tracking contract (v2 with byTime index)
-export const MENTION_CONTRACT_ID = '89MDv4NH3Zum5VZs1be7epLRTfkZgVTG1Bj9NEVU2Cjc' // Testnet - Mention tracking contract
+// HASHTAG_CONTRACT_ID and MENTION_CONTRACT_ID removed - these document types are now in YAPPR_CONTRACT_ID
 export const DASHPAY_CONTRACT_ID = 'Bwr4WHCPz5rFVAD87RqTs3izo4zpzwsEdKPWUT1NS1C7' // Dash Pay contacts contract
 
 // Network configuration

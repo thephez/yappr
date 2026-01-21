@@ -8,7 +8,10 @@ import {
   AtSymbolIcon,
   LockClosedIcon,
   LockOpenIcon,
-  ShieldExclamationIcon
+  ShieldExclamationIcon,
+  HeartIcon,
+  ArrowPathRoundedSquareIcon,
+  ChatBubbleLeftIcon
 } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -19,10 +22,13 @@ import Link from 'next/link'
 import { useNotificationStore } from '@/lib/stores/notification-store'
 import { Notification } from '@/lib/types'
 
-type NotificationFilter = 'all' | 'follow' | 'mention' | 'privateFeed'
+type NotificationFilter = 'all' | 'follow' | 'mention' | 'like' | 'repost' | 'reply' | 'privateFeed'
 
 const FILTER_TABS: { key: NotificationFilter; label: string }[] = [
   { key: 'all', label: 'All' },
+  { key: 'like', label: 'Likes' },
+  { key: 'repost', label: 'Reposts' },
+  { key: 'reply', label: 'Replies' },
   { key: 'follow', label: 'Follows' },
   { key: 'mention', label: 'Mentions' },
   { key: 'privateFeed', label: 'Private Feed' }
@@ -31,6 +37,9 @@ const FILTER_TABS: { key: NotificationFilter; label: string }[] = [
 const NOTIFICATION_ICONS: Record<Notification['type'], JSX.Element> = {
   follow: <UserPlusIcon className="h-5 w-5 text-purple-500" />,
   mention: <AtSymbolIcon className="h-5 w-5 text-yellow-500" />,
+  like: <HeartIcon className="h-5 w-5 text-red-500" />,
+  repost: <ArrowPathRoundedSquareIcon className="h-5 w-5 text-green-500" />,
+  reply: <ChatBubbleLeftIcon className="h-5 w-5 text-blue-500" />,
   privateFeedRequest: <LockClosedIcon className="h-5 w-5 text-blue-500" />,
   privateFeedApproved: <LockOpenIcon className="h-5 w-5 text-green-500" />,
   privateFeedRevoked: <ShieldExclamationIcon className="h-5 w-5 text-red-500" />
@@ -39,6 +48,9 @@ const NOTIFICATION_ICONS: Record<Notification['type'], JSX.Element> = {
 const NOTIFICATION_MESSAGES: Record<Notification['type'], string> = {
   follow: 'started following you',
   mention: 'mentioned you in a post',
+  like: 'liked your post',
+  repost: 'reposted your post',
+  reply: 'replied to your post',
   privateFeedRequest: 'requested access to your private feed',
   privateFeedApproved: 'approved your private feed request',
   privateFeedRevoked: 'revoked your private feed access'

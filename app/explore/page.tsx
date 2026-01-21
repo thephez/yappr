@@ -10,7 +10,6 @@ import { ComposeModal } from '@/components/compose/compose-modal'
 import { formatNumber } from '@/lib/utils'
 import { useRouter } from 'next/navigation'
 import { hashtagService, TrendingHashtag } from '@/lib/services/hashtag-service'
-import { HASHTAG_CONTRACT_ID } from '@/lib/constants'
 import { useAuth } from '@/contexts/auth-context'
 import { checkBlockedForAuthors } from '@/hooks/use-block'
 import { isCashtagStorage, cashtagStorageToDisplay } from '@/lib/post-helpers'
@@ -36,12 +35,6 @@ export default function ExplorePage() {
   // Load trending hashtags
   useEffect(() => {
     const loadTrendingHashtags = async () => {
-      if (!HASHTAG_CONTRACT_ID) {
-        console.log('Hashtag contract not deployed yet')
-        setIsLoadingTrends(false)
-        return
-      }
-
       try {
         setIsLoadingTrends(true)
         const trending = await hashtagService.getTrendingHashtags({

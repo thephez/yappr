@@ -35,6 +35,17 @@
             "$createdAt": "asc"
           }
         ]
+      },
+      {
+        "name": "postOwnerLikes",
+        "properties": [
+          {
+            "postOwnerId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
       }
     ],
     "mutable": false,
@@ -50,6 +61,15 @@
         "position": 0,
         "byteArray": true,
         "description": "ID of the liked post",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "postOwnerId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 1,
+        "byteArray": true,
+        "description": "Identity ID of the post owner (for efficient notification queries)",
         "contentMediaType": "application/x.dash.dpp.identifier"
       }
     },
@@ -94,6 +114,17 @@
         "properties": [
           {
             "language": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "replyToPostOwner",
+        "properties": [
+          {
+            "replyToPostOwnerId": "asc"
           },
           {
             "$createdAt": "asc"
@@ -172,6 +203,15 @@
         "position": 8,
         "byteArray": true,
         "description": "24-byte nonce for XChaCha20-Poly1305 encryption"
+      },
+      "replyToPostOwnerId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 9,
+        "byteArray": true,
+        "description": "Identity ID of the parent post owner (for efficient notification queries on replies)",
+        "contentMediaType": "application/x.dash.dpp.identifier"
       }
     },
     "description": "A post/tweet in the social network",
@@ -218,9 +258,91 @@
         "byteArray": true,
         "description": "Identity ID of the blocked user",
         "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "message": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 280,
+        "position": 1,
+        "description": "Optional public reason/message for blocking"
       }
     },
-    "description": "A block relationship",
+    "description": "A block relationship with optional public message/reason",
+    "additionalProperties": false
+  },
+  "blockFilter": {
+    "type": "object",
+    "indices": [
+      {
+        "name": "owner",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "filterData"
+    ],
+    "properties": {
+      "filterData": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 1,
+        "maxItems": 5000,
+        "position": 0,
+        "description": "Serialized bloom filter data (up to 5KB)"
+      },
+      "itemCount": {
+        "type": "integer",
+        "minimum": 0,
+        "position": 1,
+        "description": "Number of items added to the filter"
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 255,
+        "position": 2,
+        "description": "Bloom filter parameters version for forward compatibility"
+      }
+    },
+    "description": "Bloom filter of blocked users for efficient probabilistic matching. One per user.",
+    "additionalProperties": false
+  },
+  "blockFollow": {
+    "type": "object",
+    "indices": [
+      {
+        "name": "owner",
+        "unique": true,
+        "properties": [
+          {
+            "$ownerId": "asc"
+          }
+        ]
+      }
+    ],
+    "required": [
+      "$createdAt",
+      "$updatedAt",
+      "followedBlockers"
+    ],
+    "properties": {
+      "followedBlockers": {
+        "type": "array",
+        "byteArray": true,
+        "minItems": 32,
+        "maxItems": 3200,
+        "position": 0,
+        "description": "Encoded array of user IDs whose blocks are inherited (max 100 users * 32 bytes)"
+      }
+    },
+    "description": "Tracks which users' block lists this user inherits (hard blocks). One per user.",
     "additionalProperties": false
   },
   "avatar": {
@@ -372,6 +494,17 @@
             "$createdAt": "asc"
           }
         ]
+      },
+      {
+        "name": "postOwnerReposts",
+        "properties": [
+          {
+            "postOwnerId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
       }
     ],
     "mutable": false,
@@ -387,6 +520,15 @@
         "position": 0,
         "byteArray": true,
         "description": "ID of the reposted post",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "postOwnerId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 1,
+        "byteArray": true,
+        "description": "Identity ID of the post owner (for efficient notification queries)",
         "contentMediaType": "application/x.dash.dpp.identifier"
       }
     },
@@ -886,6 +1028,125 @@
       }
     },
     "description": "Private feed state document created when enabling a private feed. IMMUTABLE - cannot be deleted.",
+    "additionalProperties": false
+  },
+  "postHashtag": {
+    "type": "object",
+    "indices": [
+      {
+        "name": "hashtagsByTime",
+        "properties": [
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "hashtagAndTime",
+        "properties": [
+          {
+            "hashtag": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "postAndHashtag",
+        "unique": true,
+        "properties": [
+          {
+            "postId": "asc"
+          },
+          {
+            "hashtag": "asc"
+          }
+        ]
+      }
+    ],
+    "mutable": false,
+    "required": [
+      "$createdAt",
+      "postId",
+      "hashtag"
+    ],
+    "properties": {
+      "postId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 0,
+        "byteArray": true,
+        "description": "ID of the post containing the hashtag",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "hashtag": {
+        "type": "string",
+        "pattern": "^[a-z0-9_]{1,63}$",
+        "position": 1,
+        "maxLength": 63,
+        "minLength": 1,
+        "description": "Lowercase hashtag without # prefix"
+      }
+    },
+    "description": "A hashtag associated with a post",
+    "additionalProperties": false
+  },
+  "postMention": {
+    "type": "object",
+    "indices": [
+      {
+        "name": "mentionedUserAndTime",
+        "properties": [
+          {
+            "mentionedUserId": "asc"
+          },
+          {
+            "$createdAt": "asc"
+          }
+        ]
+      },
+      {
+        "name": "postAndMentioned",
+        "unique": true,
+        "properties": [
+          {
+            "postId": "asc"
+          },
+          {
+            "mentionedUserId": "asc"
+          }
+        ]
+      }
+    ],
+    "mutable": false,
+    "required": [
+      "$createdAt",
+      "postId",
+      "mentionedUserId"
+    ],
+    "properties": {
+      "postId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 0,
+        "byteArray": true,
+        "description": "ID of the post containing the mention",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      },
+      "mentionedUserId": {
+        "type": "array",
+        "maxItems": 32,
+        "minItems": 32,
+        "position": 1,
+        "byteArray": true,
+        "description": "Identity ID of the mentioned user",
+        "contentMediaType": "application/x.dash.dpp.identifier"
+      }
+    },
+    "description": "A mention of a user in a post",
     "additionalProperties": false
   }
 }

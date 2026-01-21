@@ -21,7 +21,6 @@ import { UserAvatar } from '@/components/ui/avatar-image'
 import { extractAllTags, extractMentions } from '@/lib/post-helpers'
 import { hashtagService } from '@/lib/services/hashtag-service'
 import { mentionService } from '@/lib/services/mention-service'
-import { MENTION_CONTRACT_ID } from '@/lib/constants'
 import { extractErrorMessage, isTimeoutError, categorizeError } from '@/lib/error-utils'
 import { MarkdownContent } from '@/components/ui/markdown-content'
 import {
@@ -784,10 +783,17 @@ export function ComposeModal() {
           }
         } else {
           // Create public post using dashClient
+          // For the first post, if it's a reply, use replyingTo.author.id for notification queries
+          // For subsequent thread posts, we're replying to our own posts so the current user is the owner
+          const replyToPostOwnerId = i === 0 && replyingTo
+            ? replyingTo.author.id
+            : previousPostId ? authedUser.identityId : undefined
+
           result = await retryPostCreation(async () => {
             const dashClient = getDashPlatformClient()
             return await dashClient.createPost(postContent, {
               replyToPostId: previousPostId || undefined,
+              replyToPostOwnerId: replyToPostOwnerId,
               quotedPostId: i === 0 ? quotingPost?.id : undefined,
             })
           })
@@ -846,30 +852,28 @@ export function ComposeModal() {
                 })
             }
 
-            // Create mention documents for this successful post (if contract is deployed)
-            if (MENTION_CONTRACT_ID) {
-              const mentions = extractMentions(postContent)
-              if (mentions.length > 0) {
-                mentionService.createPostMentionsFromUsernames(postId, authedUser.identityId, mentions)
-                  .then((results) => {
-                    const successCount = results.filter((r) => r).length
-                    console.log(`Post ${i + 1}: Created ${successCount}/${mentions.length} mention documents`)
+            // Create mention documents for this successful post
+            const mentions = extractMentions(postContent)
+            if (mentions.length > 0) {
+              mentionService.createPostMentionsFromUsernames(postId, authedUser.identityId, mentions)
+                .then((results) => {
+                  const successCount = results.filter((r) => r).length
+                  console.log(`Post ${i + 1}: Created ${successCount}/${mentions.length} mention documents`)
 
-                    // Dispatch event for each successful mention to trigger cache invalidation
-                    results.forEach((success, mentionIndex) => {
-                      if (success) {
-                        window.dispatchEvent(
-                          new CustomEvent('mention-registered', {
-                            detail: { postId, username: mentions[mentionIndex] },
-                          })
-                        )
-                      }
-                    })
+                  // Dispatch event for each successful mention to trigger cache invalidation
+                  results.forEach((success, mentionIndex) => {
+                    if (success) {
+                      window.dispatchEvent(
+                        new CustomEvent('mention-registered', {
+                          detail: { postId, username: mentions[mentionIndex] },
+                        })
+                      )
+                    }
                   })
-                  .catch((err) => {
-                    console.error(`Post ${i + 1}: Failed to create mention documents:`, err)
-                  })
-              }
+                })
+                .catch((err) => {
+                  console.error(`Post ${i + 1}: Failed to create mention documents:`, err)
+                })
             }
 
             // Dispatch event for first post

@@ -67,6 +67,7 @@ export class DashPlatformClient {
    */
   async createPost(content: string, options?: {
     replyToPostId?: string
+    replyToPostOwnerId?: string
     quotedPostId?: string
     mediaUrl?: string
     primaryHashtag?: string
@@ -109,6 +110,7 @@ export class DashPlatformClient {
       // Create the post using the post service
       const post = await postService.createPost(identityId, content.trim(), {
         replyToId: options?.replyToPostId,
+        replyToPostOwnerId: options?.replyToPostOwnerId,
         quotedPostId: options?.quotedPostId,
         mediaUrl: options?.mediaUrl,
         primaryHashtag: options?.primaryHashtag?.replace('#', ''),

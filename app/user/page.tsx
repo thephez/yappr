@@ -42,7 +42,6 @@ import { useBlock } from '@/hooks/use-block'
 import { useProgressiveEnrichment } from '@/hooks/use-progressive-enrichment'
 import { AtSymbolIcon } from '@heroicons/react/24/outline'
 import { mentionService } from '@/lib/services/mention-service'
-import { MENTION_CONTRACT_ID } from '@/lib/constants'
 import { cn } from '@/lib/utils'
 import { UsernameDropdown } from '@/components/dpns/username-dropdown'
 import { UsernameModal } from '@/components/dpns/username-modal'
@@ -626,7 +625,7 @@ function UserProfileContent() {
 
   // Load mentions for this user (lazy load when tab is selected)
   const loadMentions = useCallback(async () => {
-    if (!userId || mentionsLoaded || !MENTION_CONTRACT_ID) return
+    if (!userId || mentionsLoaded) return
 
     setMentionsLoading(true)
     try {
@@ -678,7 +677,7 @@ function UserProfileContent() {
 
   // Load mentions when tab is activated
   useEffect(() => {
-    if (activeTab === 'mentions' && !mentionsLoaded && MENTION_CONTRACT_ID) {
+    if (activeTab === 'mentions' && !mentionsLoaded) {
       loadMentions().catch(err => console.error('Failed to load mentions:', err))
     }
   }, [activeTab, mentionsLoaded, loadMentions])
@@ -1423,12 +1422,6 @@ function UserProfileContent() {
                   <div className="p-8 text-center">
                     <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yappr-500 mx-auto mb-4"></div>
                     <p className="text-gray-500">Loading mentions...</p>
-                  </div>
-                ) : !MENTION_CONTRACT_ID ? (
-                  <div className="p-8 text-center text-gray-500">
-                    <AtSymbolIcon className="h-12 w-12 mx-auto mb-4 text-gray-300" />
-                    <p>Mentions feature not yet available</p>
-                    <p className="text-sm mt-2">Mention contract not deployed</p>
                   </div>
                 ) : mentions.length === 0 ? (
                   <div className="p-8 text-center text-gray-500">

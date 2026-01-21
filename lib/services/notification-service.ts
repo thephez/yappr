@@ -2,7 +2,7 @@ import { getEvoSdk } from './evo-sdk-service';
 import { dpnsService } from './dpns-service';
 import { unifiedProfileService } from './unified-profile-service';
 import { normalizeSDKResponse, identifierToBase58 } from './sdk-helpers';
-import { YAPPR_CONTRACT_ID, MENTION_CONTRACT_ID } from '../constants';
+import { YAPPR_CONTRACT_ID } from '../constants';
 import { Notification, User, Post } from '../types';
 
 // Constants for notification queries
@@ -16,11 +16,16 @@ const INITIAL_FETCH_MS = INITIAL_FETCH_DAYS * 24 * 60 * 60 * 1000;
 type PrivateFeedNotificationType = 'privateFeedRequest' | 'privateFeedApproved' | 'privateFeedRevoked';
 
 /**
+ * Engagement notification types
+ */
+type EngagementNotificationType = 'like' | 'repost' | 'reply';
+
+/**
  * Raw notification data before enrichment
  */
 interface RawNotification {
   id: string;
-  type: 'follow' | 'mention' | PrivateFeedNotificationType;
+  type: 'follow' | 'mention' | PrivateFeedNotificationType | EngagementNotificationType;
   fromUserId: string;
   postId?: string;
   createdAt: number;
@@ -118,6 +123,78 @@ class NotificationService {
   }
 
   /**
+   * Get likes on user's posts since timestamp (for notification queries).
+   * Uses the postOwnerLikes index via likeService.getLikesOnMyPosts()
+   */
+  async getLikeNotifications(userId: string, sinceTimestamp: number): Promise<RawNotification[]> {
+    try {
+      const { likeService } = await import('./like-service');
+      const likes = await likeService.getLikesOnMyPosts(userId, new Date(sinceTimestamp));
+
+      return likes
+        .filter(like => like.$ownerId !== userId) // Exclude self-likes
+        .map(like => ({
+          id: `like-${like.$id}`,
+          type: 'like' as const,
+          fromUserId: like.$ownerId,
+          postId: like.postId,
+          createdAt: like.$createdAt
+        }));
+    } catch (error) {
+      console.error('Error fetching like notifications:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get reposts of user's posts since timestamp (for notification queries).
+   * Uses the postOwnerReposts index via repostService.getRepostsOfMyPosts()
+   */
+  async getRepostNotifications(userId: string, sinceTimestamp: number): Promise<RawNotification[]> {
+    try {
+      const { repostService } = await import('./repost-service');
+      const reposts = await repostService.getRepostsOfMyPosts(userId, new Date(sinceTimestamp));
+
+      return reposts
+        .filter(repost => repost.$ownerId !== userId) // Exclude self-reposts
+        .map(repost => ({
+          id: `repost-${repost.$id}`,
+          type: 'repost' as const,
+          fromUserId: repost.$ownerId,
+          postId: repost.postId,
+          createdAt: repost.$createdAt
+        }));
+    } catch (error) {
+      console.error('Error fetching repost notifications:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Get replies to user's posts since timestamp (for notification queries).
+   * Uses the replyToPostOwner index via postService.getRepliesToMyPosts()
+   */
+  async getReplyNotifications(userId: string, sinceTimestamp: number): Promise<RawNotification[]> {
+    try {
+      const { postService } = await import('./post-service');
+      const replies = await postService.getRepliesToMyPosts(userId, new Date(sinceTimestamp));
+
+      return replies
+        .filter(reply => reply.author.id !== userId) // Exclude self-replies
+        .map(reply => ({
+          id: `reply-${reply.id}`,
+          type: 'reply' as const,
+          fromUserId: reply.author.id,
+          postId: reply.id, // The reply post itself
+          createdAt: reply.createdAt.getTime()
+        }));
+    } catch (error) {
+      console.error('Error fetching reply notifications:', error);
+      return [];
+    }
+  }
+
+  /**
    * Get new mentions since timestamp
    * Uses the byMentionedUser index: [mentionedUserId, $createdAt]
    */
@@ -127,7 +204,7 @@ class NotificationService {
 
       // SDK query types are incomplete, cast needed for valid query options
       const response = await sdk.documents.query({
-        dataContractId: MENTION_CONTRACT_ID,
+        dataContractId: YAPPR_CONTRACT_ID,
         documentTypeName: 'postMention',
         where: [
           ['mentionedUserId', '==', userId],
@@ -332,13 +409,16 @@ class NotificationService {
     readIds: Set<string>,
     fallbackTimestamp: number
   ): Promise<NotificationResult> {
-    const [followers, mentions, privateFeed] = await Promise.all([
+    const [followers, mentions, privateFeed, likes, reposts, replies] = await Promise.all([
       this.getNewFollowers(userId, sinceTimestamp),
       this.getNewMentions(userId, sinceTimestamp),
-      this.getPrivateFeedNotifications(userId, sinceTimestamp)
+      this.getPrivateFeedNotifications(userId, sinceTimestamp),
+      this.getLikeNotifications(userId, sinceTimestamp),
+      this.getRepostNotifications(userId, sinceTimestamp),
+      this.getReplyNotifications(userId, sinceTimestamp)
     ]);
 
-    const rawNotifications = [...followers, ...mentions, ...privateFeed];
+    const rawNotifications = [...followers, ...mentions, ...privateFeed, ...likes, ...reposts, ...replies];
     rawNotifications.sort((a, b) => b.createdAt - a.createdAt);
 
     const notifications = await this.enrichNotifications(rawNotifications, readIds);

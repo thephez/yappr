@@ -348,7 +348,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
       const { likeService } = await import('@/lib/services/like-service')
       const success = wasLiked
         ? await likeService.unlikePost(post.id, authedUser.identityId)
-        : await likeService.likePost(post.id, authedUser.identityId)
+        : await likeService.likePost(post.id, authedUser.identityId, post.author.id)
 
       if (!success) throw new Error('Like operation failed')
     } catch (error) {
@@ -380,7 +380,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
       const { repostService } = await import('@/lib/services/repost-service')
       const success = wasReposted
         ? await repostService.removeRepost(post.id, authedUser.identityId)
-        : await repostService.repostPost(post.id, authedUser.identityId)
+        : await repostService.repostPost(post.id, authedUser.identityId, post.author.id)
 
       if (!success) throw new Error('Repost operation failed')
       toast.success(wasReposted ? 'Removed repost' : 'Reposted!')
