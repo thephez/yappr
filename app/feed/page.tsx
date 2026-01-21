@@ -303,6 +303,26 @@ function FeedPage() {
         let fetchIteration = 0
         let nonReplyCount = 0
 
+        // Helper to normalize byte arrays from SDK (may be base64 string, Uint8Array, or regular array)
+        const normalizeBytes = (value: unknown): Uint8Array | undefined => {
+          if (!value) return undefined
+          if (value instanceof Uint8Array) return value
+          if (Array.isArray(value)) return new Uint8Array(value)
+          if (typeof value === 'string') {
+            try {
+              const binary = atob(value)
+              const bytes = new Uint8Array(binary.length)
+              for (let i = 0; i < binary.length; i++) {
+                bytes[i] = binary.charCodeAt(i)
+              }
+              return bytes
+            } catch {
+              return undefined
+            }
+          }
+          return undefined
+        }
+
         // Helper to transform a raw document to our post format
         const transformRawPost = (doc: any) => {
           const data = doc.data || doc
@@ -316,6 +336,13 @@ function FeedPage() {
           // quotedPostId also comes as base64 from SDK v3 toJSON()
           const rawQuotedPostId = data.quotedPostId || doc.quotedPostId
           const quotedPostId = rawQuotedPostId ? identifierToBase58(rawQuotedPostId) : undefined
+
+          // Extract private feed fields if present
+          const rawEncryptedContent = data.encryptedContent || doc.encryptedContent
+          const epoch = (data.epoch ?? doc.epoch) as number | undefined
+          const rawNonce = data.nonce || doc.nonce
+          const encryptedContent = normalizeBytes(rawEncryptedContent)
+          const nonce = normalizeBytes(rawNonce)
 
           return {
             id: doc.$id || doc.id || Math.random().toString(36).substr(2, 9),
@@ -344,7 +371,11 @@ function FeedPage() {
             reposted: false,
             bookmarked: false,
             replyToId: replyToId || undefined,
-            quotedPostId: quotedPostId || undefined
+            quotedPostId: quotedPostId || undefined,
+            // Private feed fields
+            encryptedContent,
+            epoch,
+            nonce
           }
         }
 

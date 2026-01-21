@@ -61,6 +61,26 @@ interface ProfileData {
   hasUnifiedProfile?: boolean
 }
 
+// Helper to normalize byte arrays from SDK (may be base64 string, Uint8Array, or regular array)
+function normalizeBytes(value: unknown): Uint8Array | undefined {
+  if (!value) return undefined
+  if (value instanceof Uint8Array) return value
+  if (Array.isArray(value)) return new Uint8Array(value)
+  if (typeof value === 'string') {
+    try {
+      const binary = atob(value)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      return bytes
+    } catch {
+      return undefined
+    }
+  }
+  return undefined
+}
+
 function UserProfileContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -223,6 +243,14 @@ function UserProfileContent() {
         const postDocs = postsResult.documents || []
         const transformedPosts: Post[] = postDocs.map((doc: any) => {
           const authorIdStr = doc.$ownerId || doc.ownerId || userId
+
+          // Extract private feed fields if present
+          const rawEncryptedContent = doc.encryptedContent
+          const epoch = doc.epoch as number | undefined
+          const rawNonce = doc.nonce
+          const encryptedContent = normalizeBytes(rawEncryptedContent)
+          const nonce = normalizeBytes(rawNonce)
+
           return {
             id: doc.$id || doc.id,
             content: doc.content || '',
@@ -246,6 +274,10 @@ function UserProfileContent() {
             replies: 0,
             views: 0,
             quotedPostId: doc.quotedPostId || undefined,
+            // Private feed fields
+            encryptedContent,
+            epoch,
+            nonce,
           }
         })
 
@@ -451,6 +483,12 @@ function UserProfileContent() {
         // Transform new posts
         for (const doc of newPostDocs) {
           const authorIdStr = doc.$ownerId || doc.ownerId || userId
+
+          // Extract private feed fields if present
+          const encryptedContent = normalizeBytes(doc.encryptedContent)
+          const epoch = doc.epoch as number | undefined
+          const nonce = normalizeBytes(doc.nonce)
+
           newPosts.push({
             id: doc.$id || doc.id,
             content: doc.content || '',
@@ -473,6 +511,10 @@ function UserProfileContent() {
             replies: 0,
             views: 0,
             quotedPostId: doc.quotedPostId || undefined,
+            // Private feed fields
+            encryptedContent,
+            epoch,
+            nonce,
           })
         }
       }
