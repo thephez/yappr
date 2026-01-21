@@ -292,18 +292,20 @@ function ThreadPostEditor({
             : 'border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950 hover:border-gray-300 dark:hover:border-gray-700 cursor-pointer'
         }`}
       >
-        {/* Post number/status indicator */}
-        <div className={`absolute -left-2 top-3 flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-semibold shadow-sm ${
-          isPosted ? 'bg-green-500' : 'bg-yappr-500'
-        }`}>
-          {isPosted ? (
-            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-            </svg>
-          ) : (
-            index + 1
-          )}
-        </div>
+        {/* Post number/status indicator - only show for threads (multiple posts) or posted status */}
+        {(!isOnly || isPosted) && (
+          <div className={`absolute -left-2 top-3 flex items-center justify-center w-6 h-6 rounded-full text-white text-xs font-semibold shadow-sm ${
+            isPosted ? 'bg-green-500' : 'bg-yappr-500'
+          }`}>
+            {isPosted ? (
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+              </svg>
+            ) : (
+              index + 1
+            )}
+          </div>
+        )}
 
         <div className="p-4 pl-8">
           {/* Posted status badge */}
