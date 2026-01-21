@@ -676,7 +676,8 @@ export function PrivatePostContent({
               </button>
             )}
             {/* Request Access button for no-keys, or pending badge for pending requests */}
-            {(state.reason === 'no-keys' || state.reason === 'pending' || isPending) && renderRequestButton()}
+            {/* Don't show request button on replies - access is based on root post owner's credentials */}
+            {(state.reason === 'no-keys' || state.reason === 'pending' || isPending) && !post.replyToId && renderRequestButton()}
           </div>
         </div>
 
