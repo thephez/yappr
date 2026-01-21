@@ -263,22 +263,22 @@ class StateTransitionService {
 
       console.log(`Using signing key id=${identityKey.keyId} with security level ${identityKey.securityLevel}`);
 
-      // Increment revision for the update
-      const newRevision = revision + 1;
-
       // Replace document using the correct SDK API
-      // The SDK expects: contractId, type, documentId, ownerId, data (any), revision (bigint), privateKeyWif
+      // The SDK expects the CURRENT revision and handles incrementing internally
       await sdk.documents.replace({
         contractId,
         type: documentType,
         documentId,
         ownerId,
         data: documentData,
-        revision: newRevision,
+        revision,
         privateKeyWif: privateKey
       });
 
       console.log('Document update submitted successfully');
+
+      // The new revision after update will be revision + 1
+      const newRevision = revision + 1;
 
       return {
         success: true,
