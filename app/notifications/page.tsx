@@ -90,15 +90,34 @@ function NotificationsPage() {
   const setFilter = useNotificationStore((s) => s.setFilter)
   const markAsRead = useNotificationStore((s) => s.markAsRead)
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
-  const getFilteredNotifications = useNotificationStore((s) => s.getFilteredNotifications)
-  const getUnreadCount = useNotificationStore((s) => s.getUnreadCount)
-  const getUnreadCountByFilter = useNotificationStore((s) => s.getUnreadCountByFilter)
+  // Subscribe to notifications array directly so component re-renders when markAllAsRead updates it
+  // This fixes the bug where tab indicators didn't clear when marking all as read
+  const notifications = useNotificationStore((s) => s.notifications)
 
   // Get notification settings from settings store
   const notificationSettings = useSettingsStore((s) => s.notificationSettings)
 
+  // Filter notifications by current tab
+  const getFilteredByTab = (notifs: Notification[], tabFilter: NotificationFilter) => {
+    if (tabFilter === 'all') return notifs
+    if (tabFilter === 'privateFeed') {
+      return notifs.filter(n =>
+        n.type === 'privateFeedRequest' ||
+        n.type === 'privateFeedApproved' ||
+        n.type === 'privateFeedRevoked'
+      )
+    }
+    return notifs.filter(n => n.type === tabFilter)
+  }
+
+  // Get unread count for a specific filter
+  const getUnreadCountForTab = (tabFilter: NotificationFilter) => {
+    const unread = notifications.filter(n => !n.read)
+    return getFilteredByTab(unread, tabFilter).length
+  }
+
   // Filter by tab first, then by user settings
-  const tabFilteredNotifications = getFilteredNotifications()
+  const tabFilteredNotifications = getFilteredByTab(notifications, filter)
   const filteredNotifications = tabFilteredNotifications.filter((notification) => {
     const settingKey = NOTIFICATION_TYPE_TO_SETTING[notification.type]
     // If no setting key (e.g., private feed notifications), always show
@@ -106,7 +125,7 @@ function NotificationsPage() {
     // Check if this notification type is enabled in settings
     return notificationSettings[settingKey as keyof typeof notificationSettings]
   })
-  const unreadCount = getUnreadCount()
+  const unreadCount = notifications.filter(n => !n.read).length
 
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
@@ -126,7 +145,7 @@ function NotificationsPage() {
 
           <div className="flex border-b border-gray-200 dark:border-gray-800">
             {FILTER_TABS.map((tab) => {
-              const tabUnreadCount = getUnreadCountByFilter(tab.key)
+              const tabUnreadCount = getUnreadCountForTab(tab.key)
               return (
                 <button
                   key={tab.key}
