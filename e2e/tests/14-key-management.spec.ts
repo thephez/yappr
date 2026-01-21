@@ -1,6 +1,15 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToPrivateFeedSettings, goToHome, openComposeModal } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
+import {
+  waitForPrivateFeedStatus,
+  waitForPageReady,
+  waitForModalContent,
+  waitForDropdown,
+  waitForFeedReady,
+  waitForToast,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Encryption Key Management
@@ -93,12 +102,11 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Reload to ensure state is fresh
     await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
 
     // Navigate to private feed settings - this should trigger key entry prompt
     await goToPrivateFeedSettings(page);
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Take screenshot to see current state
     await page.screenshot({ path: 'screenshots/14-14.1-settings-page.png' });
@@ -117,7 +125,7 @@ test.describe('14 - Encryption Key Management', () => {
       // If there's a button, click it
       if (hasEnterKeyBtn && !hasAutoPrompt) {
         await enterKeyBtn.click();
-        await page.waitForTimeout(1000);
+        await waitForModalContent(page);
       }
 
       // Now enter the encryption key
@@ -134,7 +142,7 @@ test.describe('14 - Encryption Key Management', () => {
         const confirmBtn = modal.locator('button').filter({ hasText: /confirm|save|enter|submit/i });
         if (await confirmBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
           await confirmBtn.first().click();
-          await page.waitForTimeout(5000);
+          await waitForPrivateFeedStatus(page);
 
           console.log('Encryption key confirmed');
         }
@@ -145,7 +153,7 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Verify private feed dashboard is accessible
     await goToPrivateFeedSettings(page);
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     const dashboardVisible = await page.getByText(/private feed dashboard|your private feed|private feed is enabled/i)
       .first().isVisible({ timeout: 10000 }).catch(() => false);
@@ -192,8 +200,7 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Reload
     await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
 
     // Check if a key entry modal appears automatically and dismiss it
     const modal = page.locator('[role="dialog"]');
@@ -211,12 +218,13 @@ test.describe('14 - Encryption Key Management', () => {
 
       if (await dismissBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
         await dismissBtn.first().click();
-        await page.waitForTimeout(1000);
+        // Wait for modal to close
+        await expect(modal).not.toBeVisible({ timeout: WAIT_TIMEOUTS.UI });
         console.log('Dismissed encryption key modal');
       } else {
         // Try pressing Escape
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(1000);
+        await expect(modal).not.toBeVisible({ timeout: WAIT_TIMEOUTS.UI });
         console.log('Pressed Escape to dismiss modal');
       }
     } else {
@@ -227,7 +235,7 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Verify app is usable for non-private features
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Check that feed loads
     const feedContent = page.locator('article').or(page.getByText(/what.?s happening/i));
@@ -237,21 +245,26 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Try to open compose modal and select private visibility
     await openComposeModal(page);
-    await page.waitForTimeout(1000);
+    await waitForModalContent(page);
 
     const composeModal = page.locator('[role="dialog"]');
     const visibilityBtn = composeModal.locator('button').filter({ hasText: /^Public$/i }).first();
 
     if (await visibilityBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await visibilityBtn.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Look for Private option - use specific text that appears in the dropdown
       // The dropdown shows "Private" with description "Only private followers"
       const privateOption = page.locator('button').filter({ hasText: 'Only private followers' });
       if (await privateOption.isVisible({ timeout: 3000 }).catch(() => false)) {
         await privateOption.click();
-        await page.waitForTimeout(2000);
+        // Wait for any encryption key prompt or state change
+        await expect(async () => {
+          const promptVisible = await page.getByText(/enter.*encryption.*key|encryption.*private.*key/i).first().isVisible().catch(() => false);
+          const selectedVisible = await composeModal.getByText(/private|followers only/i).isVisible().catch(() => false);
+          if (!promptVisible && !selectedVisible) throw new Error('Waiting for private selection result');
+        }).toPass({ timeout: WAIT_TIMEOUTS.UI });
 
         // Check if encryption key prompt reappears
         const keyPromptReappears = await page.getByText(/enter.*encryption.*key|encryption.*private.*key/i)
@@ -273,7 +286,8 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Close modals
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+    // Wait for modal to close
+    await expect(page.locator('[role="dialog"]')).not.toBeVisible({ timeout: WAIT_TIMEOUTS.SHORT }).catch(() => {});
     await page.keyboard.press('Escape');
 
     await page.screenshot({ path: 'screenshots/14-14.2-deferred-entry.png' });
@@ -317,12 +331,11 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Reload
     await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
 
     // Navigate to private feed settings
     await goToPrivateFeedSettings(page);
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for "Enter Encryption Key" button
     const enterKeyBtn = page.locator('button').filter({ hasText: /enter.*encryption.*key/i });
@@ -330,7 +343,7 @@ test.describe('14 - Encryption Key Management', () => {
 
     if (hasEnterKeyBtn) {
       await enterKeyBtn.click();
-      await page.waitForTimeout(1000);
+      await waitForModalContent(page);
 
       // Enter the WRONG key
       const modal = page.locator('[role="dialog"]');
@@ -346,7 +359,16 @@ test.describe('14 - Encryption Key Management', () => {
         const confirmBtn = modal.locator('button').filter({ hasText: /confirm|save|enter|submit/i });
         if (await confirmBtn.first().isVisible({ timeout: 3000 }).catch(() => false)) {
           await confirmBtn.first().click();
-          await page.waitForTimeout(3000);
+          // Wait for error or success state
+          await expect(async () => {
+            const hasError = await page.getByText(/key does not match|invalid key|incorrect key|wrong key|doesn.?t match|error/i).first().isVisible().catch(() => false);
+            const hasSuccess = await page.getByText(/private feed dashboard|your private feed/i).first().isVisible().catch(() => false);
+            const modalStillOpen = await modal.isVisible().catch(() => false);
+            if (!hasError && !hasSuccess && modalStillOpen) {
+              // Still processing, keep waiting
+              throw new Error('Waiting for validation result');
+            }
+          }).toPass({ timeout: WAIT_TIMEOUTS.UI, intervals: [500, 1000, 2000] });
 
           // Check for error message
           const errorMessage = page.getByText(/key does not match|invalid key|incorrect key|wrong key|doesn.?t match|error/i);
@@ -374,7 +396,7 @@ test.describe('14 - Encryption Key Management', () => {
 
             if (await confirmBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
               await confirmBtn.first().click();
-              await page.waitForTimeout(3000);
+              await waitForPrivateFeedStatus(page);
 
               console.log('Entered correct key after error - verifying success');
             }
@@ -393,7 +415,12 @@ test.describe('14 - Encryption Key Management', () => {
         const confirmBtn = modal.locator('button').filter({ hasText: /confirm|save|enter|submit/i });
         if (await confirmBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
           await confirmBtn.first().click();
-          await page.waitForTimeout(3000);
+          // Wait for validation result
+          await expect(async () => {
+            const hasError = await page.getByText(/key does not match|invalid key|incorrect key|wrong key/i).first().isVisible().catch(() => false);
+            const modalGone = !(await modal.isVisible().catch(() => true));
+            if (!hasError && !modalGone) throw new Error('Waiting for validation');
+          }).toPass({ timeout: WAIT_TIMEOUTS.UI });
 
           const errorMessage = page.getByText(/key does not match|invalid key|incorrect key|wrong key/i);
           const hasError = await errorMessage.first().isVisible({ timeout: 5000 }).catch(() => false);
@@ -434,12 +461,11 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Reload
     await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
 
     // Navigate to private feed settings
     await goToPrivateFeedSettings(page);
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for "Enter Encryption Key" button
     const enterKeyBtn = page.locator('button').filter({ hasText: /enter.*encryption.*key/i });
@@ -447,7 +473,7 @@ test.describe('14 - Encryption Key Management', () => {
 
     if (hasEnterKeyBtn) {
       await enterKeyBtn.click();
-      await page.waitForTimeout(1000);
+      await waitForModalContent(page);
 
       const modal = page.locator('[role="dialog"]');
 
@@ -463,7 +489,11 @@ test.describe('14 - Encryption Key Management', () => {
       if (hasLostKeyLink) {
         console.log('Found "Lost key" option - clicking');
         await lostKeyLink.first().click();
-        await page.waitForTimeout(2000);
+        // Wait for lost key guidance to appear
+        await expect(async () => {
+          const hasGuidance = await page.getByText(/password manager|reset.*private.*feed|secure notes/i).first().isVisible().catch(() => false);
+          if (!hasGuidance) throw new Error('Waiting for lost key guidance');
+        }).toPass({ timeout: WAIT_TIMEOUTS.UI });
 
         await page.screenshot({ path: 'screenshots/14-14.4-lost-key-flow.png' });
 
@@ -518,7 +548,11 @@ test.describe('14 - Encryption Key Management', () => {
       if (hasLostKeyOnPage) {
         console.log('Found lost key option on settings page');
         await lostKeyOnPage.first().click();
-        await page.waitForTimeout(2000);
+        // Wait for guidance to appear
+        await expect(async () => {
+          const hasGuidance = await page.getByText(/password manager|reset.*private.*feed|secure notes/i).first().isVisible().catch(() => false);
+          if (!hasGuidance) throw new Error('Waiting for lost key guidance');
+        }).toPass({ timeout: WAIT_TIMEOUTS.UI });
       } else {
         console.log('Note: No lost key UI found - key may be stored or app handles differently');
       }
@@ -550,13 +584,13 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Navigate to private feed settings
     await goToPrivateFeedSettings(page);
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Check if we need to enter key
     const enterKeyBtn = page.locator('button').filter({ hasText: /enter.*encryption.*key/i });
     if (await enterKeyBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
       await enterKeyBtn.click();
-      await page.waitForTimeout(1000);
+      await waitForModalContent(page);
 
       const modal = page.locator('[role="dialog"]');
       const keyInput = modal.locator('input[type="password"]');
@@ -567,7 +601,7 @@ test.describe('14 - Encryption Key Management', () => {
         const confirmBtn = modal.locator('button').filter({ hasText: /confirm|save|enter/i });
         if (await confirmBtn.first().isVisible({ timeout: 2000 }).catch(() => false)) {
           await confirmBtn.first().click();
-          await page.waitForTimeout(3000);
+          await waitForPrivateFeedStatus(page);
         }
       }
     }
@@ -583,12 +617,11 @@ test.describe('14 - Encryption Key Management', () => {
 
     // Refresh the page
     await page.reload();
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Navigate back to private feed settings
     await goToPrivateFeedSettings(page);
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Check if key is still accessible (no re-entry prompt)
     const enterKeyBtnAfter = page.locator('button').filter({ hasText: /enter.*encryption.*key/i });

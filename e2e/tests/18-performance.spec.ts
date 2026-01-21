@@ -2,6 +2,14 @@ import { test, expect } from '../fixtures/auth.fixture';
 import { goToHome, openComposeModal, goToPrivateFeedSettings, goToProfile, closeModal } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
+import {
+  waitForPrivateFeedStatus,
+  waitForDropdown,
+  waitForFeedReady,
+  waitForModalReady,
+  waitForElementToDisappear,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Performance Tests
@@ -67,6 +75,7 @@ async function waitForPostCreation(
       }
     }
 
+    // Polling interval for checking post creation status - intentional timing for performance measurement
     await page.waitForTimeout(500);
   }
 
@@ -122,7 +131,7 @@ test.describe('18 - Performance Tests', () => {
     }
 
     // Wait for page to fully load
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     if (alreadyEnabled) {
       // Private feed is already enabled - measure dashboard load time
@@ -202,7 +211,7 @@ test.describe('18 - Performance Tests', () => {
 
     // Navigate to home
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     if (ownerIdentity.keys.encryptionKey) {
@@ -215,7 +224,7 @@ test.describe('18 - Performance Tests', () => {
     console.log('--- Measuring Private Post Preparation (client-side encryption) ---');
 
     await openComposeModal(page);
-    await page.waitForTimeout(2000);
+    await waitForModalReady(page);
 
     const modal = page.locator('[role="dialog"]');
 
@@ -225,7 +234,7 @@ test.describe('18 - Performance Tests', () => {
 
     if (hasVisibilitySelector) {
       await visibilityBtn.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Find and click Private option
       const privateItems = page.getByText('Private', { exact: false });
@@ -238,7 +247,8 @@ test.describe('18 - Performance Tests', () => {
           break;
         }
       }
-      await page.waitForTimeout(500);
+      // Wait for dropdown to close after selection
+      await waitForElementToDisappear(page, '[role="listbox"], [role="menu"], [data-state="open"]', WAIT_TIMEOUTS.SHORT);
     } else {
       console.log('Visibility selector not available - skipping private post timing');
       test.skip(true, 'Visibility selector not available');
@@ -327,7 +337,7 @@ test.describe('18 - Performance Tests', () => {
 
     // Navigate to home to ensure keys are cached
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     if (ownerIdentity.keys.encryptionKey) {
@@ -341,7 +351,7 @@ test.describe('18 - Performance Tests', () => {
     }, 'Profile page load');
 
     // Wait for posts to appear
-    await page.waitForTimeout(2000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     if (ownerIdentity.keys.encryptionKey) {
@@ -426,7 +436,7 @@ test.describe('18 - Performance Tests', () => {
     }
 
     // Wait for dashboard to load
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the followers section (where revocation would happen)
     const followersSection = page.getByText(/private followers/i).first();
@@ -505,6 +515,7 @@ test.describe('18 - Performance Tests', () => {
     // Navigate to home to load feed
     const { durationMs: feedLoadTime } = await measureTime(async () => {
       await goToHome(page);
+      // Intentional wait inside measureTime to capture initial load duration for performance measurement
       await page.waitForTimeout(2000);
     }, 'Feed page initial load');
 
@@ -514,7 +525,7 @@ test.describe('18 - Performance Tests', () => {
     }
 
     // Wait for posts to load
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Count how many posts are visible
     const posts = page.locator('article');
@@ -544,6 +555,7 @@ test.describe('18 - Performance Tests', () => {
     const { durationMs: profileFeedTime } = await measureTime(async () => {
       await goToProfile(page, ownerIdentity.identityId);
       await page.waitForLoadState('networkidle');
+      // Intentional wait inside measureTime to capture profile feed load duration for performance measurement
       await page.waitForTimeout(3000);
     }, 'Profile feed load');
 
@@ -597,7 +609,7 @@ test.describe('18 - Performance Tests', () => {
 
     // Navigate to home
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     if (ownerIdentity.keys.encryptionKey) {
@@ -605,7 +617,7 @@ test.describe('18 - Performance Tests', () => {
     }
 
     // Wait for initial content
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Count initial posts
     const initialPosts = page.locator('article');
@@ -619,7 +631,7 @@ test.describe('18 - Performance Tests', () => {
         window.scrollTo(0, document.body.scrollHeight);
       });
 
-      // Wait for new content to potentially load
+      // Intentional wait inside measureTime to allow lazy loading to complete for performance measurement
       await page.waitForTimeout(2000);
 
       // Scroll back up
@@ -627,6 +639,7 @@ test.describe('18 - Performance Tests', () => {
         window.scrollTo(0, 0);
       });
 
+      // Intentional wait inside measureTime to capture full scroll operation duration
       await page.waitForTimeout(1000);
     }, 'Scroll operations');
 
@@ -693,7 +706,7 @@ test.describe('18 - Performance Tests', () => {
         pendingCard.waitFor({ state: 'visible', timeout: 15000 }).catch(() => null),
       ]);
 
-      // Wait a bit more for numbers to populate
+      // Intentional wait inside measureTime to allow stats data to populate for performance measurement
       await page.waitForTimeout(2000);
     }, 'Stats visibility');
 

@@ -73,7 +73,8 @@ export async function handleEncryptionKeyModal(
       const skipBtn = buttons.find(b => b.textContent?.toLowerCase().includes('skip'));
       if (skipBtn) skipBtn.click();
     });
-    await page.waitForTimeout(2000);
+    // Wait for modal to close after skip
+    await expect(page.getByRole('heading', { name: /Enter Encryption Key/i })).not.toBeVisible({ timeout: MODAL_TIMEOUTS.MODAL_CLOSE }).catch(() => {});
     return false;
   }
 
@@ -111,8 +112,10 @@ export async function handleEncryptionKeyModal(
     return false;
   }
 
-  // Wait briefly for React state to update
-  await page.waitForTimeout(500);
+  // Brief wait for React state to update after DOM manipulation
+  // This is necessary because we're using page.evaluate() to fill the input
+  // and React needs time to reconcile the state change
+  await page.waitForTimeout(100); // Minimal wait for React state reconciliation
 
   // Click the Save Key button via DOM evaluation
   const clicked = await page.evaluate(() => {
@@ -163,12 +166,11 @@ export async function handleEncryptionKeyModal(
   });
 
   if (clicked) {
-    // Wait for modal to close
-    await page.waitForTimeout(3000);
+    // Wait for modal to close after saving key
+    const encryptionKeyHeading = page.getByRole('heading', { name: /Enter Encryption Key/i });
+    await expect(encryptionKeyHeading).not.toBeVisible({ timeout: MODAL_TIMEOUTS.BLOCKCHAIN_SYNC }).catch(() => {});
     // Check if heading is still visible
-    const stillVisible = await page.getByRole('heading', { name: /Enter Encryption Key/i })
-      .isVisible({ timeout: 1000 })
-      .catch(() => false);
+    const stillVisible = await encryptionKeyHeading.isVisible({ timeout: 1000 }).catch(() => false);
     return !stillVisible;
   }
 
@@ -185,8 +187,8 @@ export async function handleEncryptionKeyModal(
  * @param maxAttempts - Maximum number of modals to try to dismiss (default: 10)
  */
 export async function dismissPostLoginModals(page: Page, maxAttempts: number = 10): Promise<void> {
-  // Give modals time to appear after login
-  await page.waitForTimeout(3000);
+  // Wait for page to be ready before checking for modals
+  await page.waitForLoadState('networkidle');
 
   for (let i = 0; i < maxAttempts; i++) {
     // Check for modal indicators - the modals in this app don't use role="dialog"
@@ -234,7 +236,8 @@ export async function dismissPostLoginModals(page: Page, maxAttempts: number = 1
       });
 
       if (dismissed) {
-        await page.waitForTimeout(2000);
+        // Wait for modal animation to complete
+        await expect(page.getByRole('heading', { name: 'Backup Your Key' })).not.toBeVisible({ timeout: MODAL_TIMEOUTS.MODAL_CLOSE }).catch(() => {});
         continue;
       }
     }
@@ -265,7 +268,8 @@ export async function dismissPostLoginModals(page: Page, maxAttempts: number = 1
       });
 
       if (dismissed) {
-        await page.waitForTimeout(2000);
+        // Wait for modal animation to complete
+        await expect(page.getByRole('heading', { name: 'Register Username' })).not.toBeVisible({ timeout: MODAL_TIMEOUTS.MODAL_CLOSE }).catch(() => {});
         continue;
       }
     }
@@ -305,13 +309,15 @@ export async function dismissPostLoginModals(page: Page, maxAttempts: number = 1
     });
 
     if (dismissed) {
-      await page.waitForTimeout(1500);
+      // Wait for modal backdrop to disappear
+      await expect(page.locator('.backdrop-blur-sm')).not.toBeVisible({ timeout: MODAL_TIMEOUTS.MODAL_CLOSE }).catch(() => {});
       continue;
     }
 
     // Strategy 4: Try Escape key as last resort
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(1000);
+    // Wait for escape key to take effect
+    await expect(page.locator('.backdrop-blur-sm')).not.toBeVisible({ timeout: MODAL_TIMEOUTS.ANIMATION }).catch(() => {});
   }
 }
 

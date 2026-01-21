@@ -2,6 +2,15 @@ import { test, expect } from '../fixtures/auth.fixture';
 import { goToSettings, goToProfile, goToHome, openComposeModal } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Key Catch-Up Flow
@@ -96,17 +105,17 @@ test.describe('07 - Key Catch-Up Flow', () => {
     await loginAs(ownerIdentity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Navigate to home to create a post
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Open compose modal
     await openComposeModal(page);
-    await page.waitForTimeout(2000);
+    await waitForModalContent(page);
 
     // Select "Private" visibility
     const visibilityDropdown = page.locator('button').filter({ hasText: /^public$/i }).first();
@@ -114,7 +123,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
 
     if (hasVisibilityDropdown) {
       await visibilityDropdown.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Find and click the "Private" option
       const privateItems = page.getByText('Private', { exact: false });
@@ -128,7 +137,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
           break;
         }
       }
-      await page.waitForTimeout(500);
+      await waitForDropdown(page).catch(() => {});
     }
 
     // Enter unique post content
@@ -139,14 +148,13 @@ test.describe('07 - Key Catch-Up Flow', () => {
       page.locator('[contenteditable="true"]')
     );
     await contentTextarea.first().fill(postContent);
-    await page.waitForTimeout(500);
 
     // Click Post button
     const postBtn = page.locator('[role="dialog"] button').filter({ hasText: /^post$/i });
     await postBtn.first().click({ timeout: 10000 });
 
     // Wait for post creation
-    await page.waitForTimeout(5000);
+    await waitForToast(page, /posted|created|success/i).catch(() => {});
     console.log('Created new private post for catch-up test');
 
     // Store the current epoch for later verification
@@ -183,7 +191,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal
     await handleEncryptionKeyModal(page, testFollowerIdentity);
@@ -201,7 +209,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
     // Wait for any sync to complete
     if (hasSyncIndicator || hasLoadingSpinner) {
       console.log('Key sync in progress...');
-      await page.waitForTimeout(10000);
+      await expect(loadingSpinner.first()).not.toBeVisible({ timeout: WAIT_TIMEOUTS.BLOCKCHAIN }).catch(() => {});
     }
 
     // Check if the new post is visible and decrypted
@@ -304,7 +312,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
 
     // Navigate to home page - this should trigger background sync
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle any modals
     await handleEncryptionKeyModal(page, testFollowerIdentity);
@@ -320,8 +328,8 @@ test.describe('07 - Key Catch-Up Flow', () => {
     const showsSyncStatus = await syncStatus.first().isVisible({ timeout: 3000 }).catch(() => false);
     console.log('Sync status visible:', showsSyncStatus);
 
-    // Wait a moment for background sync
-    await page.waitForTimeout(5000);
+    // Wait for background sync to complete
+    await waitForPageReady(page);
 
     // Check updated epoch
     const updatedEpoch = await page.evaluate(() => {
@@ -332,7 +340,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
     // Navigate to owner's profile to verify posts are viewable
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle modals
     await handleEncryptionKeyModal(page, testFollowerIdentity);
@@ -435,7 +443,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal
     await handleEncryptionKeyModal(page, testFollowerIdentity);
@@ -462,7 +470,7 @@ test.describe('07 - Key Catch-Up Flow', () => {
     }
 
     // Wait for posts to load
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Check final epoch state
     const finalEpoch = await page.evaluate(() => {

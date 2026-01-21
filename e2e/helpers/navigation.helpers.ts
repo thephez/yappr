@@ -18,8 +18,8 @@ export async function goToHome(page: Page): Promise<void> {
   const composeArea = page.getByRole('button', { name: /what.?s happening/i });
   await expect(composeArea).toBeVisible({ timeout: 60000 });
 
-  // Give a moment for any dynamic content to settle
-  await page.waitForTimeout(2000);
+  // Wait for network to settle after compose area is visible
+  await page.waitForLoadState('networkidle');
 }
 
 /**

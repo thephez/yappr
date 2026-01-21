@@ -1,6 +1,14 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToSettings, goToNotifications, goToProfile } from '../helpers/navigation.helpers';
-import { waitForToast } from '../helpers/wait.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 import { markAsPrivateFollower, getIdentityState } from '../test-data/test-state';
@@ -54,7 +62,7 @@ test.describe('04 - Approve Follower Flow', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the Private Feed Requests section
     const requestsCard = page.locator('text=Private Feed Requests').first();
@@ -120,7 +128,7 @@ test.describe('04 - Approve Follower Flow', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000); // Wait for async data loading
+    await waitForPrivateFeedStatus(page);
 
     // Look for the Private Feed Requests section
     const requestsCard = page.locator('text=Private Feed Requests').first();
@@ -138,7 +146,7 @@ test.describe('04 - Approve Follower Flow', () => {
       if (hasFollowersSection) {
         // Scroll to see if follower1 is in the followers list
         await followersSection.scrollIntoViewIfNeeded();
-        await page.waitForTimeout(2000);
+        await waitForToast(page, /./i).catch(() => {});
 
         // Look for the follower's identity ID (last 6 chars) or their display name
         const followerIdShort = follower1Identity.identityId.slice(-6);
@@ -165,21 +173,21 @@ test.describe('04 - Approve Follower Flow', () => {
 
     // Wait for the approval to process (blockchain operation)
     // The approval may trigger an encryption key modal if the private feed state needs syncing
-    await page.waitForTimeout(2000);
+    await waitForToast(page, /approved|error/i).catch(() => {});
 
     // Check for and handle encryption key modal
     const encryptionKeyHandled = await handleEncryptionKeyModal(page, ownerIdentity);
     if (encryptionKeyHandled) {
       console.log('Handled encryption key modal during approval');
       // After entering key, need to click approve again - the modal may have interrupted the flow
-      await page.waitForTimeout(3000);
+      await waitForPrivateFeedStatus(page);
 
       // Check if we need to re-approve (request still visible)
       const approveAgain = page.locator('button').filter({ hasText: /approve/i });
       const needsReapprove = await approveAgain.first().isVisible({ timeout: 5000 }).catch(() => false);
       if (needsReapprove) {
         await approveAgain.first().click();
-        await page.waitForTimeout(2000);
+        await waitForToast(page, /approved|error/i).catch(() => {});
       }
     }
 
@@ -192,7 +200,7 @@ test.describe('04 - Approve Follower Flow', () => {
     }
 
     // Wait for success indicators
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Check for success toast
     const toast = page.locator('[role="alert"]');
@@ -211,7 +219,7 @@ test.describe('04 - Approve Follower Flow', () => {
     }
 
     // Verify the request is no longer in the pending list (or list is now empty)
-    await page.waitForTimeout(2000);
+    await waitForToast(page, /./i).catch(() => {});
 
     // Take screenshot of post-approval state
     await page.screenshot({ path: 'screenshots/04-4.2-after-approval.png' });
@@ -243,7 +251,7 @@ test.describe('04 - Approve Follower Flow', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the Ignore button
     const ignoreBtn = page.locator('button').filter({ hasText: /ignore/i });
@@ -266,7 +274,7 @@ test.describe('04 - Approve Follower Flow', () => {
     await ignoreBtn.first().click();
 
     // Wait for UI update
-    await page.waitForTimeout(2000);
+    await waitForToast(page, /ignored|removed/i).catch(() => {});
 
     // Check for success toast (may say "ignored" or similar)
     const toast = page.locator('[role="alert"]');
@@ -312,7 +320,7 @@ test.describe('04 - Approve Follower Flow', () => {
     // Navigate to notifications
     await goToNotifications(page);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Look for private feed request notifications
     const privateFeedTab = page.locator('button').filter({ hasText: /private feed/i });
@@ -321,7 +329,7 @@ test.describe('04 - Approve Follower Flow', () => {
     if (tabVisible) {
       // Click the Private Feed filter tab
       await privateFeedTab.click();
-      await page.waitForTimeout(2000);
+      await waitForToast(page, /./i).catch(() => {});
     }
 
     // Look for "requested access" notification text
@@ -354,7 +362,7 @@ test.describe('04 - Approve Follower Flow', () => {
       // Click the link to go to settings
       await viewRequestsLink.first().click();
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
+      await waitForPrivateFeedStatus(page);
 
       // Verify we're on the private feed settings page
       const privateFeedSettings = page.getByText(/private feed requests/i).or(
@@ -376,7 +384,7 @@ test.describe('04 - Approve Follower Flow', () => {
     } else {
       // The notification doesn't have a direct link - click on it to see what happens
       await requestNotification.first().click();
-      await page.waitForTimeout(2000);
+      await waitForToast(page, /./i).catch(() => {});
       await page.screenshot({ path: 'screenshots/04-4.4-notification-clicked.png' });
     }
   });
@@ -410,7 +418,7 @@ test.describe('04 - Approve Follower Flow', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Check for various possible states
     const pendingBtn = page.locator('button').filter({ hasText: /pending/i });
@@ -483,7 +491,7 @@ test.describe('04 - Approve Follower Flow', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the dashboard card "Your Private Feed"
     const dashboardCard = page.getByText('Your Private Feed').first();

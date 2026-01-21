@@ -2,6 +2,13 @@ import { test, expect } from '../fixtures/auth.fixture';
 import { goToProfile, goToHome, goToPost } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
+import {
+  waitForPageReady,
+  waitForDropdown,
+  waitForModalContent,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 // Alias for backwards compatibility with existing test code
 const handleEncryptionKeyModalIfPresent = handleEncryptionKeyModal;
@@ -60,7 +67,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Navigate to home to find a public post to reply to
     await goToHome(page);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if it appears
     await handleEncryptionKeyModalIfPresent(page, ownerIdentity);
@@ -80,7 +87,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Click on the first post to go to its detail page
     await postCards.first().click();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Take screenshot of post detail
     await page.screenshot({ path: 'screenshots/10-10.1-post-detail.png' });
@@ -119,7 +126,7 @@ test.describe('10 - Private Replies and Quotes', () => {
       await chatBubbleBtn.first().click();
     }
 
-    await page.waitForTimeout(2000);
+    await waitForModalContent(page);
 
     // Check if compose modal opened
     const composeModal = page.locator('[role="dialog"]');
@@ -132,13 +139,13 @@ test.describe('10 - Private Replies and Quotes', () => {
 
       // Try opening compose from the home page
       await goToHome(page);
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
 
       // Look for floating compose button or main compose area
       const floatingComposeBtn = page.locator('button').filter({ hasText: /post|compose/i });
       if (await floatingComposeBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await floatingComposeBtn.first().click();
-        await page.waitForTimeout(2000);
+        await waitForModalContent(page);
       }
     }
 
@@ -149,7 +156,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     if (hasVisibilityDropdown) {
       console.log('Visibility dropdown found - attempting to select Private');
       await visibilityDropdown.first().click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Look for Private option in the dropdown
       const privateOption = page.getByText(/private/i).filter({
@@ -175,7 +182,8 @@ test.describe('10 - Private Replies and Quotes', () => {
         }
       }
 
-      await page.waitForTimeout(500);
+      // Wait for dropdown to close after selection
+      await expect(page.locator('[role="listbox"], [role="menu"]')).not.toBeVisible({ timeout: WAIT_TIMEOUTS.SHORT });
     } else {
       console.log('No visibility dropdown found - may be replying to private post with inherited encryption');
     }
@@ -255,7 +263,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Navigate to owner's profile to find private posts
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if it appears
     const identity = isRevoked ? ownerIdentity : follower1Identity;
@@ -282,7 +290,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Click on the first post to view details
     await articles.first().click();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Check if this is a private post (look for lock indicator)
     const isPrivatePost = await page.locator('svg path[d*="M12 2C8"]').first().isVisible({ timeout: 3000 }).catch(() => false) ||
@@ -321,7 +329,7 @@ test.describe('10 - Private Replies and Quotes', () => {
 
     if (hasReplyBtn) {
       await chatBubbleBtn.click();
-      await page.waitForTimeout(2000);
+      await waitForModalContent(page);
 
       // Check for inherited encryption banner in compose modal
       const inheritedBanner = page.getByText(/inherit.*encryption|parent.*encryption/i);
@@ -357,7 +365,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Find posts
     const articles = page.locator('article');
@@ -372,7 +380,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Click on first post
     await articles.first().click();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Take screenshot
     await page.screenshot({ path: 'screenshots/10-10.3-non-follower-view.png' });
@@ -387,7 +395,8 @@ test.describe('10 - Private Replies and Quotes', () => {
 
     // Hover to see tooltip
     await replyBtn.hover().catch(() => {});
-    await page.waitForTimeout(500);
+    // Brief wait for tooltip animation
+    await expect(page.locator('[role="tooltip"]')).toBeVisible({ timeout: WAIT_TIMEOUTS.SHORT }).catch(() => {});
 
     // Check for disabled state or tooltip
     const disabledAttr = await replyBtn.getAttribute('disabled').catch(() => null);
@@ -410,7 +419,6 @@ test.describe('10 - Private Replies and Quotes', () => {
 
     // Try clicking reply to verify it's blocked
     await replyBtn.click().catch(() => {});
-    await page.waitForTimeout(1000);
 
     // Check if compose modal opened (it shouldn't for locked content)
     const modal = page.locator('[role="dialog"]');
@@ -452,7 +460,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Navigate to own profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal
     await handleEncryptionKeyModalIfPresent(page, ownerIdentity);
@@ -478,7 +486,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     const firstArticle = articles.first();
     await firstArticle.click();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Now look for the repost dropdown on the post detail page
     const repostDropdown = page.locator('button').filter({
@@ -505,7 +513,7 @@ test.describe('10 - Private Replies and Quotes', () => {
       // Look for repost count or icon
       if (btnText?.includes('Quote') || btnText?.match(/^\d*$/)) {
         await trigger.click().catch(() => {});
-        await page.waitForTimeout(500);
+        await waitForDropdown(page).catch(() => {});
 
         // Check if dropdown opened with Quote option
         const quoteOption = page.locator('[role="menuitem"]').filter({ hasText: /quote/i });
@@ -514,7 +522,7 @@ test.describe('10 - Private Replies and Quotes', () => {
         if (hasQuote) {
           console.log('Found Quote option in menu');
           await quoteOption.click();
-          await page.waitForTimeout(2000);
+          await waitForModalContent(page);
 
           // Check if compose modal opened with quote preview
           const modal = page.locator('[role="dialog"]');
@@ -566,7 +574,7 @@ test.describe('10 - Private Replies and Quotes', () => {
 
     await goToHome(page);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal
     await handleEncryptionKeyModalIfPresent(page, ownerIdentity);
@@ -619,7 +627,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Navigate to own profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal
     await handleEncryptionKeyModalIfPresent(page, ownerIdentity);
@@ -636,7 +644,7 @@ test.describe('10 - Private Replies and Quotes', () => {
     // Click first post to go to detail
     await articles.first().click();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Check if this is a private post
     const lockIcon = page.locator('svg path[d*="LockClosed"]').or(
@@ -660,7 +668,7 @@ test.describe('10 - Private Replies and Quotes', () => {
       if (html.includes('M8.625') || html.includes('ChatBubble')) {
         await btn.click();
         foundReply = true;
-        await page.waitForTimeout(2000);
+        await waitForModalContent(page);
         break;
       }
     }
@@ -706,7 +714,7 @@ test.describe('10 - Private Replies and Quotes', () => {
       // Try selecting Public if we're on a private post
       if (isPrivate) {
         await visibilitySelector.click();
-        await page.waitForTimeout(500);
+        await waitForDropdown(page);
 
         // Look for Public option
         const publicOption = page.getByText(/public/i).filter({
@@ -714,7 +722,8 @@ test.describe('10 - Private Replies and Quotes', () => {
         }).first();
 
         await publicOption.click().catch(() => {});
-        await page.waitForTimeout(500);
+        // Wait for dropdown to close after selection
+        await expect(page.locator('[role="listbox"], [role="menu"]')).not.toBeVisible({ timeout: WAIT_TIMEOUTS.SHORT }).catch(() => {});
 
         // Check for warning about public reply to private content
         const warning = page.getByText(/visible to all|public reply|warning/i);

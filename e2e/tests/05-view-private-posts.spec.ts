@@ -1,6 +1,12 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToProfile, goToHome } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
+import {
+  waitForPageReady,
+  waitForModalContent,
+  waitForDecryption,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: View Private Posts
@@ -54,7 +60,7 @@ test.describe('05 - View Private Posts', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000); // Wait for posts to load
+    await waitForPageReady(page);
 
     // Look for private post indicators
     // Private posts show lock icons and encrypted content placeholders
@@ -141,7 +147,7 @@ test.describe('05 - View Private Posts', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Look for teaser content - teasers from previous tests contain timestamps and specific text
     // Teaser posts show the teaser text visibly while having a locked portion
@@ -194,7 +200,7 @@ test.describe('05 - View Private Posts', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check for pending state
     const pendingBtn = page.locator('button').filter({ hasText: /pending/i });
@@ -261,7 +267,7 @@ test.describe('05 - View Private Posts', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Handle encryption key modal if it appears
     const encryptionModal = page.locator('[role="dialog"]').filter({
@@ -278,11 +284,11 @@ test.describe('05 - View Private Posts', () => {
 
       const saveBtn = encryptionModal.locator('button').filter({ hasText: /save|confirm|enter/i });
       await saveBtn.first().click();
-      await page.waitForTimeout(3000);
+      await waitForModalContent(page);
     }
 
     // Wait for decryption to complete
-    await page.waitForTimeout(5000);
+    await waitForDecryption(page);
 
     // Check for different indicators that the user has private access
     // Note: "Private Feed" badge on profile shows to everyone (indicates owner has private feed)
@@ -380,7 +386,7 @@ test.describe('05 - View Private Posts', () => {
     // Navigate to own profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Handle encryption key modal if it appears
     const encryptionModal = page.locator('[role="dialog"]').filter({
@@ -397,11 +403,11 @@ test.describe('05 - View Private Posts', () => {
 
       const saveBtn = encryptionModal.locator('button').filter({ hasText: /save|confirm|enter/i });
       await saveBtn.first().click();
-      await page.waitForTimeout(3000);
+      await waitForModalContent(page);
     }
 
     // Wait for content to load and decrypt
-    await page.waitForTimeout(5000);
+    await waitForDecryption(page);
 
     // Owner should see their posts fully decrypted
     // Look for post content (not locked indicators)
@@ -492,7 +498,7 @@ test.describe('05 - View Private Posts', () => {
 
     // Wait for decryption to complete
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForDecryption(page);
 
     // After loading, content should be visible
     const contentLoaded = page.locator('article').or(
@@ -537,7 +543,7 @@ test.describe('05 - View Private Posts', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for initial load
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Clear localStorage to simulate corrupted/missing keys
     await page.evaluate(() => {
@@ -555,7 +561,7 @@ test.describe('05 - View Private Posts', () => {
     // Reload to trigger decryption with missing keys
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check for encryption key modal (common recovery path)
     const encryptionModal = page.locator('[role="dialog"]').filter({
@@ -597,7 +603,7 @@ test.describe('05 - View Private Posts', () => {
 
         const saveBtn = encryptionModal.locator('button').filter({ hasText: /save|confirm|enter/i });
         await saveBtn.first().click();
-        await page.waitForTimeout(3000);
+        await waitForDecryption(page);
 
         // Verify content now decrypts
         await page.screenshot({ path: 'screenshots/05-5.7-after-key-recovery.png' });

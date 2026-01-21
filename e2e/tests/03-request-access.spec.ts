@@ -1,6 +1,11 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToProfile, goToHome } from '../helpers/navigation.helpers';
-import { waitForToast } from '../helpers/wait.helpers';
+import {
+  waitForToast,
+  waitForPageReady,
+  waitForModalContent,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 import { loadIdentity } from '../test-data/identities';
 
 /**
@@ -56,7 +61,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Wait for profile to load
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Check current state - may already have requested or be approved from previous run
     const pendingBtn = page.locator('button').filter({ hasText: /pending/i });
@@ -96,12 +101,12 @@ test.describe('03 - Request Access Flow', () => {
       if (isFollowVisible) {
         // Need to follow first
         await followBtn.click();
-        await page.waitForTimeout(3000);
+        await waitForPageReady(page);
 
         // Now check for request access button
         await page.reload();
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(3000);
+        await waitForPageReady(page);
       }
     }
 
@@ -128,7 +133,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Wait for the request to be processed
     // May show a toast or change button state
-    await page.waitForTimeout(5000);
+    await waitForToast(page, /request|pending|success|error/i).catch(() => {});
 
     // Verify the button changed to pending state
     const pendingState = page.locator('button').filter({ hasText: /pending/i })
@@ -174,7 +179,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Wait for profile to load
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Check if this user is already following (from previous test runs)
     const unfollowBtn = page.locator('button').filter({ hasText: /unfollow|following/i });
@@ -191,10 +196,10 @@ test.describe('03 - Request Access Flow', () => {
         await confirmBtn.click();
       }
 
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
       await page.reload();
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
     }
 
     // Now verify the expected state: Follow button visible, Request Access NOT visible
@@ -250,7 +255,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Wait for profile to load
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Look for pending state
     const pendingBtn = page.locator('button').filter({ hasText: /pending/i });
@@ -272,12 +277,12 @@ test.describe('03 - Request Access Flow', () => {
       if (canRequest) {
         // Need to create a request first
         await requestBtn.click();
-        await page.waitForTimeout(5000);
+        await waitForToast(page, /request|pending|success|error/i).catch(() => {});
 
         // Reload to see pending state
         await page.reload();
         await page.waitForLoadState('networkidle');
-        await page.waitForTimeout(3000);
+        await waitForPageReady(page);
       }
     }
 
@@ -293,7 +298,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Click the pending button to see cancel option
     await pendingButton.click();
-    await page.waitForTimeout(1000);
+    await waitForModalContent(page).catch(() => {});
 
     // Look for cancel option - could be in dropdown, dialog, or same button changes
     const cancelOption = page.locator('button').filter({ hasText: /cancel|withdraw|remove/i })
@@ -312,12 +317,12 @@ test.describe('03 - Request Access Flow', () => {
       }
 
       // Wait for cancellation to process
-      await page.waitForTimeout(5000);
+      await waitForToast(page, /request|pending|success|error/i).catch(() => {});
 
       // Verify button returned to "Request Access" state
       await page.reload();
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
 
       const requestAccessBtn = page.locator('button').filter({ hasText: /request access/i });
       const backToRequestable = await requestAccessBtn.isVisible({ timeout: 10000 }).catch(() => false);
@@ -368,7 +373,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Wait for profile to load
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // First, ensure we're following (need to follow to see request access)
     const followBtn = page.locator('button').filter({ hasText: /^follow$/i });
@@ -380,10 +385,10 @@ test.describe('03 - Request Access Flow', () => {
     if (isNotFollowing) {
       // Need to follow first
       await followBtn.click();
-      await page.waitForTimeout(5000);
+      await waitForToast(page, /request|pending|success|error/i).catch(() => {});
       await page.reload();
       await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
     }
 
     // Now look for Request Access button
@@ -411,7 +416,7 @@ test.describe('03 - Request Access Flow', () => {
 
     // Try to click Request Access
     await requestAccessBtn.click();
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
 
     // Expected: A modal or message should appear about needing encryption key
     const encryptionKeyPrompt = page.getByText(/encryption key|add.*key|key required/i);

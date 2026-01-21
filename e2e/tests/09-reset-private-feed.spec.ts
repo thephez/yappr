@@ -2,6 +2,12 @@ import { test, expect } from '../fixtures/auth.fixture';
 import { goToSettings, goToProfile, goToHome, openComposeModal } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { markPrivateFeedReset, markAccessRevokedByReset } from '../test-data/test-state';
+import {
+  waitForPrivateFeedStatus,
+  waitForPageReady,
+  waitForModalContent,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Reset Private Feed
@@ -72,7 +78,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000); // Wait for async loading
+    await waitForPrivateFeedStatus(page);
 
     // Take screenshot of the state
     await page.screenshot({ path: 'screenshots/09-9.5-reset-not-available.png' });
@@ -156,7 +162,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Verify "Private feed is enabled" state
     const enabledText = page.getByText('Private feed is enabled').first();
@@ -179,7 +185,7 @@ test.describe('09 - Reset Private Feed', () => {
     await resetBtn.first().click();
 
     // Wait for the reset dialog to appear
-    await page.waitForTimeout(1000);
+    await waitForModalContent(page);
     const dialog = page.locator('[role="dialog"]');
     await expect(dialog).toBeVisible({ timeout: 10000 });
 
@@ -228,8 +234,8 @@ test.describe('09 - Reset Private Feed', () => {
     // The Reset Private Feed button in the dialog should now be enabled
     const confirmResetBtn = dialog.locator('button').filter({ hasText: /^reset private feed$/i }).last();
 
-    // Wait a moment for validation
-    await page.waitForTimeout(1000);
+    // Wait for the confirm button to be enabled after form validation
+    await expect(confirmResetBtn).toBeEnabled({ timeout: WAIT_TIMEOUTS.UI });
 
     // Take screenshot before confirming
     await page.screenshot({ path: 'screenshots/09-9.1-before-reset-confirm.png' });
@@ -238,9 +244,6 @@ test.describe('09 - Reset Private Feed', () => {
     await confirmResetBtn.click();
 
     // Wait for the reset operation to complete (blockchain operation)
-    // This may take a while
-    await page.waitForTimeout(5000);
-
     // Check for loading spinner
     const spinner = dialog.locator('svg.animate-spin');
     const hasSpinner = await spinner.isVisible({ timeout: 3000 }).catch(() => false);
@@ -262,7 +265,7 @@ test.describe('09 - Reset Private Feed', () => {
     await expect(dialog).not.toBeVisible({ timeout: 30000 });
 
     // Take screenshot after reset
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
     await page.screenshot({ path: 'screenshots/09-9.1-after-reset.png' });
 
     // Verify the dashboard shows reset state
@@ -313,7 +316,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Navigate to profile to see posts
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Look for private posts
     const posts = page.locator('article');
@@ -387,7 +390,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check initial view (with cached keys)
     const initialPosts = page.locator('article');
@@ -428,7 +431,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Reload the page
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check view after cache clear
     const afterCacheDecrypted = page.locator('article p');
@@ -483,7 +486,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check the access state buttons
     const requestAccessBtn = page.locator('button').filter({ hasText: /request access/i });
@@ -559,7 +562,7 @@ test.describe('09 - Reset Private Feed', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Find the Reset button
     const resetBtn = page.locator('button:has-text("Reset Private Feed")');
@@ -574,7 +577,7 @@ test.describe('09 - Reset Private Feed', () => {
 
     // Click to open the dialog
     await resetBtn.first().click();
-    await page.waitForTimeout(1000);
+    await waitForModalContent(page);
 
     // Verify dialog appears
     const dialog = page.locator('[role="dialog"]');

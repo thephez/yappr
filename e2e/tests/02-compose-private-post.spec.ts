@@ -1,6 +1,14 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToHome, openComposeModal, closeModal } from '../helpers/navigation.helpers';
-import { waitForToast } from '../helpers/wait.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 
 /**
@@ -62,7 +70,7 @@ async function waitForPostCompletion(page: import('@playwright/test').Page): Pro
           toastText.toLowerCase().includes('created') ||
           toastText.toLowerCase().includes('success')) {
         // Wait a moment for modal to close
-        await page.waitForTimeout(2000);
+        await waitForToast(page, /post|created|success/i).catch(() => {});
         const stillVisible = await composeModal.isVisible().catch(() => false);
         if (!stillVisible) {
           return 'success';
@@ -70,7 +78,7 @@ async function waitForPostCompletion(page: import('@playwright/test').Page): Pro
       }
     }
 
-    await page.waitForTimeout(1000);
+    await waitForToast(page, /./i).catch(() => {});
   }
 
   // If we get here, close the modal and return timeout
@@ -118,7 +126,7 @@ test.describe('02 - Compose Private Post', () => {
 
     // Wait for private feed status to load (visibility selector appears after loading)
     // The selector shows "Loading..." initially, then the visibility button
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the visibility selector button - it should show "Public" by default
     const visibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });
@@ -131,7 +139,7 @@ test.describe('02 - Compose Private Post', () => {
       await visibilityButton.click();
 
       // Wait for dropdown to appear
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Verify all three options are available
       await expect(page.getByText('Public', { exact: false }).first()).toBeVisible();
@@ -191,7 +199,7 @@ test.describe('02 - Compose Private Post', () => {
     await expect(modal).toBeVisible({ timeout: 10000 });
 
     // Wait for private feed status to load
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for visibility selector
     const visibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });
@@ -200,14 +208,14 @@ test.describe('02 - Compose Private Post', () => {
     if (hasVisibilitySelector) {
       // Click to expand dropdown
       await visibilityButton.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Select "Private" option (not "Private with Teaser")
       const privateOption = page.locator('button').filter({ hasText: 'Only private followers' });
       await privateOption.click();
 
       // Wait for UI to update
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Verify private post banner appears
       await expect(page.getByText('This post will be encrypted and only visible to your private followers')).toBeVisible({ timeout: 5000 });
@@ -274,7 +282,7 @@ test.describe('02 - Compose Private Post', () => {
     await expect(modal).toBeVisible({ timeout: 10000 });
 
     // Wait for private feed status to load
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for visibility selector
     const visibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });
@@ -283,14 +291,14 @@ test.describe('02 - Compose Private Post', () => {
     if (hasVisibilitySelector) {
       // Click to expand dropdown
       await visibilityButton.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Select "Private with Teaser" option
       const privateTeaserOption = page.locator('button').filter({ hasText: 'Teaser public, full content private' });
       await privateTeaserOption.click();
 
       // Wait for UI to update
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Verify the banner shows teaser-specific message
       await expect(page.getByText('The main content will be encrypted. Teaser will be visible to everyone.')).toBeVisible({ timeout: 5000 });
@@ -363,7 +371,7 @@ test.describe('02 - Compose Private Post', () => {
     await expect(modal).toBeVisible({ timeout: 10000 });
 
     // Wait for private feed status to load
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for visibility selector
     const visibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });
@@ -376,12 +384,12 @@ test.describe('02 - Compose Private Post', () => {
 
     // Click to expand dropdown
     await visibilityButton.click();
-    await page.waitForTimeout(500);
+    await waitForDropdown(page);
 
     // Select "Private" option
     const privateOption = page.locator('button').filter({ hasText: 'Only private followers' });
     await privateOption.click();
-    await page.waitForTimeout(500);
+    await waitForDropdown(page);
 
     // Check for "no followers" warning - this appears in the dropdown footer or banner
     // The warning text varies based on follower count
@@ -430,7 +438,7 @@ test.describe('02 - Compose Private Post', () => {
     await expect(modal).toBeVisible({ timeout: 10000 });
 
     // Wait for private feed status to load
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for visibility selector
     const visibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });
@@ -443,10 +451,10 @@ test.describe('02 - Compose Private Post', () => {
 
     // Click to expand dropdown and select "Private with Teaser"
     await visibilityButton.click();
-    await page.waitForTimeout(500);
+    await waitForDropdown(page);
     const privateTeaserOption = page.locator('button').filter({ hasText: 'Teaser public, full content private' });
     await privateTeaserOption.click();
-    await page.waitForTimeout(500);
+    await waitForDropdown(page);
 
     // Generate content exceeding teaser limit (280 chars)
     const longTeaser = 'A'.repeat(TEASER_LIMIT + 50);
@@ -522,7 +530,7 @@ test.describe('02 - Compose Private Post', () => {
     await expect(modal).toBeVisible({ timeout: 10000 });
 
     // Wait for private feed status to load
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for visibility selector
     const visibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });
@@ -535,10 +543,10 @@ test.describe('02 - Compose Private Post', () => {
 
     // Change visibility to Private
     await visibilityButton.click();
-    await page.waitForTimeout(500);
+    await waitForDropdown(page);
     const privateOption = page.locator('button').filter({ hasText: 'Only private followers' });
     await privateOption.click();
-    await page.waitForTimeout(500);
+    await waitForDropdown(page);
 
     // Verify visibility changed to Private
     const privateVisibilityButton = modal.locator('button').filter({ hasText: /^Private$/ }).first();
@@ -547,15 +555,15 @@ test.describe('02 - Compose Private Post', () => {
     // Close modal without posting
     await closeModal(page);
 
-    // Wait a moment
-    await page.waitForTimeout(1000);
+    // Wait for modal to close
+    await waitForModalContent(page).catch(() => {});
 
     // Open compose modal again
     await openComposeModal(page);
 
     // Wait for modal and private feed loading
     await expect(modal).toBeVisible({ timeout: 10000 });
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Verify visibility defaults back to "Public"
     const publicVisibilityButton = modal.locator('button').filter({ hasText: /^Public$/ });

@@ -1,6 +1,13 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToProfile } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForToast,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Profile Indicators
@@ -48,7 +55,7 @@ test.describe('12 - Profile Indicators', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000); // Wait for private feed status to load
+    await waitForPageReady(page); // Wait for private feed status to load
 
     // Look for the Private Feed badge
     // The badge shows "Private Feed" with a lock icon, visible to all users
@@ -124,7 +131,7 @@ test.describe('12 - Profile Indicators', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Look for the Private Follower indicator
     // The indicator shows "Private Follower" with a checkmark when user has access
@@ -217,7 +224,7 @@ test.describe('12 - Profile Indicators', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Look for post count in the profile header
     // Format: "X posts" in the header
@@ -286,7 +293,7 @@ test.describe('12 - Profile Indicators', () => {
     // Navigate to own profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Handle encryption key modal if it appears
     const encryptionModal = page.locator('[role="dialog"]').filter({
@@ -301,7 +308,7 @@ test.describe('12 - Profile Indicators', () => {
 
       const saveBtn = encryptionModal.locator('button').filter({ hasText: /save|confirm|enter/i });
       await saveBtn.first().click();
-      await page.waitForTimeout(3000);
+      await waitForToast(page, /saved|success/i).catch(() => {});
     }
 
     // Look for the Private Feed badge on own profile
@@ -352,7 +359,7 @@ test.describe('12 - Profile Indicators', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check for the various button states on the profile
     // Reference: private-feed-access-button.tsx

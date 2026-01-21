@@ -3,6 +3,15 @@ import { goToSettings, goToProfile, goToHome, openComposeModal } from '../helper
 import { loadIdentity, TestIdentity } from '../test-data/identities';
 import { login } from '../helpers/auth.helpers';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Extended test fixture for multi-device testing
@@ -176,7 +185,7 @@ test.describe('15 - Multi-Device Sync', () => {
 
     // Navigate to private feed settings to ensure state is synced
     await goToSettings(deviceAPage, 'privateFeed');
-    await deviceAPage.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(deviceAPage);
     await handleEncryptionKeyModal(deviceAPage, ownerIdentity);
 
     // Get Device A's current epoch
@@ -213,7 +222,7 @@ test.describe('15 - Multi-Device Sync', () => {
 
     // Navigate to home on Device B
     await goToHome(deviceBPage);
-    await deviceBPage.waitForTimeout(3000);
+    await waitForFeedReady(deviceBPage);
     await handleEncryptionKeyModal(deviceBPage, ownerIdentity);
 
     // --- Device B: Attempt a write operation ---
@@ -221,7 +230,7 @@ test.describe('15 - Multi-Device Sync', () => {
 
     // Open compose modal
     await openComposeModal(deviceBPage);
-    await deviceBPage.waitForTimeout(2000);
+    await waitForModalContent(deviceBPage);
 
     // Look for sync indicators that may appear before write
     const syncIndicator = deviceBPage.getByText(/syncing|updating|catching up|recovering/i);
@@ -234,7 +243,7 @@ test.describe('15 - Multi-Device Sync', () => {
 
     if (hasVisibilityDropdown) {
       await visibilityDropdown.click();
-      await deviceBPage.waitForTimeout(500);
+      await waitForDropdown(deviceBPage);
 
       // Find and click the "Private" option
       const privateItems = deviceBPage.getByText('Private', { exact: false });
@@ -248,7 +257,7 @@ test.describe('15 - Multi-Device Sync', () => {
           break;
         }
       }
-      await deviceBPage.waitForTimeout(500);
+      await waitForDropdown(deviceBPage).catch(() => {});
     }
 
     // Enter post content
@@ -259,7 +268,7 @@ test.describe('15 - Multi-Device Sync', () => {
       deviceBPage.locator('[contenteditable="true"]')
     );
     await contentTextarea.first().fill(postContent);
-    await deviceBPage.waitForTimeout(500);
+    await waitForModalContent(deviceBPage).catch(() => {});
 
     // Click Post button
     const postBtn = deviceBPage.locator('[role="dialog"] button').filter({ hasText: /^post$/i });
@@ -277,7 +286,7 @@ test.describe('15 - Multi-Device Sync', () => {
     console.log('Sync indicator during post:', syncDuringPost);
 
     // Wait for operation to complete
-    await deviceBPage.waitForTimeout(10000);
+    await waitForToast(deviceBPage, /posted|created|success/i).catch(() => {});
 
     // Check for success indicators
     const toast = deviceBPage.locator('[role="alert"]');
@@ -298,7 +307,7 @@ test.describe('15 - Multi-Device Sync', () => {
     // Refresh Device A and check if it sees the new post
     await deviceAPage.goto('/feed');
     await deviceAPage.waitForLoadState('networkidle');
-    await deviceAPage.waitForTimeout(5000);
+    await waitForFeedReady(deviceAPage);
     await handleEncryptionKeyModal(deviceAPage, ownerIdentity);
 
     // Look for the new post on Device A
@@ -392,7 +401,7 @@ test.describe('15 - Multi-Device Sync', () => {
 
     // Navigate to private feed settings (this should trigger recovery)
     await goToSettings(deviceBPage, 'privateFeed');
-    await deviceBPage.waitForTimeout(2000);
+    await waitForPrivateFeedStatus(deviceBPage).catch(() => {});
 
     // Look for sync/recovery indicators
     const syncIndicators = [
@@ -426,7 +435,7 @@ test.describe('15 - Multi-Device Sync', () => {
 
     // Wait for any sync to complete
     console.log('Waiting for sync to complete...');
-    await deviceBPage.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(deviceBPage).catch(() => {});
 
     // Check if write operations are available after sync
     const dashboardReady = await deviceBPage.getByText(/private feed|your private feed/i)
@@ -503,8 +512,8 @@ test.describe('15 - Multi-Device Sync', () => {
     await goToSettings(deviceAPage, 'privateFeed');
     await goToSettings(deviceBPage, 'privateFeed');
 
-    await deviceAPage.waitForTimeout(3000);
-    await deviceBPage.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(deviceAPage);
+    await waitForPrivateFeedStatus(deviceBPage);
 
     // Handle encryption key modals if they appear
     await handleEncryptionKeyModal(deviceAPage, ownerIdentity);

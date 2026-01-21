@@ -2,6 +2,14 @@ import { test, expect } from '../fixtures/auth.fixture';
 import { goToPrivateFeedSettings, goToProfile, goToHome } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Error Scenarios
@@ -90,7 +98,7 @@ test.describe('17 - Error Scenarios', () => {
     }
 
     // Wait for dashboard to load
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the capacity display (format: "X / 1024")
     const capacityDisplay = page.getByText(/\d+\s*\/\s*1,?024/);
@@ -159,7 +167,7 @@ test.describe('17 - Error Scenarios', () => {
     }
 
     // Wait for dashboard to load
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for epoch usage section
     const epochLabel = page.getByText('Epoch Usage');
@@ -243,7 +251,7 @@ test.describe('17 - Error Scenarios', () => {
     }
 
     // Wait for page to load
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the Private Feed Requests section
     const requestsSection = page.getByText('Private Feed Requests');
@@ -303,7 +311,7 @@ test.describe('17 - Error Scenarios', () => {
     // Navigate to owner's profile first to establish baseline
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Take baseline screenshot
     await page.screenshot({ path: 'screenshots/17-17.4-baseline.png' });
@@ -316,7 +324,7 @@ test.describe('17 - Error Scenarios', () => {
     // Reload page to trigger re-decryption attempt
     await page.reload();
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Take screenshot after cache clear
     await page.screenshot({ path: 'screenshots/17-17.4-after-clear.png' });
@@ -354,7 +362,7 @@ test.describe('17 - Error Scenarios', () => {
 
         // Wait for modal to close and recovery to complete
         await expect(encryptionModal).not.toBeVisible({ timeout: 30000 });
-        await page.waitForTimeout(3000);
+        await waitForPageReady(page);
 
         // Take screenshot after recovery
         await page.screenshot({ path: 'screenshots/17-17.4-after-recovery.png' });
@@ -366,7 +374,7 @@ test.describe('17 - Error Scenarios', () => {
 
       // Click retry and verify behavior
       await retryButton.click();
-      await page.waitForTimeout(3000);
+      await waitForToast(page, /retrying|success|failed/i).catch(() => {});
 
       // Take screenshot after retry
       await page.screenshot({ path: 'screenshots/17-17.4-after-retry.png' });
@@ -398,7 +406,7 @@ test.describe('17 - Error Scenarios', () => {
 
     // Navigate to home to trigger any pending notifications
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Check if any toast notifications are visible
     const toasts = page.locator('[role="alert"]');
@@ -414,7 +422,7 @@ test.describe('17 - Error Scenarios', () => {
       const closeButton = toasts.first().locator('button');
       if (await closeButton.isVisible({ timeout: 2000 }).catch(() => false)) {
         await closeButton.click();
-        await page.waitForTimeout(1000);
+        await waitForModalContent(page).catch(() => {});
         console.log('Toast notification dismissed successfully');
       }
     } else {
@@ -430,7 +438,7 @@ test.describe('17 - Error Scenarios', () => {
       await handleEncryptionKeyModal(page, ownerIdentity.keys.encryptionKey);
     }
 
-    await page.waitForTimeout(3000);
+    await waitForPrivateFeedStatus(page);
 
     // Take final screenshot
     await page.screenshot({ path: 'screenshots/17-bonus-final.png' });
@@ -464,7 +472,7 @@ test.describe('17 - Error Scenarios', () => {
       await handleEncryptionKeyModal(page, ownerIdentity.keys.encryptionKey);
     }
 
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Take baseline screenshot
     await page.screenshot({ path: 'screenshots/17-bonus-before-refresh.png' });
@@ -478,7 +486,7 @@ test.describe('17 - Error Scenarios', () => {
       await handleEncryptionKeyModal(page, ownerIdentity.keys.encryptionKey);
     }
 
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Take screenshot after refresh
     await page.screenshot({ path: 'screenshots/17-bonus-after-refresh.png' });

@@ -1,6 +1,14 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToPrivateFeedSettings } from '../helpers/navigation.helpers';
-import { waitForToast } from '../helpers/wait.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { markPrivateFeedEnabled, isPrivateFeedEnabled } from '../test-data/test-state';
 
@@ -108,8 +116,8 @@ test.describe('01 - Enable Private Feed', () => {
     // Wait for the page to load completely
     await page.waitForLoadState('networkidle');
 
-    // Wait a bit longer for the async identity key check to complete
-    await page.waitForTimeout(3000);
+    // Wait for the async identity key check to complete
+    await waitForPrivateFeedStatus(page);
 
     // The UI should either:
     // 1. Show "Add Encryption Key to Identity" button (if no key on identity)

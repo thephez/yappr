@@ -2,6 +2,13 @@ import { test, expect } from '../fixtures/auth.fixture';
 import { goToPrivateFeedSettings } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForToast,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Private Feed Dashboard
@@ -65,7 +72,7 @@ test.describe('13 - Dashboard', () => {
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Wait for dashboard to load (it loads async)
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for the dashboard card
     const dashboardCard = page.locator('text=Your Private Feed').first();
@@ -88,7 +95,7 @@ test.describe('13 - Dashboard', () => {
 
       if (isLoading) {
         console.log('Dashboard is still loading - waiting longer');
-        await page.waitForTimeout(10000);
+        await waitForPrivateFeedStatus(page, WAIT_TIMEOUTS.BLOCKCHAIN);
       }
 
       // Retry finding dashboard
@@ -247,7 +254,7 @@ test.describe('13 - Dashboard', () => {
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Wait for dashboard to load
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Look for epoch usage section
     const epochUsageLabel = page.getByText('Epoch Usage');
@@ -380,7 +387,7 @@ test.describe('13 - Dashboard', () => {
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Wait for dashboard to load (including async activity data)
-    await page.waitForTimeout(7000);
+    await waitForPrivateFeedStatus(page, WAIT_TIMEOUTS.BLOCKCHAIN);
 
     // Look for Recent Activity section using data-testid
     const activitySection = page.locator('[data-testid="recent-activity"]').or(
@@ -523,7 +530,7 @@ test.describe('13 - Dashboard', () => {
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Wait for dashboard to load
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Find the View Requests button using data-testid
     const viewRequestsBtn = page.locator('[data-testid="view-requests-btn"]').or(
@@ -549,7 +556,7 @@ test.describe('13 - Dashboard', () => {
     if (hasViewRequestsBtn) {
       console.log('Clicking View Requests button');
       await viewRequestsBtn.click();
-      await page.waitForTimeout(1000);
+      await waitForModalContent(page).catch(() => {});
 
       // Check if page scrolled to requests section
       const requestsSection = page.locator('#private-feed-requests').or(
@@ -564,13 +571,13 @@ test.describe('13 - Dashboard', () => {
 
     // Scroll back up
     await page.evaluate(() => window.scrollTo(0, 0));
-    await page.waitForTimeout(1000);
+    await waitForPageReady(page).catch(() => {});
 
     // Test Manage Followers button
     if (hasManageFollowersBtn) {
       console.log('Clicking Manage Followers button');
       await manageFollowersBtn.click();
-      await page.waitForTimeout(1000);
+      await waitForModalContent(page).catch(() => {});
 
       // Check if page scrolled to followers section
       const followersSection = page.locator('#private-feed-followers').or(
@@ -625,7 +632,7 @@ test.describe('13 - Dashboard', () => {
     }
 
     // Wait for loading to complete
-    await page.waitForTimeout(7000);
+    await waitForPrivateFeedStatus(page, WAIT_TIMEOUTS.BLOCKCHAIN);
 
     // Verify dashboard is now loaded
     const dashboardCard = page.locator('text=Your Private Feed').first();

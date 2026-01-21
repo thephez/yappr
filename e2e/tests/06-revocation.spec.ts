@@ -3,6 +3,15 @@ import { goToSettings, goToProfile, goToHome, openComposeModal } from '../helper
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 import { markAsRevoked, incrementRevocationEpoch } from '../test-data/test-state';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Revocation Flow
@@ -75,7 +84,7 @@ test.describe('06 - Revocation Flow', () => {
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000); // Wait for async data loading
+    await waitForPrivateFeedStatus(page);
 
     // Handle encryption key modal if it appears
     await handleEncryptionKeyModal(page, ownerIdentity);
@@ -114,7 +123,7 @@ test.describe('06 - Revocation Flow', () => {
     await revokeBtn.first().click();
 
     // Wait for confirmation dialog to appear
-    await page.waitForTimeout(1000);
+    await waitForModalContent(page).catch(() => {});
 
     // Look for confirmation dialog
     const confirmDialog = page.locator('[role="dialog"]').or(
@@ -148,13 +157,13 @@ test.describe('06 - Revocation Flow', () => {
     }
 
     // Wait for the revocation to process (blockchain operation)
-    await page.waitForTimeout(2000);
+    await waitForToast(page, /revoked|removed|success/i).catch(() => {});
 
     // Handle encryption key modal if it appears during revocation
     const keyModalHandled = await handleEncryptionKeyModal(page, ownerIdentity);
     if (keyModalHandled) {
       console.log('Handled encryption key modal during revocation');
-      await page.waitForTimeout(3000);
+      await waitForPrivateFeedStatus(page).catch(() => {});
     }
 
     // Look for loading spinner
@@ -167,7 +176,7 @@ test.describe('06 - Revocation Flow', () => {
     }
 
     // Wait for success indicators
-    await page.waitForTimeout(3000);
+    await waitForToast(page, /revoked|removed|success/i).catch(() => {});
 
     // Check for success toast
     const toast = page.locator('[role="alert"]');
@@ -228,19 +237,19 @@ test.describe('06 - Revocation Flow', () => {
     await loginAs(ownerIdentity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Navigate to home/feed page
     await goToHome(page);
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal again if needed
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Open compose modal
     await openComposeModal(page);
-    await page.waitForTimeout(2000);
+    await waitForModalContent(page);
 
     // Select "Private" visibility using the dropdown
     // First, look for the visibility dropdown button (shows "Public" by default)
@@ -249,7 +258,7 @@ test.describe('06 - Revocation Flow', () => {
 
     if (hasVisibilityDropdown) {
       await visibilityDropdown.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page);
 
       // Select "Private" option from the dropdown menu
       // The dropdown shows: Public, Private, Private with Teaser
@@ -271,7 +280,7 @@ test.describe('06 - Revocation Flow', () => {
         }
       }
 
-      await page.waitForTimeout(500);
+      await waitForDropdown(page).catch(() => {});
     }
 
     // Enter post content with timestamp for uniqueness
@@ -282,7 +291,6 @@ test.describe('06 - Revocation Flow', () => {
       page.locator('[contenteditable="true"]')
     );
     await contentTextarea.first().fill(postContent);
-    await page.waitForTimeout(500);
 
     // Click Post button (in the modal header)
     // The Post button is in the dialog header, not at the bottom
@@ -290,7 +298,7 @@ test.describe('06 - Revocation Flow', () => {
     await postBtn.first().click({ timeout: 10000 });
 
     // Wait for post to be created
-    await page.waitForTimeout(5000);
+    await waitForToast(page, /posted|created|success/i).catch(() => {});
 
     // Take screenshot of owner's post
     await page.screenshot({ path: 'screenshots/06-6.2-new-private-post-created.png' });
@@ -312,7 +320,7 @@ test.describe('06 - Revocation Flow', () => {
     // Navigate to owner's profile to view posts
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, follower1Identity);
@@ -389,13 +397,13 @@ test.describe('06 - Revocation Flow', () => {
     await loginAs(follower1Identity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, follower1Identity);
 
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, follower1Identity);
@@ -463,7 +471,7 @@ test.describe('06 - Revocation Flow', () => {
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, follower1Identity);

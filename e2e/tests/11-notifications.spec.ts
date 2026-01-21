@@ -1,6 +1,12 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToNotifications, goToSettings, goToProfile } from '../helpers/navigation.helpers';
 import { loadIdentity } from '../test-data/identities';
+import {
+  waitForNotificationsReady,
+  waitForFeedReady,
+  waitForPageReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Test Suite: Private Feed Notifications
@@ -53,8 +59,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to notifications page
     await goToNotifications(page);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForNotificationsReady(page);
 
     // Check for the "Private Feed" tab which filters to private feed notifications
     const privateFeedTab = page.locator('button').filter({ hasText: /private feed/i });
@@ -63,7 +68,7 @@ test.describe('11 - Private Feed Notifications', () => {
     if (hasPrivateFeedTab) {
       console.log('Found Private Feed tab - clicking to filter notifications');
       await privateFeedTab.click();
-      await page.waitForTimeout(2000);
+      await waitForNotificationsReady(page);
     } else {
       console.log('No Private Feed tab found - viewing all notifications');
     }
@@ -135,8 +140,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to notifications page
     await goToNotifications(page);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForNotificationsReady(page);
 
     // Click Private Feed tab if available
     const privateFeedTab = page.locator('button').filter({ hasText: /private feed/i });
@@ -144,7 +148,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     if (hasPrivateFeedTab) {
       await privateFeedTab.click();
-      await page.waitForTimeout(2000);
+      await waitForNotificationsReady(page);
     }
 
     // Look for approval notifications
@@ -209,8 +213,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to notifications page
     await goToNotifications(page);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForNotificationsReady(page);
 
     // Click Private Feed tab if available
     const privateFeedTab = page.locator('button').filter({ hasText: /private feed/i });
@@ -218,7 +221,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     if (hasPrivateFeedTab) {
       await privateFeedTab.click();
-      await page.waitForTimeout(2000);
+      await waitForNotificationsReady(page);
     }
 
     // Look for revocation notifications
@@ -274,8 +277,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to home first to see the sidebar with notification badge
     await page.goto('/feed');
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForFeedReady(page);
 
     // Look for notification badge in the sidebar
     // The badge is typically a small number indicator next to the Notifications link
@@ -299,8 +301,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to notifications page
     await goToNotifications(page);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForNotificationsReady(page);
 
     // Check for unread notification indicator (dot)
     const unreadDot = page.locator('.bg-yappr-500.rounded-full').or(
@@ -318,13 +319,16 @@ test.describe('11 - Private Feed Notifications', () => {
 
       // Click to mark all as read
       await markAllReadBtn.click();
-      await page.waitForTimeout(2000);
+      // Wait for the mark all read action to complete
+      await expect(async () => {
+        const stillHasUnread = await unreadDot.count() > 0;
+        if (stillHasUnread) throw new Error('Still has unread notifications');
+      }).toPass({ timeout: WAIT_TIMEOUTS.UI, intervals: [500, 1000] }).catch(() => {});
 
       // Verify badge count updates (should be 0 or hidden)
       // Navigate back to home to check sidebar badge
       await page.goto('/feed');
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(2000);
+      await waitForFeedReady(page);
 
       const badgeAfter = page.locator('a[href="/notifications"] span').filter({ hasText: /^\d+$/ });
       const hasBadgeAfter = await badgeAfter.first().isVisible({ timeout: 3000 }).catch(() => false);
@@ -360,8 +364,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to notifications page
     await goToNotifications(page);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForNotificationsReady(page);
 
     // Verify the tab structure exists
     const tabs = page.locator('button').filter({ hasText: /all|follows|mentions|private feed/i });
@@ -380,7 +383,8 @@ test.describe('11 - Private Feed Notifications', () => {
 
       if (hasTab) {
         await tab.click();
-        await page.waitForTimeout(1000);
+        // Wait for tab content to update
+        await waitForNotificationsReady(page);
 
         // Check if tab is now active (has visual indicator)
         const isActive = await tab.locator('..').locator('[class*="bg-yappr"]').isVisible({ timeout: 1000 }).catch(() => false);
@@ -392,7 +396,7 @@ test.describe('11 - Private Feed Notifications', () => {
     const privateFeedTab = page.locator('button').filter({ hasText: /^private feed$/i });
     if (await privateFeedTab.isVisible({ timeout: 2000 }).catch(() => false)) {
       await privateFeedTab.click();
-      await page.waitForTimeout(2000);
+      await waitForNotificationsReady(page);
 
       // When Private Feed tab is active, only private feed notifications should show
       // Check that we don't see "started following you" or "mentioned you" notifications
@@ -429,8 +433,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
     // Navigate to notifications page
     await goToNotifications(page);
-    await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForNotificationsReady(page);
 
     // Look for "View Requests" button
     const viewRequestsBtn = page.locator('a, button').filter({ hasText: /view requests/i });
@@ -439,8 +442,7 @@ test.describe('11 - Private Feed Notifications', () => {
     if (hasViewRequestsBtn) {
       console.log('Found "View Requests" button - testing navigation');
       await viewRequestsBtn.first().click();
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
 
       // Verify we're on the private feed settings page
       const currentUrl = page.url();
@@ -455,7 +457,7 @@ test.describe('11 - Private Feed Notifications', () => {
 
       // Go back to notifications to test other actions
       await goToNotifications(page);
-      await page.waitForTimeout(2000);
+      await waitForNotificationsReady(page);
     } else {
       console.log('No "View Requests" button found');
     }
@@ -467,8 +469,7 @@ test.describe('11 - Private Feed Notifications', () => {
     if (hasViewProfileBtn) {
       console.log('Found "View Profile" button - testing navigation');
       await viewProfileBtn.first().click();
-      await page.waitForLoadState('networkidle');
-      await page.waitForTimeout(3000);
+      await waitForPageReady(page);
 
       // Verify we're on a user profile page
       const currentUrl = page.url();

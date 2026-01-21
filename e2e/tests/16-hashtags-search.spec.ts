@@ -1,6 +1,14 @@
 import { test, expect } from '../fixtures/auth.fixture';
 import { goToHome, openComposeModal, goToSearch } from '../helpers/navigation.helpers';
-import { waitForToast } from '../helpers/wait.helpers';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 
 /**
@@ -28,7 +36,7 @@ async function closeAllModals(page: import('@playwright/test').Page): Promise<vo
     const count = await modals.count();
     if (count === 0) break;
     await page.keyboard.press('Escape');
-    await page.waitForTimeout(500);
+    await waitForModalContent(page).catch(() => {});
   }
 }
 
@@ -46,7 +54,7 @@ async function searchHashtag(page: import('@playwright/test').Page, hashtag: str
   await page.waitForLoadState('networkidle');
 
   // Wait for loading to complete
-  await page.waitForTimeout(5000);
+  await waitForPageReady(page);
 
   // Check for posts
   const postCountText = page.locator('p.text-sm.text-gray-500').filter({ hasText: /post/ });
@@ -90,7 +98,7 @@ async function searchPostContent(page: import('@playwright/test').Page, query: s
   await searchInput.fill(query);
 
   // Wait for search results
-  await page.waitForTimeout(3000);
+  await waitForPageReady(page);
 
   // Check for "Searching..." state to end
   const searchingIndicator = page.getByText('Searching...');
@@ -143,7 +151,7 @@ test.describe('16 - Hashtags and Search', () => {
     // Navigate to explore page to verify trending hashtags load
     await page.goto('/explore');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check that trending hashtags section exists and functions
     const trendingHeader = page.getByText('Trending Hashtags');
@@ -185,7 +193,7 @@ test.describe('16 - Hashtags and Search', () => {
       }
 
       // Wait a moment for posts to render
-      await page.waitForTimeout(3000);
+      await waitForFeedReady(page).catch(() => {});
 
       // Take screenshot of hashtag page
       await page.screenshot({ path: 'screenshots/16-16.1-hashtag-page.png' });
@@ -276,7 +284,7 @@ test.describe('16 - Hashtags and Search', () => {
 
     // Test searching for a common term
     await searchInput.fill('test');
-    await page.waitForTimeout(3000);
+    await waitForPageReady(page);
 
     // Check if search results appear or "No results" message
     const searchingIndicator = page.getByText('Searching...');
@@ -313,7 +321,7 @@ test.describe('16 - Hashtags and Search', () => {
     await page.waitForLoadState('networkidle');
 
     // Wait for trending hashtags to load
-    await page.waitForTimeout(5000);
+    await waitForPageReady(page);
 
     // Check for trending hashtags section
     const trendingHeader = page.getByText('Trending Hashtags');

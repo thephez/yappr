@@ -3,6 +3,15 @@ import { goToSettings, goToProfile, goToHome } from '../helpers/navigation.helpe
 import { loadIdentity } from '../test-data/identities';
 import { handleEncryptionKeyModal } from '../helpers/modal.helpers';
 import { markAsRevoked, incrementRevocationEpoch, markAsBlocked, markBlockedByFollower } from '../test-data/test-state';
+import {
+  waitForPageReady,
+  waitForPrivateFeedStatus,
+  waitForModalContent,
+  waitForDropdown,
+  waitForToast,
+  waitForFeedReady,
+  WAIT_TIMEOUTS
+} from '../helpers/wait.helpers';
 
 /**
  * Helper to block a user via the post card menu
@@ -10,7 +19,7 @@ import { markAsRevoked, incrementRevocationEpoch, markAsBlocked, markBlockedByFo
  */
 async function blockUserViaPostMenu(page: import('@playwright/test').Page, targetUserId: string): Promise<{ success: boolean; autoRevoked: boolean }> {
   // Wait for posts to load
-  await page.waitForTimeout(3000);
+  await waitForFeedReady(page);
 
   // Look for post cards on the page
   const postCards = page.locator('article');
@@ -44,7 +53,7 @@ async function blockUserViaPostMenu(page: import('@playwright/test').Page, targe
 
       // Click to open menu
       await btn.click();
-      await page.waitForTimeout(500);
+      await waitForDropdown(page).catch(() => {});
 
       // Check if a menu appeared with Block option
       const blockOption = page.locator('[role="menuitem"]').filter({ hasText: /block/i });
@@ -63,7 +72,7 @@ async function blockUserViaPostMenu(page: import('@playwright/test').Page, targe
 
         // Click the Block option
         await blockOption.first().click();
-        await page.waitForTimeout(3000);
+        await waitForToast(page, /blocked|success/i).catch(() => {});
 
         // Check for success toast
         const toast = page.locator('[role="alert"]');
@@ -80,7 +89,6 @@ async function blockUserViaPostMenu(page: import('@playwright/test').Page, targe
       } else {
         // Close this menu and try next button
         await page.keyboard.press('Escape');
-        await page.waitForTimeout(300);
       }
     }
   }
@@ -106,7 +114,7 @@ async function blockUserFromProfile(page: import('@playwright/test').Page, targe
   // The profile page doesn't have a direct "Block" button
   // We need to find a post and use its menu to block
   // Wait for posts to load
-  await page.waitForTimeout(3000);
+  await waitForFeedReady(page);
 
   // Try to block via post card menu
   return await blockUserViaPostMenu(page, targetUserId);
@@ -218,13 +226,13 @@ test.describe('08 - Block/Auto-Revoke Interaction', () => {
     await loginAs(ownerIdentity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Navigate to the target user's profile
     await goToProfile(page, targetIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, ownerIdentity);
@@ -306,13 +314,13 @@ test.describe('08 - Block/Auto-Revoke Interaction', () => {
     await loginAs(ownerIdentity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Navigate to Identity 3's profile
     await goToProfile(page, identity3.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, ownerIdentity);
@@ -326,7 +334,7 @@ test.describe('08 - Block/Auto-Revoke Interaction', () => {
       const unblockBtn = page.locator('button').filter({ hasText: /unblock/i });
       if (await unblockBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await unblockBtn.click();
-        await page.waitForTimeout(3000);
+        await waitForToast(page, /unblocked|success/i).catch(() => {});
         console.log('Unblocked user to reset state');
       } else {
         test.skip(true, 'Target user is already blocked and cannot unblock');
@@ -400,13 +408,13 @@ test.describe('08 - Block/Auto-Revoke Interaction', () => {
     await loginAs(follower1Identity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, follower1Identity);
 
     // Navigate to owner's profile
     await goToProfile(page, ownerIdentity.identityId);
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await waitForFeedReady(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, follower1Identity);
@@ -420,7 +428,7 @@ test.describe('08 - Block/Auto-Revoke Interaction', () => {
       const unblockBtn = page.locator('button').filter({ hasText: /unblock/i });
       if (await unblockBtn.isVisible({ timeout: 3000 }).catch(() => false)) {
         await unblockBtn.click();
-        await page.waitForTimeout(3000);
+        await waitForToast(page, /unblocked|success/i).catch(() => {});
         console.log('Unblocked owner to reset state');
       } else {
         test.skip(true, 'Owner is already blocked by follower and cannot unblock');
@@ -467,13 +475,13 @@ test.describe('08 - Block/Auto-Revoke Interaction', () => {
     await loginAs(ownerIdentity);
 
     // Handle encryption key modal if it appears
-    await page.waitForTimeout(2000);
+    await waitForPageReady(page);
     await handleEncryptionKeyModal(page, ownerIdentity);
 
     // Navigate to private feed settings
     await goToSettings(page, 'privateFeed');
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(5000);
+    await waitForPrivateFeedStatus(page);
 
     // Handle encryption key modal if needed
     await handleEncryptionKeyModal(page, ownerIdentity);
