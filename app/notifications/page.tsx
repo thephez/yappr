@@ -92,6 +92,7 @@ function NotificationsPage() {
   const markAllAsRead = useNotificationStore((s) => s.markAllAsRead)
   const getFilteredNotifications = useNotificationStore((s) => s.getFilteredNotifications)
   const getUnreadCount = useNotificationStore((s) => s.getUnreadCount)
+  const getUnreadCountByFilter = useNotificationStore((s) => s.getUnreadCountByFilter)
 
   // Get notification settings from settings store
   const notificationSettings = useSettingsStore((s) => s.notificationSettings)
@@ -124,26 +125,34 @@ function NotificationsPage() {
           </div>
 
           <div className="flex border-b border-gray-200 dark:border-gray-800">
-            {FILTER_TABS.map((tab) => (
-              <button
-                key={tab.key}
-                data-testid={`notification-tab-${tab.key}`}
-                onClick={() => setFilter(tab.key)}
-                className={`flex-1 py-4 text-sm font-medium transition-colors relative ${
-                  filter === tab.key
-                    ? 'text-gray-900 dark:text-white'
-                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-                }`}
-              >
-                {tab.label}
-                {filter === tab.key && (
-                  <motion.div
-                    layoutId="notificationTab"
-                    className="absolute bottom-0 left-0 right-0 h-1 bg-yappr-500"
-                  />
-                )}
-              </button>
-            ))}
+            {FILTER_TABS.map((tab) => {
+              const tabUnreadCount = getUnreadCountByFilter(tab.key)
+              return (
+                <button
+                  key={tab.key}
+                  data-testid={`notification-tab-${tab.key}`}
+                  onClick={() => setFilter(tab.key)}
+                  className={`flex-1 py-4 text-sm font-medium transition-colors relative ${
+                    filter === tab.key
+                      ? 'text-gray-900 dark:text-white'
+                      : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-1.5">
+                    {tab.label}
+                    {tabUnreadCount > 0 && (
+                      <span className="w-2 h-2 bg-yappr-500 rounded-full" />
+                    )}
+                  </span>
+                  {filter === tab.key && (
+                    <motion.div
+                      layoutId="notificationTab"
+                      className="absolute bottom-0 left-0 right-0 h-1 bg-yappr-500"
+                    />
+                  )}
+                </button>
+              )
+            })}
           </div>
         </header>
 
