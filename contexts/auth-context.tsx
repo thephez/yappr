@@ -269,13 +269,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     sessionStorage.removeItem('yappr_skip_dpns')
     sessionStorage.removeItem('yappr_backup_prompt_shown')
 
-    // Clear private key and block cache
+    // Clear private key, encryption key, and caches
     if (user?.identityId) {
-      const { clearPrivateKey } = await import('@/lib/secure-storage')
+      const { clearPrivateKey, clearEncryptionKey } = await import('@/lib/secure-storage')
       clearPrivateKey(user.identityId)
+      clearEncryptionKey(user.identityId)
 
       const { invalidateBlockCache } = await import('@/lib/caches/block-cache')
       invalidateBlockCache(user.identityId)
+
+      // Clear all private feed keys (both owner keys and followed feed keys)
+      const { privateFeedKeyStore } = await import('@/lib/services/private-feed-key-store')
+      privateFeedKeyStore.clearAllKeys()
     }
 
     setUser(null)

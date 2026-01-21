@@ -12,6 +12,7 @@ import { withAuth, useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { usePostDetail } from '@/hooks/use-post-detail'
 import { useAppStore } from '@/lib/store'
+import { useCanReplyToPrivate } from '@/hooks/use-can-reply-to-private'
 
 function PostDetailContent() {
   const router = useRouter()
@@ -34,8 +35,11 @@ function PostDetailContent() {
     enabled: !!postId
   })
 
+  // Check if user can reply to private posts
+  const { canReply: canReplyToPrivate, isLoading: isCheckingAccess, reason: cantReplyReason } = useCanReplyToPrivate(post)
+
   const handleReply = () => {
-    if (!post) return
+    if (!post || !canReplyToPrivate) return
     setReplyingTo(post)
     setComposeOpen(true)
   }
@@ -92,15 +96,24 @@ function PostDetailContent() {
             </div>
 
             {user ? (
-              <div className="p-4 border-b border-gray-200 dark:border-gray-800">
-                <Button
-                  onClick={handleReply}
-                  variant="outline"
-                  className="w-full"
-                >
-                  Post your reply
-                </Button>
-              </div>
+              canReplyToPrivate ? (
+                <div className="p-4 border-b border-gray-200 dark:border-gray-800">
+                  <Button
+                    onClick={handleReply}
+                    variant="outline"
+                    className="w-full"
+                    disabled={isCheckingAccess}
+                  >
+                    {isCheckingAccess ? 'Checking access...' : 'Post your reply'}
+                  </Button>
+                </div>
+              ) : (
+                <div className="p-4 border-b border-gray-200 dark:border-gray-800 text-center">
+                  <p className="text-gray-500 text-sm">
+                    {cantReplyReason || "Can't reply to this post"}
+                  </p>
+                </div>
+              )
             ) : (
               <div className="p-4 border-b border-gray-200 dark:border-gray-800 text-center">
                 <p className="text-gray-500 text-sm">

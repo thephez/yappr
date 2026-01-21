@@ -100,9 +100,11 @@ interface PostCardProps {
   enrichment?: ProgressiveEnrichment
   /** Hide the "Replying to" annotation (used on post detail pages where structure makes it clear) */
   hideReplyTo?: boolean
+  /** For replies to private posts, the root post owner ID to check access against */
+  rootPostOwnerId?: string
 }
 
-export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, enrichment: progressiveEnrichment, hideReplyTo = false }: PostCardProps) {
+export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, enrichment: progressiveEnrichment, hideReplyTo = false, rootPostOwnerId }: PostCardProps) {
   const router = useRouter()
   const { user } = useAuth()
   const { requireAuth } = useRequireAuth()
@@ -281,7 +283,8 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   })
 
   // Check if user can reply to private posts (PRD §5.5)
-  const { canReply: canReplyToPrivate, reason: cantReplyReason } = useCanReplyToPrivate(post)
+  // For replies, check access against root post owner, not the reply author
+  const { canReply: canReplyToPrivate, reason: cantReplyReason } = useCanReplyToPrivate(post, rootPostOwnerId)
 
   // Sync local state with prop changes (reuses computed initial values)
   useEffect(() => {

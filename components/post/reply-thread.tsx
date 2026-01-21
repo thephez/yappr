@@ -14,7 +14,7 @@ interface ReplyThreadItemProps {
  * - Author's thread posts show a connecting vertical line
  * - Nested replies are indented with a left border
  */
-export function ReplyThreadItem({ thread }: ReplyThreadItemProps) {
+export function ReplyThreadItem({ thread, mainPostAuthorId }: ReplyThreadItemProps) {
   const { post, isAuthorThread, isThreadContinuation, nestedReplies } = thread
 
   return (
@@ -37,7 +37,7 @@ export function ReplyThreadItem({ thread }: ReplyThreadItemProps) {
         </div>
       )}
 
-      <PostCard post={post} hideReplyTo />
+      <PostCard post={post} hideReplyTo rootPostOwnerId={mainPostAuthorId} />
 
       {/* Nested replies (2nd level) - indented */}
       {nestedReplies.length > 0 && (
@@ -46,6 +46,7 @@ export function ReplyThreadItem({ thread }: ReplyThreadItemProps) {
             <NestedReply
               key={nested.post.id}
               reply={nested}
+              mainPostAuthorId={mainPostAuthorId}
             />
           ))}
         </div>
@@ -56,18 +57,19 @@ export function ReplyThreadItem({ thread }: ReplyThreadItemProps) {
 
 interface NestedReplyProps {
   reply: ReplyThread
+  mainPostAuthorId: string
 }
 
 /**
  * Renders a nested (2nd level) reply. The indentation and left border
  * visually indicate the reply hierarchy without explicit "Replying to" text.
  */
-function NestedReply({ reply }: NestedReplyProps) {
+function NestedReply({ reply, mainPostAuthorId }: NestedReplyProps) {
   const { post } = reply
 
   return (
     <div className="relative">
-      <PostCard post={post} hideReplyTo />
+      <PostCard post={post} hideReplyTo rootPostOwnerId={mainPostAuthorId} />
 
       {/* Show "View more replies" if this reply has replies (3+ level) */}
       {post.replies > 0 && (

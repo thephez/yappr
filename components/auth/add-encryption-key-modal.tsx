@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
-import { XMarkIcon, KeyIcon, ExclamationTriangleIcon, CheckCircleIcon, ClipboardIcon, EyeIcon, EyeSlashIcon, ShieldCheckIcon } from '@heroicons/react/24/outline'
+import { XMarkIcon, KeyIcon, ExclamationTriangleIcon, CheckCircleIcon, ClipboardIcon, EyeIcon, EyeSlashIcon, ShieldCheckIcon, CheckIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -35,8 +35,7 @@ export function AddEncryptionKeyModal({
 }: AddEncryptionKeyModalProps) {
   const { user } = useAuth()
   const [step, setStep] = useState<Step>('intro')
-  const [privateKeyHex, setPrivateKeyHex] = useState<string>('')
-  const [publicKeyHex, setPublicKeyHex] = useState<string>('')
+  const [privateKeyWif, setPrivateKeyWif] = useState<string>('')
   const [showPrivateKey, setShowPrivateKey] = useState(false)
   const [hasCopied, setHasCopied] = useState(false)
   const [hasConfirmedBackup, setHasConfirmedBackup] = useState(false)
@@ -54,20 +53,11 @@ export function AddEncryptionKeyModal({
       const privateKeyBytes = new Uint8Array(32)
       crypto.getRandomValues(privateKeyBytes)
 
-      // Convert to hex
-      const privateHex = Array.from(privateKeyBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
+      // Convert to WIF format
+      const { privateKeyToWif } = await import('@/lib/crypto/wif')
+      const privateWif = privateKeyToWif(privateKeyBytes, 'testnet', true)
 
-      // Derive public key
-      const { privateFeedCryptoService } = await import('@/lib/services')
-      const publicKeyBytes = privateFeedCryptoService.getPublicKey(privateKeyBytes)
-      const publicHex = Array.from(publicKeyBytes)
-        .map(b => b.toString(16).padStart(2, '0'))
-        .join('')
-
-      setPrivateKeyHex(privateHex)
-      setPublicKeyHex(publicHex)
+      setPrivateKeyWif(privateWif)
       setStep('generate')
     } catch (err) {
       console.error('Error generating keypair:', err)
@@ -79,30 +69,29 @@ export function AddEncryptionKeyModal({
   // Copy private key to clipboard
   const copyToClipboard = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(privateKeyHex)
+      await navigator.clipboard.writeText(privateKeyWif)
       setHasCopied(true)
       toast.success('Private key copied to clipboard')
     } catch (err) {
       console.error('Failed to copy:', err)
       toast.error('Failed to copy to clipboard')
     }
-  }, [privateKeyHex])
+  }, [privateKeyWif])
 
   // Add the encryption key to identity
   const addKeyToIdentity = useCallback(async () => {
-    if (!user || !privateKeyHex || !criticalKeyWif.trim()) return
+    if (!user || !privateKeyWif || !criticalKeyWif.trim()) return
 
     setStep('adding')
     setError(null)
 
     try {
       const { storeEncryptionKey } = await import('@/lib/secure-storage')
+      const { parsePrivateKey } = await import('@/lib/crypto/wif')
 
-      // Convert hex to bytes
-      const privateKeyBytes = new Uint8Array(32)
-      for (let i = 0; i < 32; i++) {
-        privateKeyBytes[i] = parseInt(privateKeyHex.substr(i * 2, 2), 16)
-      }
+      // Parse the WIF key to get bytes
+      const parsed = parsePrivateKey(privateKeyWif)
+      const privateKeyBytes = parsed.privateKey
 
       // Add the encryption key to identity using the MASTER-level key
       const { identityService } = await import('@/lib/services/identity-service')
@@ -114,8 +103,8 @@ export function AddEncryptionKeyModal({
       )
 
       if (result.success) {
-        // Store the encryption key in session
-        storeEncryptionKey(user.identityId, privateKeyHex)
+        // Store the encryption key in session (WIF format)
+        storeEncryptionKey(user.identityId, privateKeyWif)
 
         setStep('success')
         toast.success('Encryption key added to your identity!')
@@ -132,7 +121,7 @@ export function AddEncryptionKeyModal({
       setError(err instanceof Error ? err.message : 'Unknown error occurred')
       setStep('error')
     }
-  }, [user, privateKeyHex, criticalKeyWif, onSuccess])
+  }, [user, privateKeyWif, criticalKeyWif, onSuccess])
 
   // Validate the CRITICAL key before proceeding
   const validateCriticalKey = useCallback(async () => {
@@ -171,8 +160,7 @@ export function AddEncryptionKeyModal({
   const handleClose = useCallback(() => {
     // Reset state
     setStep('intro')
-    setPrivateKeyHex('')
-    setPublicKeyHex('')
+    setPrivateKeyWif('')
     setShowPrivateKey(false)
     setHasCopied(false)
     setHasConfirmedBackup(false)
@@ -284,42 +272,45 @@ export function AddEncryptionKeyModal({
 
               {/* Private Key Display */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center justify-between">
-                  <span>Private Key (hex)</span>
-                  <button
-                    onClick={() => setShowPrivateKey(!showPrivateKey)}
-                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-                  >
+                <label className="text-sm font-medium">Private Key (WIF)</label>
+                <div className="flex items-center bg-gray-100 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+                  <div className="flex-1 p-3 font-mono text-sm overflow-hidden min-h-[44px] flex items-center">
                     {showPrivateKey ? (
-                      <EyeSlashIcon className="h-4 w-4" />
+                      <span>
+                        {privateKeyWif.slice(0, Math.ceil(privateKeyWif.length / 2))}
+                        <br />
+                        {privateKeyWif.slice(Math.ceil(privateKeyWif.length / 2))}
+                      </span>
                     ) : (
-                      <EyeIcon className="h-4 w-4" />
+                      <span className="truncate">••••••••••••••••••••••••••••••••</span>
                     )}
-                  </button>
-                </label>
-                <div className="relative">
-                  <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg font-mono text-sm break-all">
-                    {showPrivateKey ? privateKeyHex : '•'.repeat(64)}
                   </div>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={copyToClipboard}
-                    className="absolute top-2 right-2"
-                  >
-                    <ClipboardIcon className="h-4 w-4 mr-1" />
-                    {hasCopied ? 'Copied!' : 'Copy'}
-                  </Button>
-                </div>
-              </div>
-
-              {/* Public Key Display (for verification) */}
-              <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-500">
-                  Public Key (for verification)
-                </label>
-                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-lg font-mono text-xs break-all text-gray-500">
-                  {publicKeyHex}
+                  <div className="flex items-center gap-1 px-2 border-l border-gray-200 dark:border-gray-700">
+                    <button
+                      type="button"
+                      onClick={() => setShowPrivateKey(!showPrivateKey)}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                      title={showPrivateKey ? 'Hide key' : 'Show key'}
+                    >
+                      {showPrivateKey ? (
+                        <EyeSlashIcon className="h-5 w-5" />
+                      ) : (
+                        <EyeIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={copyToClipboard}
+                      className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 hover:bg-gray-200 dark:hover:bg-gray-700 rounded transition-colors"
+                      title="Copy to clipboard"
+                    >
+                      {hasCopied ? (
+                        <CheckIcon className="h-5 w-5 text-green-500" />
+                      ) : (
+                        <ClipboardIcon className="h-5 w-5" />
+                      )}
+                    </button>
+                  </div>
                 </div>
               </div>
 
@@ -440,11 +431,12 @@ export function AddEncryptionKeyModal({
 
               {/* MASTER Key Input */}
               <div className="space-y-2">
-                <label className="text-sm font-medium flex items-center justify-between">
+                <div className="text-sm font-medium flex items-center justify-between">
                   <span>MASTER Key (WIF format)</span>
                   <button
+                    type="button"
                     onClick={() => setShowCriticalKey(!showCriticalKey)}
-                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+                    className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300 p-1"
                   >
                     {showCriticalKey ? (
                       <EyeSlashIcon className="h-4 w-4" />
@@ -452,7 +444,7 @@ export function AddEncryptionKeyModal({
                       <EyeIcon className="h-4 w-4" />
                     )}
                   </button>
-                </label>
+                </div>
                 <input
                   type={showCriticalKey ? 'text' : 'password'}
                   value={criticalKeyWif}
@@ -571,7 +563,7 @@ export function AddEncryptionKeyModal({
                 </p>
               </div>
 
-              {privateKeyHex && (
+              {privateKeyWif && (
                 <div className="bg-amber-50 dark:bg-amber-950 p-4 rounded-lg">
                   <p className="text-sm text-amber-700 dark:text-amber-300">
                     <strong>Note:</strong> Your private key was generated. If you saved it, you can try again later using the &quot;Enter Encryption Key&quot; option after manually adding the key to your identity.
