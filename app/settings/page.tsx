@@ -63,6 +63,8 @@ function SettingsPage() {
   const setLinkPreviews = useSettingsStore((s) => s.setLinkPreviews)
   const sendReadReceipts = useSettingsStore((s) => s.sendReadReceipts)
   const setSendReadReceipts = useSettingsStore((s) => s.setSendReadReceipts)
+  const notificationSettings = useSettingsStore((s) => s.notificationSettings)
+  const setNotificationSettings = useSettingsStore((s) => s.setNotificationSettings)
 
   // Derive active section from URL search params
   const sectionParam = searchParams.get('section')
@@ -78,16 +80,6 @@ function SettingsPage() {
       router.push(`/settings?section=${section}`)
     }
   }
-  
-  // Notification settings
-  const [notificationSettings, setNotificationSettings] = useState({
-    likes: true,
-    reposts: true,
-    replies: true,
-    follows: true,
-    mentions: true,
-    messages: true,
-  })
   
   // Privacy settings
   const [privacySettings, setPrivacySettings] = useState({
@@ -325,8 +317,8 @@ function SettingsPage() {
               </div>
               <Switch.Root
                 checked={value}
-                onCheckedChange={(checked) => 
-                  setNotificationSettings(prev => ({ ...prev, [key]: checked }))
+                onCheckedChange={(checked) =>
+                  setNotificationSettings({ [key]: checked })
                 }
                 className={`w-11 h-6 rounded-full relative transition-colors ${
                   value ? 'bg-yappr-500' : 'bg-gray-200 dark:bg-gray-800'

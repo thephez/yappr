@@ -20,7 +20,21 @@ import { withAuth } from '@/contexts/auth-context'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import Link from 'next/link'
 import { useNotificationStore } from '@/lib/stores/notification-store'
+import { useSettingsStore } from '@/lib/store'
 import { Notification } from '@/lib/types'
+
+// Map notification types to settings keys
+const NOTIFICATION_TYPE_TO_SETTING: Record<Notification['type'], string | null> = {
+  like: 'likes',
+  repost: 'reposts',
+  reply: 'replies',
+  follow: 'follows',
+  mention: 'mentions',
+  // Private feed notifications always show (no setting)
+  privateFeedRequest: null,
+  privateFeedApproved: null,
+  privateFeedRevoked: null,
+}
 
 type NotificationFilter = 'all' | 'follow' | 'mention' | 'like' | 'repost' | 'reply' | 'privateFeed'
 
@@ -79,7 +93,18 @@ function NotificationsPage() {
   const getFilteredNotifications = useNotificationStore((s) => s.getFilteredNotifications)
   const getUnreadCount = useNotificationStore((s) => s.getUnreadCount)
 
-  const filteredNotifications = getFilteredNotifications()
+  // Get notification settings from settings store
+  const notificationSettings = useSettingsStore((s) => s.notificationSettings)
+
+  // Filter by tab first, then by user settings
+  const tabFilteredNotifications = getFilteredNotifications()
+  const filteredNotifications = tabFilteredNotifications.filter((notification) => {
+    const settingKey = NOTIFICATION_TYPE_TO_SETTING[notification.type]
+    // If no setting key (e.g., private feed notifications), always show
+    if (settingKey === null) return true
+    // Check if this notification type is enabled in settings
+    return notificationSettings[settingKey as keyof typeof notificationSettings]
+  })
   const unreadCount = getUnreadCount()
 
   return (

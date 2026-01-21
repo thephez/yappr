@@ -173,6 +173,15 @@ export const useAppStore = create<AppState>((set, get) => ({
 }))
 
 // Settings store with localStorage persistence
+interface NotificationSettings {
+  likes: boolean
+  reposts: boolean
+  replies: boolean
+  follows: boolean
+  mentions: boolean
+  messages: boolean
+}
+
 interface SettingsState {
   /** Enable link previews (fetches metadata via third-party proxy) */
   linkPreviews: boolean
@@ -180,6 +189,9 @@ interface SettingsState {
   /** Send read receipts in direct messages */
   sendReadReceipts: boolean
   setSendReadReceipts: (enabled: boolean) => void
+  /** Notification preferences - which types to show */
+  notificationSettings: NotificationSettings
+  setNotificationSettings: (settings: Partial<NotificationSettings>) => void
 }
 
 export const useSettingsStore = create<SettingsState>()(
@@ -189,6 +201,18 @@ export const useSettingsStore = create<SettingsState>()(
       setLinkPreviews: (enabled) => set({ linkPreviews: enabled }),
       sendReadReceipts: true, // Enabled by default
       setSendReadReceipts: (enabled) => set({ sendReadReceipts: enabled }),
+      notificationSettings: {
+        likes: true,
+        reposts: true,
+        replies: true,
+        follows: true,
+        mentions: true,
+        messages: true,
+      },
+      setNotificationSettings: (settings) =>
+        set((state) => ({
+          notificationSettings: { ...state.notificationSettings, ...settings },
+        })),
     }),
     {
       name: 'yappr-settings',
