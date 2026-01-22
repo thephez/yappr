@@ -1256,7 +1256,7 @@ class PrivateFeedService {
         documentId,
         ownerId,
         updateData,
-        revision + 1
+        revision
       );
 
       if (!result.success) {
