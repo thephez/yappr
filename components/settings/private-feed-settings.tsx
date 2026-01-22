@@ -142,7 +142,7 @@ export function PrivateFeedSettings({ openReset = false }: PrivateFeedSettingsPr
 
     try {
       // Validate the key matches the encryption key on identity
-      const { validateEncryptionKey } = await import('@/lib/crypto/encryption-key-validation')
+      const { validateEncryptionKey } = await import('@/lib/crypto/key-validation')
       const validation = await validateEncryptionKey(encryptionKeyInput, user.identityId)
 
       if (!validation.isValid || !validation.privateKey) {

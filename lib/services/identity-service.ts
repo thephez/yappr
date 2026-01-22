@@ -472,6 +472,150 @@ class IdentityService {
       };
     }
   }
+
+  /**
+   * Add a transfer key (purpose=3) to an identity.
+   * Transfer keys are used for credit transfer operations (tips, etc.).
+   *
+   * IMPORTANT: This operation requires a MASTER security level (0) key
+   * for signing in dev.11+. CRITICAL (1) and HIGH (2) keys are NOT sufficient.
+   *
+   * @param identityId - The identity to update
+   * @param transferPrivateKey - The private key bytes (32 bytes)
+   * @param signingPrivateKeyWif - The MASTER level key for signing (in WIF format)
+   * @returns Result with success status and the new key ID
+   */
+  async addTransferKey(
+    identityId: string,
+    transferPrivateKey: Uint8Array,
+    signingPrivateKeyWif: string
+  ): Promise<{ success: boolean; keyId?: number; error?: string }> {
+    try {
+      const sdk = await getEvoSdk();
+
+      // Ensure WASM module is initialized
+      const wasm = await ensureWasmInitialized();
+
+      // Fetch current identity
+      const identity = await sdk.identities.fetch(identityId);
+      if (!identity) {
+        return { success: false, error: 'Identity not found' };
+      }
+
+      // Check if transfer key already exists (purpose='TRANSFER')
+      const existingKey = identity.getPublicKeys().find(
+        (key) => key.purpose === 'TRANSFER' && key.keyType === 'ECDSA_SECP256K1'
+      );
+      if (existingKey) {
+        return { success: false, error: 'Identity already has a transfer key' };
+      }
+
+      // Get the next available key ID
+      const currentKeys = identity.getPublicKeys();
+      const maxKeyId = currentKeys.reduce((max, key) => Math.max(max, key.keyId), 0);
+      const newKeyId = maxKeyId + 1;
+
+      // Derive public key from private key
+      const { privateFeedCryptoService } = await import('./index');
+      const publicKeyBytes = privateFeedCryptoService.getPublicKey(transferPrivateKey);
+
+      // Create IdentityPublicKeyInCreation
+      // Transfer keys use:
+      // - purpose: 'TRANSFER' (3)
+      // - securityLevel: 'HIGH' (2) - required for credit transfers
+      // - keyType: 'ECDSA_SECP256K1' (0)
+      console.log(`Creating IdentityPublicKeyInCreation: id=${newKeyId}, purpose=TRANSFER, securityLevel=HIGH, keyType=ECDSA_SECP256K1`);
+      console.log(`Public key bytes length: ${publicKeyBytes.length}`);
+
+      const newKey = new wasm.IdentityPublicKeyInCreation(
+        newKeyId,           // id
+        'TRANSFER',         // purpose (string format works)
+        'HIGH',             // securityLevel (HIGH for transfer operations)
+        'ECDSA_SECP256K1',  // keyType (string format works)
+        false,              // readOnly
+        publicKeyBytes,     // data as Uint8Array
+        null,               // signature (null for new keys)
+        null                // contractBounds (null = no contract binding)
+      );
+      console.log('IdentityPublicKeyInCreation created successfully');
+
+      // Validate signing key has sufficient security level before calling SDK
+      const validation = await this.validateKeySecurityLevel(signingPrivateKeyWif, identityId);
+      if (!validation.isValid) {
+        console.error('Signing key validation failed:', validation.error);
+        return { success: false, error: validation.error };
+      }
+      console.log(`Signing key validated: keyId=${validation.keyId}, securityLevel=${validation.securityLevel}`);
+
+      console.log(`Adding transfer key (id=${newKeyId}) to identity ${identityId}...`);
+
+      // Log identity revision for debugging
+      const identityJson = identity.toJSON();
+      console.log('Identity revision before update:', identityJson.revision);
+
+      // Transform key to JSON format expected by WASM SDK
+      const keyToAdd = newKey.toJSON() as Record<string, unknown>;
+      // Override with string values that the WASM SDK expects
+      keyToAdd.keyType = 'ECDSA_SECP256K1';
+      keyToAdd.purpose = 'TRANSFER';
+      keyToAdd.securityLevel = 'HIGH';
+      // The WASM SDK requires privateKeyHex for ECDSA_SECP256K1 keys
+      keyToAdd.privateKeyHex = Array.from(transferPrivateKey)
+        .map(b => b.toString(16).padStart(2, '0'))
+        .join('');
+      console.log('Key to add (JSON):', JSON.stringify(keyToAdd, null, 2));
+
+      // Update the identity using evo-sdk facade API
+      console.log('Calling sdk.identities.update...');
+      try {
+        await sdk.identities.update({
+          identityId,
+          addPublicKeys: [keyToAdd],
+          privateKeyWif: signingPrivateKeyWif
+        });
+        console.log('sdk.identities.update completed successfully');
+      } catch (updateError) {
+        console.error('sdk.identities.update failed:', updateError);
+        if (updateError && typeof updateError === 'object') {
+          const wasmErr = updateError as Record<string, unknown>;
+          console.error('WasmSdkError properties:');
+          try {
+            console.error('  - kind:', wasmErr.kind);
+            console.error('  - name:', wasmErr.name);
+            console.error('  - message:', wasmErr.message);
+            console.error('  - code:', wasmErr.code);
+            console.error('  - retriable:', wasmErr.retriable);
+          } catch (e) {
+            console.error('  - Could not read properties:', e);
+          }
+        }
+        throw updateError;
+      }
+
+      console.log('Transfer key added successfully');
+
+      // Clear cache to reflect the update
+      this.clearCache(identityId);
+
+      return { success: true, keyId: newKeyId };
+    } catch (error) {
+      console.error('Error adding transfer key:', error);
+      let errorMessage = 'Unknown error';
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        console.error('Error stack:', error.stack);
+        console.error('Error name:', error.name);
+        const wasmError = error as { code?: string; data?: unknown; kind?: string | number };
+        if (wasmError.code) console.error('Error code:', wasmError.code);
+        if (wasmError.data) console.error('Error data:', JSON.stringify(wasmError.data, null, 2));
+        if (wasmError.kind !== undefined) console.error('Error kind:', wasmError.kind);
+      }
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  }
 }
 
 // Singleton instance
