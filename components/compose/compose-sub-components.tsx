@@ -264,14 +264,33 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
     try {
       const { privateFeedFollowerService, privateFeedKeyStore, privateFeedCryptoService, MAX_EPOCH } = await import('@/lib/services')
 
-      if (isOwner) {
+      // For replies to private posts, we need to find the encryption source owner
+      // (PRD §5.5 - inherited encryption)
+      // The post.author.id is the reply author, but encryption may have been done
+      // with a different user's CEK (the root private post owner)
+      let encryptionSourceOwnerId = post.author.id
+
+      if (post.replyToId) {
+        // This is a reply - check if encryption was inherited from parent
+        const { getEncryptionSource } = await import('@/lib/services/post-service')
+        const encryptionSource = await getEncryptionSource(post.replyToId)
+        if (encryptionSource) {
+          // Encryption is inherited from parent thread
+          encryptionSourceOwnerId = encryptionSource.ownerId
+        }
+      }
+
+      // Check if user is the encryption source owner (can decrypt with their own feed keys)
+      const isEncryptionSourceOwner = user.identityId === encryptionSourceOwnerId
+
+      if (isEncryptionSourceOwner) {
         const feedSeed = privateFeedKeyStore.getFeedSeed()
         if (!feedSeed) {
           setState({ status: 'locked' })
           return
         }
 
-        const cached = privateFeedKeyStore.getCachedCEK(post.author.id)
+        const cached = privateFeedKeyStore.getCachedCEK(encryptionSourceOwnerId)
         let cek: Uint8Array
 
         if (cached && cached.epoch === post.epoch) {
@@ -283,7 +302,7 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
           cek = chain[post.epoch]
         }
 
-        const ownerIdBytes = identifierToBytes(post.author.id)
+        const ownerIdBytes = identifierToBytes(encryptionSourceOwnerId)
         const decryptedContent = privateFeedCryptoService.decryptPostContent(
           cek,
           { ciphertext: post.encryptedContent, nonce: post.nonce, epoch: post.epoch },
@@ -294,7 +313,7 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
         return
       }
 
-      const canDecrypt = await privateFeedFollowerService.canDecrypt(post.author.id)
+      const canDecrypt = await privateFeedFollowerService.canDecrypt(encryptionSourceOwnerId)
       if (!canDecrypt) {
         setState({ status: 'locked' })
         return
@@ -304,7 +323,7 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
         encryptedContent: post.encryptedContent,
         epoch: post.epoch,
         nonce: post.nonce,
-        $ownerId: post.author.id,
+        $ownerId: encryptionSourceOwnerId,
       }, user?.identityId)
 
       if (result.success && result.content) {
@@ -316,7 +335,7 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
       console.error('Error decrypting quoted post preview:', error)
       setState({ status: 'error' })
     }
-  }, [isPrivate, post, user, isOwner])
+  }, [isPrivate, post, user])
 
   // Reset state when post changes to avoid stale decryption data
   useEffect(() => {

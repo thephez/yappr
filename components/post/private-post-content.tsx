@@ -465,7 +465,7 @@ export function PrivatePostContent({
   // Attempt decryption on mount
   useEffect(() => {
     if (state.status === 'idle') {
-      attemptDecryption()
+      void attemptDecryption()
     }
   }, [state.status, attemptDecryption])
 
