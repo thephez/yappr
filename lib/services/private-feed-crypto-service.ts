@@ -655,6 +655,12 @@ class PrivateFeedCryptoService {
    * Decode grant payload from bytes (SPEC §9.3.1)
    */
   decodeGrantPayload(data: Uint8Array): GrantPayload {
+    // Minimum header size: version(1) + grantEpoch(4) + leafIndex(2) + pathKeyCount(1) = 8 bytes
+    const MIN_HEADER_SIZE = 8;
+    if (data.length < MIN_HEADER_SIZE) {
+      throw new Error(`Invalid grant payload: expected at least ${MIN_HEADER_SIZE} bytes, got ${data.length}`);
+    }
+
     let offset = 0;
 
     const version = data[offset++];
@@ -663,6 +669,17 @@ class PrivateFeedCryptoService {
     const leafIndex = decodeUint16BE(data, offset);
     offset += 2;
     const pathKeyCount = data[offset++];
+
+    // Validate we have enough bytes for path keys + final CEK
+    // Each path key: nodeId(2) + keyVersion(2) + key(32) = 36 bytes
+    // Final CEK: 32 bytes
+    const PATH_KEY_SIZE = 4 + KEY_SIZE; // 36 bytes per path key
+    const expectedRemainingBytes = pathKeyCount * PATH_KEY_SIZE + KEY_SIZE;
+    if (data.length - offset < expectedRemainingBytes) {
+      throw new Error(
+        `Invalid grant payload: expected ${expectedRemainingBytes} bytes for ${pathKeyCount} path keys + CEK, got ${data.length - offset}`
+      );
+    }
 
     const pathKeys: NodeKey[] = [];
     for (let i = 0; i < pathKeyCount; i++) {
@@ -730,9 +747,23 @@ class PrivateFeedCryptoService {
    * Decode rekey packets from bytes (SPEC §9.1)
    */
   decodeRekeyPackets(data: Uint8Array): RekeyPacket[] {
+    // Minimum size: packetCount(1) byte
+    if (data.length < 1) {
+      throw new Error('Invalid rekey packets: empty data');
+    }
+
     const packetCount = data[0];
     const packets: RekeyPacket[] = [];
-    // Each packet is 56 bytes: 2 + 2 + 2 + 2 + 48
+    // Each packet is 56 bytes: targetNodeId(2) + targetVersion(2) + encryptedUnderNodeId(2) + encryptedUnderVersion(2) + wrappedKey(48)
+    const PACKET_SIZE = 56;
+
+    // Validate total expected size
+    const expectedSize = 1 + packetCount * PACKET_SIZE;
+    if (data.length < expectedSize) {
+      throw new Error(
+        `Invalid rekey packets: expected ${expectedSize} bytes for ${packetCount} packets, got ${data.length}`
+      );
+    }
 
     let offset = 1;
     for (let i = 0; i < packetCount; i++) {

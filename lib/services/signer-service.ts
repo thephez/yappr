@@ -159,8 +159,8 @@ class SignerService {
     requiredSecurityLevel: number = SecurityLevel.HIGH,
     keyId?: number
   ): IdentityPublicKeyType | null {
-    // Filter out disabled keys
-    const activeKeys = publicKeys.filter(k => !k.disabledAt);
+    // Filter out disabled keys (check both camelCase and snake_case variants)
+    const activeKeys = publicKeys.filter(k => !k.disabledAt && !k.disabled_at);
 
     if (keyId !== undefined) {
       // Find specific key by ID
