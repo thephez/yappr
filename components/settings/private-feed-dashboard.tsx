@@ -14,6 +14,7 @@ import {
 import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
 import { formatTime } from '@/lib/utils'
 import Link from 'next/link'
+import { usePrivateFeedRefreshStore } from '@/lib/stores/private-feed-refresh-store'
 
 interface ActivityItem {
   id: string
@@ -40,6 +41,7 @@ export function PrivateFeedDashboard() {
   const [currentEpoch, setCurrentEpoch] = useState(1)
   const [recentActivity, setRecentActivity] = useState<ActivityItem[]>([])
   const requestIdRef = useRef(0)
+  const refreshKey = usePrivateFeedRefreshStore((s) => s.refreshKey)
 
   const loadDashboardData = useCallback(async () => {
     // Increment request ID to track this specific request
@@ -188,7 +190,7 @@ export function PrivateFeedDashboard() {
 
   useEffect(() => {
     loadDashboardData().catch(err => console.error('Failed to load dashboard:', err))
-  }, [loadDashboardData])
+  }, [loadDashboardData, refreshKey])
 
   // Calculate epoch usage percentage with clamping to avoid NaN/overflow
   const rawEpochPercent = MAX_EPOCH > 1 ? ((currentEpoch - 1) / (MAX_EPOCH - 1)) * 100 : 0
