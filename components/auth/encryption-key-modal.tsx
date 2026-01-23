@@ -28,7 +28,7 @@ type AutoRecoveryStatus = 'idle' | 'checking' | 'found' | 'failed'
  */
 export function EncryptionKeyModal() {
   const { user } = useAuth()
-  const { isOpen, action, onSuccess, close } = useEncryptionKeyModal()
+  const { isOpen, action, onSuccess, close, closeWithSuccess } = useEncryptionKeyModal()
   const [encryptionKeyInput, setEncryptionKeyInput] = useState('')
   const [isValidating, setIsValidating] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -86,10 +86,10 @@ export function EncryptionKeyModal() {
         storeEncryptionKey(user.identityId, derivedKeyHex)
         storeEncryptionKeyType(user.identityId, 'derived')
 
-        // Brief success message, then close
+        // Brief success message, then close (use closeWithSuccess to avoid calling onCancel)
         setTimeout(() => {
           toast.success('Encryption key recovered automatically')
-          close()
+          closeWithSuccess()
           if (onSuccess) {
             onSuccess()
           }
@@ -142,7 +142,7 @@ export function EncryptionKeyModal() {
 
       toast.success('Encryption key saved')
       setEncryptionKeyInput('')
-      close()
+      closeWithSuccess()
 
       // Call success callback if provided
       if (onSuccess) {
@@ -191,11 +191,11 @@ export function EncryptionKeyModal() {
     // (unless they just generated it, in which case it was stored)
     // Call onSuccess since the key was added and stored
     toast.success('You can now use private feed features!')
-    close()
+    closeWithSuccess()
     if (onSuccess) {
       onSuccess()
     }
-  }, [close, onSuccess])
+  }, [closeWithSuccess, onSuccess])
 
   return (
     <Dialog.Root open={isOpen} onOpenChange={handleClose}>

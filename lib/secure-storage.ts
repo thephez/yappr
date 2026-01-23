@@ -193,6 +193,16 @@ export const isRememberMe = (): boolean => {
 // Keys are stored in WIF format for consistency with other private keys
 
 /**
+ * Get the configured network from environment
+ */
+const getConfiguredNetwork = (): 'testnet' | 'mainnet' => {
+  if (typeof process !== 'undefined' && process.env?.NEXT_PUBLIC_NETWORK) {
+    return process.env.NEXT_PUBLIC_NETWORK === 'mainnet' ? 'mainnet' : 'testnet'
+  }
+  return 'testnet'
+}
+
+/**
  * Store encryption key in WIF format.
  * Accepts both WIF and hex formats - converts hex to WIF before storing.
  */
@@ -206,8 +216,9 @@ export const storeEncryptionKey = (identityId: string, encryptionKey: string) =>
   // Parse the key (handles both hex and WIF)
   const parsed = parsePrivateKey(encryptionKey)
 
-  // Convert to WIF for storage (testnet by default, compressed)
-  const wif = privateKeyToWif(parsed.privateKey, 'testnet', true)
+  // Convert to WIF for storage using configured network
+  const network = getConfiguredNetwork()
+  const wif = privateKeyToWif(parsed.privateKey, network, true)
   secureStorage.set(`ek_${identityId}`, wif)
 }
 
@@ -289,8 +300,9 @@ export const storeTransferKey = (identityId: string, transferKey: string) => {
   // Parse the key (handles both hex and WIF)
   const parsed = parsePrivateKey(transferKey)
 
-  // Convert to WIF for storage (testnet by default, compressed)
-  const wif = privateKeyToWif(parsed.privateKey, 'testnet', true)
+  // Convert to WIF for storage using configured network
+  const network = getConfiguredNetwork()
+  const wif = privateKeyToWif(parsed.privateKey, network, true)
   secureStorage.set(`tk_${identityId}`, wif)
 }
 

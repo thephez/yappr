@@ -79,7 +79,7 @@ export function useRequireEncryptionKey() {
   }, [user, hasEncryptionKey, openModal])
 
   /**
-   * Async version that resolves when key is entered or rejects if skipped
+   * Async version that resolves when key is entered or rejects if cancelled/skipped
    */
   const requireEncryptionKeyAsync = useCallback((
     action: EncryptionKeyAction = 'generic'
@@ -97,14 +97,23 @@ export function useRequireEncryptionKey() {
       }
 
       // Open modal and wait for completion
-      openModal(action, () => {
-        const key = getEncryptionKeyBytes()
-        if (key) {
-          resolve(key)
-        } else {
-          reject(new Error('Encryption key not entered'))
+      // Pass both onSuccess and onCancel callbacks to ensure promise settles
+      openModal(
+        action,
+        // onSuccess: called when key is successfully entered
+        () => {
+          const key = getEncryptionKeyBytes()
+          if (key) {
+            resolve(key)
+          } else {
+            reject(new Error('Encryption key not entered'))
+          }
+        },
+        // onCancel: called when modal is dismissed without entering key
+        () => {
+          reject(new Error('Encryption key entry cancelled'))
         }
-      })
+      )
     })
   }, [user, getEncryptionKeyBytes, openModal])
 

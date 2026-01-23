@@ -15,8 +15,11 @@ interface EncryptionKeyModalStore {
   isOpen: boolean
   action: EncryptionKeyAction
   onSuccess?: () => void
-  open: (action?: EncryptionKeyAction, onSuccess?: () => void) => void
+  onCancel?: () => void
+  open: (action?: EncryptionKeyAction, onSuccess?: () => void, onCancel?: () => void) => void
   close: () => void
+  /** Close the modal after successful key entry (doesn't call onCancel) */
+  closeWithSuccess: () => void
 }
 
 /**
@@ -24,12 +27,24 @@ interface EncryptionKeyModalStore {
  * Use this to prompt users to enter their encryption key when they try to perform
  * private feed operations that require it.
  */
-export const useEncryptionKeyModal = create<EncryptionKeyModalStore>((set) => ({
+export const useEncryptionKeyModal = create<EncryptionKeyModalStore>((set, get) => ({
   isOpen: false,
   action: 'generic',
   onSuccess: undefined,
-  open: (action = 'generic', onSuccess?: () => void) => set({ isOpen: true, action, onSuccess }),
-  close: () => set({ isOpen: false, action: 'generic', onSuccess: undefined }),
+  onCancel: undefined,
+  open: (action = 'generic', onSuccess?: () => void, onCancel?: () => void) => set({ isOpen: true, action, onSuccess, onCancel }),
+  close: () => {
+    const { onCancel } = get()
+    // Call onCancel if modal is being closed without success (user cancelled/dismissed)
+    if (onCancel) {
+      onCancel()
+    }
+    set({ isOpen: false, action: 'generic', onSuccess: undefined, onCancel: undefined })
+  },
+  closeWithSuccess: () => {
+    // Close without calling onCancel (used after successful key entry)
+    set({ isOpen: false, action: 'generic', onSuccess: undefined, onCancel: undefined })
+  },
 }))
 
 /**

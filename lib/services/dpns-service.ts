@@ -501,13 +501,9 @@ class DpnsService {
 
       console.log(`DPNS: Using signing key id=${identityKey.keyId} with security level ${identityKey.securityLevel}`);
 
-      // Call onPreorder callback if provided (for UI feedback)
-      if (onPreorderSuccess) {
-        onPreorderSuccess();
-      }
-
       // Register the name using the correct SDK API
       // The SDK expects: label, identityId, publicKeyId, privateKeyWif, onPreorder
+      // Note: onPreorder callback is passed to SDK which invokes it when preorder completes
       console.log(`Registering DPNS name: ${label}`);
       await sdk.dpns.registerName({
         label,
