@@ -7,11 +7,7 @@
     "build": "next build",
     "build:subpath": "BASE_PATH=/yappr next build",
     "start": "next start",
-    "lint": "next lint",
-    "test:e2e": "playwright test",
-    "test:e2e:ui": "playwright test --ui",
-    "test:e2e:debug": "playwright test --debug",
-    "test:e2e:report": "playwright show-report"
+    "lint": "next lint"
   },
   "dependencies": {
     "@dashevo/evo-sdk": "3.0.0-dev.11",
@@ -49,7 +45,6 @@
     "zustand": "^4.5.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.57.0",
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
