@@ -405,8 +405,25 @@ export function PrivatePostContent({
         setState({ status: 'decrypted', content: result.content })
       } else {
         // Check if access has been revoked (grant deleted)
-        if (result.error === 'Access has been revoked') {
+        if (result.error === 'Access has been revoked' || result.error?.startsWith('REVOKED:')) {
           setState({ status: 'locked', reason: 'revoked' })
+          return
+        }
+        // Check if this is an old post from before user's current access
+        if (result.error?.startsWith('OLD_POST:')) {
+          // Show a specific message for old posts that can't be decrypted
+          setState({
+            status: 'error',
+            message: 'This post is from before your current access and cannot be decrypted.',
+          })
+          return
+        }
+        // Generic decrypt failure (no user context)
+        if (result.error?.startsWith('DECRYPT_FAILED:')) {
+          setState({
+            status: 'error',
+            message: 'Unable to decrypt this post.',
+          })
           return
         }
         // BUG-017 fix: Check if we need to trigger key recovery due to missing wrapNonceSalt

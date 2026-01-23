@@ -472,17 +472,54 @@ class PrivateFeedFollowerService {
 
       // 5. Decrypt the content
       const ownerIdBytes = identifierToBytes(ownerId);
-      const content = privateFeedCryptoService.decryptPostContent(
-        cek,
-        {
-          ciphertext: post.encryptedContent,
-          nonce: post.nonce,
-          epoch: postEpoch,
-        },
-        ownerIdBytes
-      );
-
-      return { success: true, content };
+      try {
+        const content = privateFeedCryptoService.decryptPostContent(
+          cek,
+          {
+            ciphertext: post.encryptedContent,
+            nonce: post.nonce,
+            epoch: postEpoch,
+          },
+          ownerIdBytes
+        );
+        return { success: true, content };
+      } catch (decryptError) {
+        // Check if this is an "invalid tag" error (AES-GCM authentication failure)
+        const errorMsg = decryptError instanceof Error ? decryptError.message : '';
+        if (errorMsg.includes('invalid tag') || errorMsg.includes('tag doesn\'t match')) {
+          // Decryption failed - keys don't work for this post.
+          // This could be because:
+          // 1. User was revoked (no grant)
+          // 2. Post is from before a feed reset (encrypted with old seed)
+          // 3. Post is from after user was revoked (they can't derive new epoch keys)
+          //
+          // NOTE: We do NOT clear local keys here because the user might still
+          // be able to decrypt other posts (e.g., new posts after re-requesting access,
+          // or old posts from before they were revoked).
+          if (myId) {
+            const grant = await this.getGrant(ownerId, myId);
+            if (!grant) {
+              // No grant - user was revoked or feed was reset and grants deleted
+              return {
+                success: false,
+                error: 'REVOKED:Your access has been revoked.',
+              };
+            }
+            // Has grant but keys don't work for this specific post
+            // This is likely an old post from before a feed reset
+            return {
+              success: false,
+              error: 'OLD_POST:This post was encrypted before your current access was granted and cannot be decrypted.',
+            };
+          }
+          // No myId provided, generic error
+          return {
+            success: false,
+            error: 'DECRYPT_FAILED:Decryption failed - keys may be invalid for this post.',
+          };
+        }
+        throw decryptError;
+      }
     } catch (error) {
       console.error('Error decrypting post:', error);
       return {
