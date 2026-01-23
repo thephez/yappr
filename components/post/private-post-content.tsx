@@ -457,6 +457,11 @@ export function PrivatePostContent({
     }
   }, [post, user, isOwner, attemptRecovery])
 
+  // Reset state when post changes to avoid stale decryption data
+  useEffect(() => {
+    setState({ status: 'idle' })
+  }, [post.id])
+
   // Attempt decryption on mount
   useEffect(() => {
     if (state.status === 'idle') {

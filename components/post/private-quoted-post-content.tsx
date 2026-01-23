@@ -144,6 +144,11 @@ export function PrivateQuotedPostContent({
     }
   }, [quotedPost, user])
 
+  // Reset state when quoted post changes to avoid stale decryption data
+  useEffect(() => {
+    setState({ status: 'idle' })
+  }, [quotedPost.id])
+
   // Attempt decryption on mount
   useEffect(() => {
     if (state.status === 'idle') {
