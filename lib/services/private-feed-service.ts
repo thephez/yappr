@@ -29,7 +29,6 @@ import {
   PROTOCOL_VERSION,
 } from './private-feed-crypto-service';
 import { privateFeedKeyStore } from './private-feed-key-store';
-import { privateFeedNotificationService } from './private-feed-notification-service';
 import { YAPPR_CONTRACT_ID, DOCUMENT_TYPES } from '../constants';
 import { queryDocuments, identifierToBase58, identifierToBytes } from './sdk-helpers';
 import { paginateFetchAll } from './pagination-utils';
@@ -484,13 +483,9 @@ class PrivateFeedService {
       recipientMap[requesterId] = leafIndex;
       privateFeedKeyStore.storeRecipientMap(recipientMap);
 
-      // 13. Create notification for the approved follower (best effort)
-      try {
-        await privateFeedNotificationService.createApprovedNotification(ownerId, requesterId);
-      } catch (notifError) {
-        console.error('Failed to create approval notification:', notifError);
-        // Don't fail the main operation
-      }
+      // Note: Notification documents cannot be created here due to ownership constraints
+      // (we can't sign documents owned by the recipient). Followers discover approvals
+      // by polling their grants via getMyGrants() or checking followRequest status.
 
       console.log(`Approved follower ${requesterId} with leaf index ${leafIndex}`);
       return { success: true };
@@ -791,13 +786,9 @@ class PrivateFeedService {
       // Update cached CEK
       privateFeedKeyStore.storeCachedCEK(ownerId, newEpoch, newCEK);
 
-      // 16. Create notification for the revoked follower (best effort)
-      try {
-        await privateFeedNotificationService.createRevokedNotification(ownerId, followerId);
-      } catch (notifError) {
-        console.error('Failed to create revocation notification:', notifError);
-        // Don't fail the main operation
-      }
+      // Note: Notification documents cannot be created here due to ownership constraints
+      // (we can't sign documents owned by the recipient). Revoked followers discover
+      // revocation when their grant stops working or via grant expiry checks.
 
       console.log(`Revoked follower ${followerId} (leaf ${leafIndex}), new epoch: ${newEpoch}`);
       return { success: true };

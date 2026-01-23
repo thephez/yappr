@@ -110,6 +110,6 @@ export type {
   EncryptedPostFields,
 } from './private-feed-follower-service';
 
-// Private feed notification service
-export { privateFeedNotificationService } from './private-feed-notification-service';
-export type { PrivateFeedNotificationType } from './private-feed-notification-service';
+// Note: Private feed notification documents cannot be created due to ownership constraints
+// (actor can't sign documents owned by recipient). Notifications are derived by polling
+// followRequest documents and grant status instead. See notification-service.ts.
