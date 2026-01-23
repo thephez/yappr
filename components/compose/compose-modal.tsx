@@ -857,7 +857,14 @@ export function ComposeModal() {
             })
 
             // Create hashtag documents for this successful post
-            const hashtags = extractAllTags(postContent)
+            // For private posts, only index hashtags from the teaser (if any), not the encrypted content
+            // This prevents metadata leakage about encrypted content
+            const contentForHashtags = isThisPostPrivate
+              ? (postVisibility === 'private-with-teaser' && teaser ? teaser : '')
+              : isThisReplyInherited
+                ? '' // Inherited encryption replies have no public content
+                : postContent
+            const hashtags = extractAllTags(contentForHashtags)
             if (hashtags.length > 0) {
               hashtagService.createPostHashtags(postId, authedUser.identityId, hashtags)
                 .then((results) => {
@@ -880,7 +887,13 @@ export function ComposeModal() {
             }
 
             // Create mention documents for this successful post
-            const mentions = extractMentions(postContent)
+            // Same privacy consideration: only index mentions from teaser for private posts
+            const contentForMentions = isThisPostPrivate
+              ? (postVisibility === 'private-with-teaser' && teaser ? teaser : '')
+              : isThisReplyInherited
+                ? '' // Inherited encryption replies have no public content
+                : postContent
+            const mentions = extractMentions(contentForMentions)
             if (mentions.length > 0) {
               mentionService.createPostMentionsFromUsernames(postId, authedUser.identityId, mentions)
                 .then((results) => {
