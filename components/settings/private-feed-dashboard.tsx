@@ -12,6 +12,7 @@ import {
   XCircleIcon,
 } from '@heroicons/react/24/outline'
 import { TREE_CAPACITY, MAX_EPOCH } from '@/lib/services'
+import { formatTime } from '@/lib/utils'
 import Link from 'next/link'
 
 interface ActivityItem {
@@ -21,16 +22,6 @@ interface ActivityItem {
   username?: string
   displayName: string
   timestamp: Date
-}
-
-function formatTimeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`
-  return date.toLocaleDateString()
 }
 
 /**
@@ -301,7 +292,7 @@ export function PrivateFeedDashboard() {
                     )}
                   </div>
                   <span className="text-gray-500 text-xs whitespace-nowrap">
-                    {formatTimeAgo(activity.timestamp)}
+                    {formatTime(activity.timestamp)}
                   </span>
                 </div>
               ))}

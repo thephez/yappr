@@ -78,8 +78,10 @@ export function Sidebar() {
 
   // Fetch display name from profile when no DPNS username
   useEffect(() => {
+    // Reset display name at start to avoid stale values
+    setDisplayName(null)
+
     if (!user?.identityId || user.dpnsUsername) {
-      setDisplayName(null)
       return
     }
 
@@ -89,11 +91,14 @@ export function Sidebar() {
       try {
         const { unifiedProfileService } = await import('@/lib/services/unified-profile-service')
         const profile = await unifiedProfileService.getProfile(user!.identityId)
-        if (mounted && profile?.displayName) {
-          setDisplayName(profile.displayName)
+        if (mounted) {
+          setDisplayName(profile?.displayName ?? null)
         }
       } catch (error) {
         console.error('Failed to fetch display name:', error)
+        if (mounted) {
+          setDisplayName(null)
+        }
       }
     }
 

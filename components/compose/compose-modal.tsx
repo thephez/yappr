@@ -596,7 +596,9 @@ export function ComposeModal() {
     firstPost?.teaser && firstPost.teaser.length > TEASER_LIMIT
   const hasOverLimit = unpostedPosts.some((p) => p.content.length > CHARACTER_LIMIT) || hasTeaserOverLimit
 
-  const canPost = hasValidContent && !hasOverLimit && !isPosting
+  // Encrypted posts must be single posts (no threads)
+  const isValidEncryptedPost = !willBeEncrypted || (unpostedPosts.length <= 1 && threadPosts.length <= 1)
+  const canPost = hasValidContent && !hasOverLimit && !isPosting && isValidEncryptedPost
   // Disable thread for private posts and inherited encryption replies (private posts are single posts only)
   const canAddThread = threadPosts.length < 10 && !replyingTo && !quotingPost && !willBeEncrypted
 
@@ -712,6 +714,13 @@ export function ComposeModal() {
           teaser: p.teaser?.trim(),
           visibility: p.visibility,
         }))
+
+      // Enforce single-post for encrypted posts
+      if ((isPrivate || hasInheritedEncryption) && postsToCreate.length > 1) {
+        toast.error('Encrypted posts cannot be threads. Only the first post will be published.')
+        // Trim to first post only for encrypted posts
+        postsToCreate.length = 1
+      }
 
       setPostingProgress({ current: 0, total: postsToCreate.length, status: 'Starting...' })
 

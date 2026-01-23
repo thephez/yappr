@@ -249,7 +249,7 @@ export function QuotedPostPreview({ post }: QuotedPostPreviewProps) {
   const attemptDecryption = useCallback(async () => {
     if (!isPrivate) return
 
-    if (!post.encryptedContent || !post.epoch || !post.nonce) {
+    if (!post.encryptedContent || post.epoch == null || !post.nonce) {
       setState({ status: 'error' })
       return
     }

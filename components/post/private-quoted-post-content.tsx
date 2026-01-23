@@ -43,7 +43,7 @@ export function PrivateQuotedPostContent({
 
   const attemptDecryption = useCallback(async () => {
     // Safety check: ensure this is a private post
-    if (!quotedPost.encryptedContent || !quotedPost.epoch || !quotedPost.nonce) {
+    if (!quotedPost.encryptedContent || quotedPost.epoch == null || !quotedPost.nonce) {
       setState({ status: 'error' })
       return
     }

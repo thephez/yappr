@@ -9,6 +9,7 @@ import { LockClosedIcon, UserPlusIcon, CheckIcon, XMarkIcon } from '@heroicons/r
 import { Loader2 } from 'lucide-react'
 import toast from 'react-hot-toast'
 import Link from 'next/link'
+import { formatTime } from '@/lib/utils'
 
 interface FollowRequestUser {
   id: string
@@ -18,16 +19,6 @@ interface FollowRequestUser {
   hasDpns: boolean
   requestedAt: Date
   publicKey?: Uint8Array
-}
-
-function formatTimeAgo(date: Date): string {
-  const seconds = Math.floor((Date.now() - date.getTime()) / 1000)
-
-  if (seconds < 60) return 'just now'
-  if (seconds < 3600) return `${Math.floor(seconds / 60)} minute${Math.floor(seconds / 60) !== 1 ? 's' : ''} ago`
-  if (seconds < 86400) return `${Math.floor(seconds / 3600)} hour${Math.floor(seconds / 3600) !== 1 ? 's' : ''} ago`
-  if (seconds < 604800) return `${Math.floor(seconds / 86400)} day${Math.floor(seconds / 86400) !== 1 ? 's' : ''} ago`
-  return date.toLocaleDateString()
 }
 
 export function PrivateFeedFollowRequests() {
@@ -317,7 +308,7 @@ export function PrivateFeedFollowRequests() {
                       <p className="text-sm text-gray-500 truncate">@{request.username}</p>
                     )}
                     <p className="text-xs text-gray-400">
-                      Requested {formatTimeAgo(request.requestedAt)}
+                      Requested {formatTime(request.requestedAt)}
                     </p>
                   </div>
                 </Link>

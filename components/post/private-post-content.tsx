@@ -233,7 +233,7 @@ export function PrivatePostContent({
 
   const attemptDecryption = useCallback(async () => {
     // Safety check: ensure this is a private post
-    if (!post.encryptedContent || !post.epoch || !post.nonce) {
+    if (!post.encryptedContent || post.epoch == null || !post.nonce) {
       setState({ status: 'error', message: 'Invalid private post data' })
       return
     }
