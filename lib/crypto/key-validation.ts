@@ -54,21 +54,26 @@ function parsePublicKeyData(data: unknown): Uint8Array | null {
   }
 
   if (typeof data === 'string') {
-    // Check if hex
-    if (/^[0-9a-fA-F]+$/.test(data)) {
+    // Check if hex (must be even length for valid hex encoding)
+    if (/^[0-9a-fA-F]+$/.test(data) && data.length % 2 === 0) {
       const bytes = new Uint8Array(data.length / 2)
       for (let i = 0; i < bytes.length; i++) {
-        bytes[i] = parseInt(data.substr(i * 2, 2), 16)
+        bytes[i] = parseInt(data.substring(i * 2, i * 2 + 2), 16)
       }
       return bytes
     }
-    // Assume base64
-    const binary = atob(data)
-    const bytes = new Uint8Array(binary.length)
-    for (let i = 0; i < binary.length; i++) {
-      bytes[i] = binary.charCodeAt(i)
+    // Try base64
+    try {
+      const binary = atob(data)
+      const bytes = new Uint8Array(binary.length)
+      for (let i = 0; i < binary.length; i++) {
+        bytes[i] = binary.charCodeAt(i)
+      }
+      return bytes
+    } catch {
+      // Invalid base64
+      return null
     }
-    return bytes
   }
 
   return null

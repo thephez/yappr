@@ -521,6 +521,9 @@ export function ComposeModal() {
             // Get follower count from recipient map
             const recipientMap = privateFeedKeyStore.getRecipientMap()
             setPrivateFollowerCount(Object.keys(recipientMap).length)
+          } else {
+            // Reset follower count when no private feed
+            setPrivateFollowerCount(0)
           }
 
           // Check if user has encryption key on identity (for enabling private feed flow)
