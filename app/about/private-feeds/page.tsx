@@ -320,76 +320,96 @@ export default function PrivateFeedsPage() {
                 one follower. The tree looks like this:
               </p>
 
-              {/* Tree Diagram */}
-              <div className="my-6 p-6 bg-gray-50 dark:bg-gray-950 rounded-lg overflow-x-auto">
-                <div className="min-w-[500px]">
-                  {/* Root */}
-                  <div className="flex flex-col items-center">
-                    <div className="px-4 py-2 bg-yappr-500 text-white rounded-lg font-semibold text-sm">
-                      Root
-                    </div>
-                    <div className="text-xs text-gray-500 mt-1">All approved followers know this</div>
-                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                    {/* Level 1 */}
-                    <div className="flex gap-16">
-                      <div className="flex flex-col items-center">
-                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                        <div className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm">Node A</div>
-                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                        {/* Level 2 */}
-                        <div className="flex gap-8">
-                          <div className="flex flex-col items-center">
-                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                            <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node C</div>
-                            <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                            <div className="text-gray-400 text-xs">...</div>
-                            <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                            <div className="flex gap-2">
-                              <div className="flex flex-col items-center">
-                                <div className="px-2 py-1 bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 rounded text-xs font-medium">Slot 1</div>
-                                <div className="text-xs text-green-600 dark:text-green-400 mt-1">Alice</div>
-                              </div>
-                              <div className="flex flex-col items-center">
-                                <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">Slot 2</div>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                            <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node D</div>
-                            <div className="text-gray-400 text-xs mt-2">...</div>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                        <div className="px-3 py-1.5 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded text-sm">Node B</div>
-                        <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                        <div className="flex gap-8">
-                          <div className="flex flex-col items-center">
-                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                            <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node E</div>
-                            <div className="text-gray-400 text-xs mt-2">...</div>
-                          </div>
-                          <div className="flex flex-col items-center">
-                            <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                            <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node F</div>
-                            <div className="text-gray-400 text-xs mt-2">...</div>
-                            <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                            <div className="flex gap-2">
-                              <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">...</div>
-                              <div className="flex flex-col items-center">
-                                <div className="px-2 py-1 bg-orange-100 dark:bg-orange-900 text-orange-800 dark:text-orange-200 rounded text-xs font-medium">Slot 1024</div>
-                                <div className="text-xs text-orange-600 dark:text-orange-400 mt-1">Bob</div>
-                              </div>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <p className="text-sm text-gray-500 mt-4 text-center">Binary key tree structure with 1,024 leaf slots</p>
+              {/* Tree Diagram - SVG-based for proper rendering */}
+              <div className="my-6 p-6 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800">
+                <svg viewBox="0 0 600 320" className="w-full max-w-2xl mx-auto" style={{ minHeight: '280px' }}>
+                  {/* Connection lines */}
+                  <g stroke="currentColor" strokeWidth="2" fill="none" className="text-gray-300 dark:text-gray-600">
+                    {/* Root to children */}
+                    <path d="M300,50 L300,70 L150,70 L150,90" />
+                    <path d="M300,50 L300,70 L450,70 L450,90" />
+                    {/* Node A to children */}
+                    <path d="M150,120 L150,140 L90,140 L90,160" />
+                    <path d="M150,120 L150,140 L210,140 L210,160" />
+                    {/* Node B to children */}
+                    <path d="M450,120 L450,140 L390,140 L390,160" />
+                    <path d="M450,120 L450,140 L510,140 L510,160" />
+                    {/* Node C to slots */}
+                    <path d="M90,190 L90,230" strokeDasharray="4,4" />
+                    <path d="M90,250 L90,260 L60,260 L60,275" />
+                    <path d="M90,250 L90,260 L120,260 L120,275" />
+                    {/* Node F to slots */}
+                    <path d="M510,190 L510,230" strokeDasharray="4,4" />
+                    <path d="M510,250 L510,260 L480,260 L480,275" />
+                    <path d="M510,250 L510,260 L540,260 L540,275" />
+                  </g>
+
+                  {/* Root node */}
+                  <g transform="translate(300, 30)">
+                    <rect x="-35" y="-15" width="70" height="35" rx="8" className="fill-yappr-500" />
+                    <text x="0" y="5" textAnchor="middle" className="fill-white text-sm font-semibold">Root</text>
+                  </g>
+                  <text x="300" y="65" textAnchor="middle" className="fill-gray-500 dark:fill-gray-400 text-xs">All approved followers know this</text>
+
+                  {/* Level 1 nodes */}
+                  <g transform="translate(150, 105)">
+                    <rect x="-40" y="-15" width="80" height="30" rx="6" className="fill-blue-500 dark:fill-blue-600" />
+                    <text x="0" y="5" textAnchor="middle" className="fill-white text-sm font-medium">Node A</text>
+                  </g>
+                  <g transform="translate(450, 105)">
+                    <rect x="-40" y="-15" width="80" height="30" rx="6" className="fill-blue-500 dark:fill-blue-600" />
+                    <text x="0" y="5" textAnchor="middle" className="fill-white text-sm font-medium">Node B</text>
+                  </g>
+
+                  {/* Level 2 nodes */}
+                  <g transform="translate(90, 175)">
+                    <rect x="-35" y="-15" width="70" height="28" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                    <text x="0" y="4" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node C</text>
+                  </g>
+                  <g transform="translate(210, 175)">
+                    <rect x="-35" y="-15" width="70" height="28" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                    <text x="0" y="4" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node D</text>
+                  </g>
+                  <g transform="translate(390, 175)">
+                    <rect x="-35" y="-15" width="70" height="28" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                    <text x="0" y="4" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node E</text>
+                  </g>
+                  <g transform="translate(510, 175)">
+                    <rect x="-35" y="-15" width="70" height="28" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                    <text x="0" y="4" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node F</text>
+                  </g>
+
+                  {/* Ellipsis for middle levels */}
+                  <text x="90" y="245" textAnchor="middle" className="fill-gray-400 dark:fill-gray-500 text-sm">...</text>
+                  <text x="210" y="215" textAnchor="middle" className="fill-gray-400 dark:fill-gray-500 text-sm">...</text>
+                  <text x="390" y="215" textAnchor="middle" className="fill-gray-400 dark:fill-gray-500 text-sm">...</text>
+                  <text x="510" y="245" textAnchor="middle" className="fill-gray-400 dark:fill-gray-500 text-sm">...</text>
+
+                  {/* Leaf slots - Alice */}
+                  <g transform="translate(60, 290)">
+                    <rect x="-28" y="-15" width="56" height="26" rx="5" className="fill-green-500 dark:fill-green-600" />
+                    <text x="0" y="3" textAnchor="middle" className="fill-white text-xs font-medium">Slot 1</text>
+                  </g>
+                  <text x="60" y="315" textAnchor="middle" className="fill-green-600 dark:fill-green-400 text-xs font-medium">Alice</text>
+
+                  {/* Leaf slots - empty */}
+                  <g transform="translate(120, 290)">
+                    <rect x="-28" y="-15" width="56" height="26" rx="5" className="fill-gray-300 dark:fill-gray-600" />
+                    <text x="0" y="3" textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-xs">Slot 2</text>
+                  </g>
+
+                  {/* Leaf slots - ellipsis and Bob */}
+                  <g transform="translate(480, 290)">
+                    <rect x="-20" y="-15" width="40" height="26" rx="5" className="fill-gray-300 dark:fill-gray-600" />
+                    <text x="0" y="3" textAnchor="middle" className="fill-gray-500 dark:fill-gray-400 text-xs">...</text>
+                  </g>
+                  <g transform="translate(540, 290)">
+                    <rect x="-35" y="-15" width="70" height="26" rx="5" className="fill-orange-500 dark:fill-orange-600" />
+                    <text x="0" y="3" textAnchor="middle" className="fill-white text-xs font-medium">Slot 1024</text>
+                  </g>
+                  <text x="540" y="315" textAnchor="middle" className="fill-orange-600 dark:fill-orange-400 text-xs font-medium">Bob</text>
+                </svg>
+                <p className="text-sm text-gray-500 dark:text-gray-400 mt-2 text-center">Binary key tree structure with 1,024 leaf slots</p>
               </div>
 
               <p>
@@ -398,36 +418,64 @@ export default function PrivateFeedsPage() {
               </p>
 
               {/* Path Diagram */}
-              <div className="my-6 p-6 bg-gray-50 dark:bg-gray-950 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-4">Alice knows these keys (slot 1):</p>
-                <div className="flex flex-col items-start gap-1 ml-4">
-                  {[
-                    { key: 'Root', desc: 'The master key that unlocks content', highlight: true },
-                    { key: 'Node A', desc: 'Intermediate key on Alice\'s path' },
-                    { key: 'Node C', desc: null },
-                    { key: '...', desc: null, dim: true },
-                    { key: 'Slot 1', desc: 'Alice\'s unique leaf key' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      {i > 0 && <div className="w-px h-4 bg-gray-300 dark:bg-gray-600 ml-6 -my-1" />}
-                      <div className={`flex items-center gap-3 ${i > 0 ? 'mt-1' : ''}`}>
-                        <div className={`px-3 py-1 rounded text-sm font-mono ${
-                          item.highlight ? 'bg-yappr-500 text-white' :
-                          item.dim ? 'text-gray-400' :
-                          'bg-gray-200 dark:bg-gray-700'
-                        }`}>
-                          {item.key}
-                        </div>
-                        {item.desc && (
-                          <span className="text-sm text-gray-500">← {item.desc}</span>
-                        )}
+              <div className="my-6 p-6 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800">
+                <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-5">Alice knows these keys (slot 1):</p>
+                <div className="relative ml-4">
+                  {/* Vertical connecting line */}
+                  <div className="absolute left-[52px] top-[20px] bottom-[20px] w-0.5 bg-gradient-to-b from-yappr-500 via-gray-300 to-green-500 dark:via-gray-600" />
+
+                  <div className="space-y-4">
+                    {/* Root */}
+                    <div className="flex items-center gap-4 relative">
+                      <div className="relative z-10 px-4 py-2 bg-yappr-500 text-white rounded-lg text-sm font-semibold shadow-sm min-w-[105px] text-center">
+                        Root
+                      </div>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <span className="text-gray-400">&larr;</span>
+                        The master key that unlocks content
+                      </span>
+                    </div>
+
+                    {/* Node A */}
+                    <div className="flex items-center gap-4 relative pl-4">
+                      <div className="relative z-10 px-4 py-2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 rounded-lg text-sm font-medium min-w-[85px] text-center">
+                        Node A
+                      </div>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <span className="text-gray-400">&larr;</span>
+                        Intermediate key on Alice&apos;s path
+                      </span>
+                    </div>
+
+                    {/* Node C */}
+                    <div className="flex items-center gap-4 relative pl-8">
+                      <div className="relative z-10 px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-200 rounded-lg text-sm font-medium min-w-[85px] text-center">
+                        Node C
                       </div>
                     </div>
-                  ))}
+
+                    {/* Ellipsis */}
+                    <div className="flex items-center gap-4 relative pl-12">
+                      <div className="relative z-10 px-4 py-1 text-gray-400 dark:text-gray-500 text-lg font-bold">
+                        ...
+                      </div>
+                    </div>
+
+                    {/* Slot 1 */}
+                    <div className="flex items-center gap-4 relative pl-16">
+                      <div className="relative z-10 px-4 py-2 bg-green-500 dark:bg-green-600 text-white rounded-lg text-sm font-semibold min-w-[85px] text-center shadow-sm">
+                        Slot 1
+                      </div>
+                      <span className="text-sm text-gray-500 dark:text-gray-400 flex items-center gap-2">
+                        <span className="text-gray-400">&larr;</span>
+                        Alice&apos;s unique leaf key
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-700">
-                  <p className="text-sm text-gray-500">
-                    <strong>Alice does NOT know:</strong> Node B, Node D, Node E, etc. (these are on other followers&apos; paths)
+                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
+                  <p className="text-sm text-red-600 dark:text-red-400">
+                    <strong>Alice does NOT know:</strong> <span className="text-gray-600 dark:text-gray-400">Node B, Node D, Node E, etc. (these are on other followers&apos; paths)</span>
                   </p>
                 </div>
               </div>
@@ -451,59 +499,85 @@ export default function PrivateFeedsPage() {
               </p>
 
               {/* Hash Chain Diagram */}
-              <div className="my-6 p-6 bg-gray-50 dark:bg-gray-950 rounded-lg">
-                <h4 className="text-sm font-semibold text-center text-gray-700 dark:text-gray-300 mb-4">HASH CHAIN</h4>
-                <div className="flex flex-col items-center gap-2">
-                  {[
-                    { key: 'CEK[2000]', desc: 'Pre-generated at setup (future use)', style: 'dim' },
-                    { arrow: true, label: 'SHA256' },
-                    { key: 'CEK[1999]', desc: '= SHA256(CEK[2000])', style: 'dim' },
-                    { arrow: true, label: 'SHA256' },
-                    { dots: true },
-                    { arrow: true },
-                    { key: 'CEK[2]', desc: 'After first revocation', style: 'normal' },
-                    { arrow: true, label: 'SHA256' },
-                    { key: 'CEK[1]', desc: 'Initial epoch (feed starts here)', style: 'highlight' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-3">
-                      {item.arrow && (
-                        <div className="flex flex-col items-center">
-                          <div className="w-px h-3 bg-gray-400 dark:bg-gray-500" />
-                          {item.label && <span className="text-xs text-gray-500 my-1">{item.label}</span>}
-                          <div className="text-gray-400">↓</div>
-                        </div>
-                      )}
-                      {item.dots && (
-                        <span className="text-gray-400 text-lg">⋮</span>
-                      )}
-                      {item.key && (
-                        <div className="flex items-center gap-3">
-                          <div className={`px-3 py-1.5 rounded font-mono text-sm ${
-                            item.style === 'highlight' ? 'bg-yappr-500 text-white' :
-                            item.style === 'dim' ? 'bg-gray-200 dark:bg-gray-800 text-gray-500' :
-                            'bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200'
-                          }`}>
-                            {item.key}
-                          </div>
-                          {item.desc && <span className="text-sm text-gray-500">← {item.desc}</span>}
-                        </div>
-                      )}
+              <div className="my-6 p-6 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800">
+                <h4 className="text-xs font-bold uppercase tracking-wider text-center text-gray-500 dark:text-gray-400 mb-6">Hash Chain</h4>
+                <div className="flex flex-col items-center">
+                  {/* CEK[2000] */}
+                  <div className="flex items-center gap-4">
+                    <div className="px-4 py-2 bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg font-mono text-sm">
+                      CEK[2000]
                     </div>
-                  ))}
+                    <span className="text-xs text-gray-400 dark:text-gray-500">Pre-generated at setup</span>
+                  </div>
+
+                  {/* Arrow with SHA256 */}
+                  <div className="flex flex-col items-center my-2">
+                    <div className="w-0.5 h-3 bg-gray-300 dark:bg-gray-600" />
+                    <div className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-500 dark:text-gray-400 font-mono">SHA256</div>
+                    <div className="text-gray-400 dark:text-gray-500 text-lg leading-none">↓</div>
+                  </div>
+
+                  {/* CEK[1999] */}
+                  <div className="flex items-center gap-4">
+                    <div className="px-4 py-2 bg-gray-200 dark:bg-gray-800 text-gray-500 dark:text-gray-400 rounded-lg font-mono text-sm">
+                      CEK[1999]
+                    </div>
+                    <span className="text-xs text-gray-400 dark:text-gray-500">= SHA256(CEK[2000])</span>
+                  </div>
+
+                  {/* Arrow with SHA256 */}
+                  <div className="flex flex-col items-center my-2">
+                    <div className="w-0.5 h-3 bg-gray-300 dark:bg-gray-600" />
+                    <div className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-500 dark:text-gray-400 font-mono">SHA256</div>
+                    <div className="text-gray-400 dark:text-gray-500 text-lg leading-none">↓</div>
+                  </div>
+
+                  {/* Dots */}
+                  <div className="text-gray-400 dark:text-gray-500 text-2xl tracking-widest my-1">⋮</div>
+
+                  {/* Arrow */}
+                  <div className="flex flex-col items-center my-2">
+                    <div className="text-gray-400 dark:text-gray-500 text-lg leading-none">↓</div>
+                  </div>
+
+                  {/* CEK[2] */}
+                  <div className="flex items-center gap-4">
+                    <div className="px-4 py-2 bg-blue-100 dark:bg-blue-900/50 text-blue-700 dark:text-blue-300 rounded-lg font-mono text-sm font-medium">
+                      CEK[2]
+                    </div>
+                    <span className="text-xs text-gray-500 dark:text-gray-400">After first revocation</span>
+                  </div>
+
+                  {/* Arrow with SHA256 */}
+                  <div className="flex flex-col items-center my-2">
+                    <div className="w-0.5 h-3 bg-gray-300 dark:bg-gray-600" />
+                    <div className="px-2 py-0.5 bg-gray-100 dark:bg-gray-800 rounded text-xs text-gray-500 dark:text-gray-400 font-mono">SHA256</div>
+                    <div className="text-gray-400 dark:text-gray-500 text-lg leading-none">↓</div>
+                  </div>
+
+                  {/* CEK[1] - highlighted */}
+                  <div className="flex items-center gap-4">
+                    <div className="px-4 py-2 bg-yappr-500 text-white rounded-lg font-mono text-sm font-semibold shadow-sm">
+                      CEK[1]
+                    </div>
+                    <span className="text-xs text-yappr-600 dark:text-yappr-400 font-medium">Initial epoch (feed starts here)</span>
+                  </div>
                 </div>
 
-                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-2">
+                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 space-y-3">
                   <p className="text-sm text-gray-600 dark:text-gray-400">
-                    <strong>Epoch numbers increase over time:</strong> 1 → 2 → 3 → ... (higher = newer content)
+                    <strong className="text-gray-700 dark:text-gray-300">Epoch numbers increase over time:</strong> 1 → 2 → 3 → ... (higher = newer content)
                   </p>
-                  <div className="flex flex-col sm:flex-row gap-4 text-sm">
-                    <div className="flex items-center gap-2 text-green-600 dark:text-green-400">
-                      <span>✓</span>
-                      <span>CEK[5] → CEK[4] → CEK[3] <span className="text-gray-500">(CAN derive older)</span></span>
+                  <div className="flex flex-col sm:flex-row gap-3 text-sm">
+                    <div className="flex items-center gap-2 px-3 py-2 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-800">
+                      <span className="text-green-600 dark:text-green-400 font-bold">✓</span>
+                      <span className="text-green-700 dark:text-green-300">CEK[5] → CEK[4] → CEK[3]</span>
+                      <span className="text-green-600/70 dark:text-green-400/70 text-xs">(CAN derive older)</span>
                     </div>
-                    <div className="flex items-center gap-2 text-red-600 dark:text-red-400">
-                      <span>✗</span>
-                      <span>CEK[3] → CEK[4] → CEK[5] <span className="text-gray-500">(CANNOT derive newer)</span></span>
+                    <div className="flex items-center gap-2 px-3 py-2 bg-red-50 dark:bg-red-950/30 rounded-lg border border-red-200 dark:border-red-800">
+                      <span className="text-red-600 dark:text-red-400 font-bold">✗</span>
+                      <span className="text-red-700 dark:text-red-300">CEK[3] → CEK[4] → CEK[5]</span>
+                      <span className="text-red-600/70 dark:text-red-400/70 text-xs">(CANNOT derive newer)</span>
                     </div>
                   </div>
                 </div>
@@ -556,68 +630,116 @@ export default function PrivateFeedsPage() {
               {/* Revocation Before/After Diagram */}
               <div className="my-6 grid md:grid-cols-2 gap-4">
                 {/* Before */}
-                <div className="p-4 bg-gray-50 dark:bg-gray-950 rounded-lg">
-                  <h4 className="text-sm font-semibold text-center mb-1">BEFORE REVOCATION</h4>
-                  <p className="text-xs text-gray-500 text-center mb-4">(Epoch 1)</p>
-                  <div className="flex flex-col items-center">
-                    <div className="px-3 py-1 bg-gray-200 dark:bg-gray-700 rounded text-sm">Root (v1)</div>
-                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                    <div className="flex gap-8">
-                      <div className="flex flex-col items-center">
-                        <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node 2 (v1)</div>
-                        <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                        <div className="flex gap-4 text-xs">
-                          <div className="flex flex-col items-center">
-                            <div className="px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-700 dark:text-red-300 rounded">Alice (v1)</div>
-                            <span className="text-red-500 text-xs mt-1">↑ REVOKED</span>
-                          </div>
-                          <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">Bob (v1)</div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node 3 (v1)</div>
-                        <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                        <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">Carol (v1)</div>
-                      </div>
-                    </div>
+                <div className="p-5 bg-gray-50 dark:bg-gray-950 rounded-xl border border-gray-200 dark:border-gray-800">
+                  <div className="text-center mb-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-gray-500 dark:text-gray-400">Before Revocation</h4>
+                    <p className="text-xs text-gray-400 dark:text-gray-500 mt-1">(Epoch 1)</p>
                   </div>
+                  <svg viewBox="0 0 280 180" className="w-full" style={{ maxHeight: '180px' }}>
+                    {/* Lines */}
+                    <g stroke="currentColor" strokeWidth="2" fill="none" className="text-gray-300 dark:text-gray-600">
+                      <path d="M140,35 L140,50 L70,50 L70,70" />
+                      <path d="M140,35 L140,50 L210,50 L210,70" />
+                      <path d="M70,100 L70,115 L40,115 L40,130" />
+                      <path d="M70,100 L70,115 L100,115 L100,130" />
+                      <path d="M210,100 L210,115 L210,130" />
+                    </g>
+
+                    {/* Root */}
+                    <g transform="translate(140, 22)">
+                      <rect x="-45" y="-12" width="90" height="26" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                      <text x="0" y="5" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Root (v1)</text>
+                    </g>
+
+                    {/* Node 2 */}
+                    <g transform="translate(70, 85)">
+                      <rect x="-45" y="-12" width="90" height="26" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                      <text x="0" y="5" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node 2 (v1)</text>
+                    </g>
+
+                    {/* Node 3 */}
+                    <g transform="translate(210, 85)">
+                      <rect x="-45" y="-12" width="90" height="26" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                      <text x="0" y="5" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node 3 (v1)</text>
+                    </g>
+
+                    {/* Alice - highlighted for revocation */}
+                    <g transform="translate(40, 148)">
+                      <rect x="-35" y="-14" width="70" height="28" rx="5" className="fill-red-100 dark:fill-red-900/50" />
+                      <text x="0" y="4" textAnchor="middle" className="fill-red-700 dark:fill-red-300 text-xs font-medium">Alice (v1)</text>
+                    </g>
+                    <text x="40" y="175" textAnchor="middle" className="fill-red-500 text-xs font-bold">↑ REVOKED</text>
+
+                    {/* Bob */}
+                    <g transform="translate(100, 148)">
+                      <rect x="-30" y="-14" width="60" height="28" rx="5" className="fill-gray-100 dark:fill-gray-800" />
+                      <text x="0" y="4" textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-xs">Bob (v1)</text>
+                    </g>
+
+                    {/* Carol */}
+                    <g transform="translate(210, 148)">
+                      <rect x="-35" y="-14" width="70" height="28" rx="5" className="fill-gray-100 dark:fill-gray-800" />
+                      <text x="0" y="4" textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-xs">Carol (v1)</text>
+                    </g>
+                  </svg>
                 </div>
 
                 {/* After */}
-                <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg">
-                  <h4 className="text-sm font-semibold text-center mb-1">AFTER REVOKING ALICE</h4>
-                  <p className="text-xs text-gray-500 text-center mb-4">(Epoch 2)</p>
-                  <div className="flex flex-col items-center">
-                    <div className="flex items-center gap-2">
-                      <div className="px-3 py-1 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 rounded text-sm font-medium">Root (v2)</div>
-                      <span className="text-xs text-green-600 dark:text-green-400">← New!</span>
-                    </div>
-                    <div className="w-px h-4 bg-gray-300 dark:bg-gray-600" />
-                    <div className="flex gap-8">
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center gap-1">
-                          <div className="px-2 py-1 bg-green-200 dark:bg-green-800 text-green-800 dark:text-green-200 rounded text-xs font-medium">Node 2 (v2)</div>
-                          <span className="text-xs text-green-600 dark:text-green-400">← New!</span>
-                        </div>
-                        <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                        <div className="flex gap-4 text-xs">
-                          <div className="flex flex-col items-center">
-                            <div className="px-2 py-1 bg-red-100 dark:bg-red-900/50 text-red-400 rounded line-through">Alice (v1)</div>
-                            <span className="text-xs text-red-500 mt-1">Can&apos;t decrypt</span>
-                          </div>
-                          <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded">Bob (v1)</div>
-                        </div>
-                      </div>
-                      <div className="flex flex-col items-center">
-                        <div className="flex items-center gap-1">
-                          <div className="px-2 py-1 bg-gray-200 dark:bg-gray-700 rounded text-xs">Node 3 (v1)</div>
-                          <span className="text-xs text-gray-500">← Same</span>
-                        </div>
-                        <div className="w-px h-3 bg-gray-300 dark:bg-gray-600" />
-                        <div className="px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded text-xs">Carol (v1)</div>
-                      </div>
-                    </div>
+                <div className="p-5 bg-green-50 dark:bg-green-950/30 rounded-xl border border-green-200 dark:border-green-800">
+                  <div className="text-center mb-4">
+                    <h4 className="text-xs font-bold uppercase tracking-wider text-green-700 dark:text-green-300">After Revoking Alice</h4>
+                    <p className="text-xs text-green-600/70 dark:text-green-400/70 mt-1">(Epoch 2)</p>
                   </div>
+                  <svg viewBox="0 0 280 180" className="w-full" style={{ maxHeight: '180px' }}>
+                    {/* Lines */}
+                    <g stroke="currentColor" strokeWidth="2" fill="none" className="text-gray-300 dark:text-gray-600">
+                      <path d="M140,35 L140,50 L70,50 L70,70" />
+                      <path d="M140,35 L140,50 L210,50 L210,70" />
+                      <path d="M70,100 L70,115 L40,115 L40,130" />
+                      <path d="M70,100 L70,115 L100,115 L100,130" />
+                      <path d="M210,100 L210,115 L210,130" />
+                    </g>
+
+                    {/* Root - NEW */}
+                    <g transform="translate(140, 22)">
+                      <rect x="-45" y="-12" width="90" height="26" rx="5" className="fill-green-500 dark:fill-green-600" />
+                      <text x="0" y="5" textAnchor="middle" className="fill-white text-xs font-semibold">Root (v2)</text>
+                    </g>
+                    <text x="195" y="26" className="fill-green-600 dark:fill-green-400 text-xs font-medium">New!</text>
+
+                    {/* Node 2 - NEW */}
+                    <g transform="translate(70, 85)">
+                      <rect x="-45" y="-12" width="90" height="26" rx="5" className="fill-green-500 dark:fill-green-600" />
+                      <text x="0" y="5" textAnchor="middle" className="fill-white text-xs font-semibold">Node 2 (v2)</text>
+                    </g>
+                    <text x="125" y="89" className="fill-green-600 dark:fill-green-400 text-xs font-medium">New!</text>
+
+                    {/* Node 3 - Same */}
+                    <g transform="translate(210, 85)">
+                      <rect x="-45" y="-12" width="90" height="26" rx="5" className="fill-gray-200 dark:fill-gray-700" />
+                      <text x="0" y="5" textAnchor="middle" className="fill-gray-700 dark:fill-gray-200 text-xs font-medium">Node 3 (v1)</text>
+                    </g>
+                    <text x="265" y="89" className="fill-gray-400 dark:fill-gray-500 text-xs">Same</text>
+
+                    {/* Alice - revoked */}
+                    <g transform="translate(40, 148)">
+                      <rect x="-35" y="-14" width="70" height="28" rx="5" className="fill-red-100 dark:fill-red-900/30" strokeDasharray="4,2" stroke="currentColor" strokeWidth="1" style={{ stroke: 'rgb(239 68 68 / 0.5)' }} />
+                      <text x="0" y="4" textAnchor="middle" className="fill-red-400 dark:fill-red-500 text-xs line-through">Alice (v1)</text>
+                    </g>
+                    <text x="40" y="175" textAnchor="middle" className="fill-red-500 dark:fill-red-400 text-xs">Can&apos;t decrypt</text>
+
+                    {/* Bob */}
+                    <g transform="translate(100, 148)">
+                      <rect x="-30" y="-14" width="60" height="28" rx="5" className="fill-gray-100 dark:fill-gray-800" />
+                      <text x="0" y="4" textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-xs">Bob (v1)</text>
+                    </g>
+
+                    {/* Carol */}
+                    <g transform="translate(210, 148)">
+                      <rect x="-35" y="-14" width="70" height="28" rx="5" className="fill-gray-100 dark:fill-gray-800" />
+                      <text x="0" y="4" textAnchor="middle" className="fill-gray-600 dark:fill-gray-300 text-xs">Carol (v1)</text>
+                    </g>
+                  </svg>
                 </div>
               </div>
 
