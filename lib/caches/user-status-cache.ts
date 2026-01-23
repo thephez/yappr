@@ -112,6 +112,8 @@ export function deletePrivateFeedRequestStatus(cacheKey: string): void {
 
 export function clearPrivateFeedRequestCache(): void {
   privateFeedRequestCache.clear()
+  // Notify all listeners that cache was cleared
+  privateFeedRequestListeners.forEach(listener => listener())
 }
 
 /**

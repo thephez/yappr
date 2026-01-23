@@ -608,7 +608,9 @@ export function ComposeModal() {
     : null
 
   // Handle request to enable private feed when user selects a private visibility option
-  const handleEnablePrivateFeedRequest = useCallback(async (targetVisibility: PostVisibility) => {
+  // Note: Not wrapped in useCallback because it references enablePrivateFeedAfterKeyEntry
+  // which changes when firstPost/updateThreadPostVisibility change, avoiding stale closure
+  const handleEnablePrivateFeedRequest = async (targetVisibility: PostVisibility) => {
     if (!user) return
 
     // Store the pending visibility so we can auto-select it after enabling
@@ -626,7 +628,7 @@ export function ComposeModal() {
         await enablePrivateFeedAfterKeyEntry(targetVisibility)
       })
     }
-  }, [user, hasEncryptionKeyOnIdentity])
+  }
 
   // Enable private feed after encryption key is ready
   const enablePrivateFeedAfterKeyEntry = useCallback(async (targetVisibility: PostVisibility) => {

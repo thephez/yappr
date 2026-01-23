@@ -225,11 +225,17 @@ function UserProfileContent() {
             } catch (accessErr) {
               // Access status check is non-critical
               console.error('Failed to check private feed access status:', accessErr)
+              setIsPrivateFollower(false)
             }
+          } else {
+            // No private feed or viewing own profile - reset private follower state
+            setIsPrivateFollower(false)
           }
         } catch (e) {
           // Private feed check is non-critical
           console.error('Failed to check private feed status:', e)
+          setHasPrivateFeed(false)
+          setIsPrivateFollower(false)
         }
 
         // Process posts - postService.getUserPosts() returns already-transformed Post objects

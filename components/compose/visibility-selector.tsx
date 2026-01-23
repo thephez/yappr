@@ -140,9 +140,6 @@ export function VisibilitySelector({
             const isDisabled = option.requiresPrivateFeed && !hasPrivateFeed
             const isSelected = option.value === visibility
 
-            // Make the option clickable if we have an enable handler
-            const canClick = !isDisabled || onEnablePrivateFeedRequest
-
             return (
               <button
                 key={option.value}

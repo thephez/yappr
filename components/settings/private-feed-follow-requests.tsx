@@ -142,10 +142,15 @@ export function PrivateFeedFollowRequests() {
                 )
               } else {
                 // Base64
-                const binary = atob(encryptionKey.data)
-                publicKey = new Uint8Array(binary.length)
-                for (let i = 0; i < binary.length; i++) {
-                  publicKey[i] = binary.charCodeAt(i)
+                try {
+                  const binary = atob(encryptionKey.data)
+                  publicKey = new Uint8Array(binary.length)
+                  for (let i = 0; i < binary.length; i++) {
+                    publicKey[i] = binary.charCodeAt(i)
+                  }
+                } catch {
+                  // Invalid base64, skip this key
+                  console.warn('Invalid base64 encoding for encryption key data')
                 }
               }
             } else if (encryptionKey.data instanceof Uint8Array) {

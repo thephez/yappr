@@ -150,10 +150,8 @@ class StateTransitionService {
     if (typeof window !== 'undefined' && window.crypto) {
       window.crypto.getRandomValues(entropy);
     } else {
-      // Fallback for non-browser environments (shouldn't happen for state transitions)
-      for (let i = 0; i < 32; i++) {
-        entropy[i] = Math.floor(Math.random() * 256);
-      }
+      // State transitions should only run in browser with Web Crypto available
+      throw new Error('Cryptographically secure random number generator not available');
     }
     return Array.from(entropy).map(b => b.toString(16).padStart(2, '0')).join('');
   }
