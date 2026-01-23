@@ -59,6 +59,7 @@ This app is fully decentralized with **NO backend server**. All code and archite
 - `lib/services/evo-sdk-service.ts` manages SDK initialization and connection
 - SDK runs in trusted mode with 8-second timeout for network requests
 - Contract ID and network config in `lib/constants.ts`
+- **Index ordering**: Dash Platform indices support both `asc` and `desc` queries regardless of how the index is defined in the contract. Don't assume an index only works in one direction.
 
 ### Services Layer (`lib/services/`)
 Singleton service classes handle all Dash Platform operations:
