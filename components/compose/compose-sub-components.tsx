@@ -8,6 +8,7 @@ import { identifierToBytes } from '@/lib/services/sdk-helpers'
 import { LockClosedIcon, LockOpenIcon } from '@heroicons/react/24/outline'
 import { LockClosedIcon as LockClosedIconSolid } from '@heroicons/react/24/solid'
 import { useAuth } from '@/contexts/auth-context'
+import { isPrivatePost } from '@/components/post/private-post-content'
 
 // Icons as simple SVG components
 function RetryIcon({ className }: { className?: string }) {
@@ -219,12 +220,6 @@ interface QuotedPostPreviewProps {
   post: Post
 }
 
-/**
- * Check if a post is private
- */
-function isPrivatePost(post: Post): boolean {
-  return !!(post.encryptedContent && post.epoch !== undefined && post.nonce)
-}
 
 type DecryptionState =
   | { status: 'idle' }

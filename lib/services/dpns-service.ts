@@ -405,8 +405,11 @@ class DpnsService {
   ): WasmIdentityPublicKey | null {
     const network = (process.env.NEXT_PUBLIC_NETWORK as 'testnet' | 'mainnet') || 'testnet';
 
+    // Filter out disabled keys before processing
+    const activeWasmKeys = wasmPublicKeys.filter(k => !k.disabledAt);
+
     // Convert WASM keys to the format expected by findMatchingKeyIndex
-    const keyInfos: IdentityPublicKeyInfo[] = wasmPublicKeys.map(key => {
+    const keyInfos: IdentityPublicKeyInfo[] = activeWasmKeys.map(key => {
       // Get the raw data from the WASM key - data getter returns hex string
       const dataHex = key.data;
       const data = new Uint8Array(dataHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
@@ -448,8 +451,8 @@ class DpnsService {
       return null;
     }
 
-    // Return the WASM key object for the matched key
-    const wasmKey = wasmPublicKeys.find(k => k.keyId === match.keyId);
+    // Return the WASM key object for the matched key (from filtered active keys)
+    const wasmKey = activeWasmKeys.find(k => k.keyId === match.keyId);
     return wasmKey || null;
   }
 

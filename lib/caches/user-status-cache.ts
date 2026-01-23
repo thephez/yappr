@@ -86,7 +86,7 @@ export function seedFollowStatusCache(
 
 // Private feed request status cache
 // Tracks pending requests by ownerId so all posts from the same author show consistent state
-export type PrivateFeedRequestStatus = 'none' | 'pending' | 'loading'
+export type PrivateFeedRequestStatus = 'none' | 'pending' | 'loading' | 'error'
 
 const privateFeedRequestCache = new Map<string, { status: PrivateFeedRequestStatus; timestamp: number }>()
 const privateFeedRequestListeners = new Set<() => void>()

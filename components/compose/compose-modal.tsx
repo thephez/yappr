@@ -488,6 +488,7 @@ export function ComposeModal() {
   // Inherited encryption state for replies to private posts (PRD §5.5)
   const [inheritedEncryption, setInheritedEncryption] = useState<EncryptionSource | null>(null)
   const [inheritedEncryptionLoading, setInheritedEncryptionLoading] = useState(false)
+  const [inheritedEncryptionError, setInheritedEncryptionError] = useState(false)
 
   // Get visibility from first post (visibility only applies to first post)
   const firstPost = threadPosts[0]
@@ -549,6 +550,7 @@ export function ComposeModal() {
   useEffect(() => {
     if (isComposeOpen && replyingTo) {
       setInheritedEncryptionLoading(true)
+      setInheritedEncryptionError(false)
       const checkInheritedEncryption = async () => {
         try {
           // Check if parent is a private post
@@ -556,12 +558,22 @@ export function ComposeModal() {
             // Import getEncryptionSource dynamically
             const { getEncryptionSource } = await import('@/lib/services/post-service')
             const encryptionSource = await getEncryptionSource(replyingTo.id)
-            setInheritedEncryption(encryptionSource)
+            if (encryptionSource) {
+              setInheritedEncryption(encryptionSource)
+            } else {
+              // Failed to get encryption source for private post - block posting
+              setInheritedEncryptionError(true)
+              setInheritedEncryption(null)
+            }
           } else {
             setInheritedEncryption(null)
           }
         } catch (error) {
           console.error('Failed to check inherited encryption:', error)
+          // Error fetching encryption source for private post - block posting
+          if (isPrivatePost(replyingTo)) {
+            setInheritedEncryptionError(true)
+          }
           setInheritedEncryption(null)
         } finally {
           setInheritedEncryptionLoading(false)
@@ -572,6 +584,7 @@ export function ComposeModal() {
       // Reset when not replying
       setInheritedEncryption(null)
       setInheritedEncryptionLoading(false)
+      setInheritedEncryptionError(false)
     }
   }, [isComposeOpen, replyingTo])
 
@@ -598,7 +611,10 @@ export function ComposeModal() {
 
   // Encrypted posts must be single posts (no threads)
   const isValidEncryptedPost = !willBeEncrypted || (unpostedPosts.length <= 1 && threadPosts.length <= 1)
-  const canPost = hasValidContent && !hasOverLimit && !isPosting && isValidEncryptedPost
+  // Block posting while checking inherited encryption for private post replies, or if check failed
+  const isInheritedEncryptionReady = !replyingTo || !isPrivatePost(replyingTo) ||
+    (!inheritedEncryptionLoading && !inheritedEncryptionError)
+  const canPost = hasValidContent && !hasOverLimit && !isPosting && isValidEncryptedPost && isInheritedEncryptionReady
   // Disable thread for private posts and inherited encryption replies (private posts are single posts only)
   const canAddThread = threadPosts.length < 10 && !replyingTo && !quotingPost && !willBeEncrypted
 

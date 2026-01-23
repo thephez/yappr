@@ -26,6 +26,9 @@ async function ensureWasmReady(): Promise<void> {
 
 /**
  * Purpose enum values
+ * Matches KeyPurpose from @dashevo/wasm-sdk
+ * Note: SYSTEM and VOTING are official SDK values.
+ * OWNER is included for forward compatibility.
  */
 export const KeyPurpose = {
   AUTHENTICATION: 0,
@@ -49,12 +52,14 @@ export const SecurityLevel = {
 
 /**
  * Key type enum values
+ * Matches KeyType from @dashevo/wasm-sdk
  */
 export const KeyType = {
   ECDSA_SECP256K1: 0,
   BLS12_381: 1,
   ECDSA_HASH160: 2,
   BIP13_SCRIPT_HASH: 3,
+  EDDSA_25519_HASH160: 4,
 } as const;
 
 class SignerService {
@@ -64,12 +69,10 @@ class SignerService {
    * The signer is used for signing state transitions in the new typed API.
    *
    * @param privateKeyWif - The private key in WIF format
-   * @param network - The network ('testnet' or 'mainnet')
    * @returns A configured IdentitySigner instance
    */
   async createSigner(
-    privateKeyWif: string,
-    _network: 'testnet' | 'mainnet' = 'testnet'
+    privateKeyWif: string
   ): Promise<InstanceType<typeof IdentitySigner>> {
     // Ensure WASM is initialized before creating objects
     await ensureWasmReady();
@@ -208,14 +211,13 @@ class SignerService {
    */
   async createSignerAndKey(
     privateKeyWif: string,
-    keyData: IdentityPublicKeyType,
-    network: 'testnet' | 'mainnet' = 'testnet'
+    keyData: IdentityPublicKeyType
   ): Promise<{
     signer: InstanceType<typeof IdentitySigner>;
     identityKey: InstanceType<typeof IdentityPublicKey>;
   }> {
     const [signer, identityKey] = await Promise.all([
-      this.createSigner(privateKeyWif, network),
+      this.createSigner(privateKeyWif),
       this.createIdentityPublicKey(keyData),
     ]);
 

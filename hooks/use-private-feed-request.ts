@@ -5,6 +5,7 @@ import toast from 'react-hot-toast'
 import {
   getPrivateFeedRequestStatus,
   setPrivateFeedRequestStatus,
+  deletePrivateFeedRequestStatus,
   subscribeToPrivateFeedRequestStatus,
   type PrivateFeedRequestStatus as CacheStatus,
 } from '@/lib/caches/user-status-cache'
@@ -84,9 +85,14 @@ export function usePrivateFeedRequest({
   // Update both local state and cache
   const updateStatus = useCallback((newStatus: PrivateFeedRequestStatus) => {
     setStatus(newStatus)
-    if (cacheKey && (newStatus === 'pending' || newStatus === 'loading')) {
-      // Only cache pending and loading states - these are the ones we want to share
-      setPrivateFeedRequestStatus(cacheKey, newStatus as CacheStatus)
+    if (cacheKey) {
+      if (newStatus === 'pending' || newStatus === 'loading') {
+        // Cache pending and loading states - these are the ones we want to share
+        setPrivateFeedRequestStatus(cacheKey, newStatus as CacheStatus)
+      } else {
+        // Clear cache for 'none' and 'error' states to avoid stale entries
+        deletePrivateFeedRequestStatus(cacheKey)
+      }
     }
   }, [cacheKey])
 
@@ -152,7 +158,7 @@ export function usePrivateFeedRequest({
         // Need to open encryption key modal
         setNeedsEncryptionKey(true)
         setIsProcessing(false)
-        setStatus('none')
+        updateStatus('none')
         return
       }
 
@@ -173,17 +179,17 @@ export function usePrivateFeedRequest({
         updateStatus('pending')
         toast.success('Access requested')
       } else {
-        setStatus('error')
+        updateStatus('error')
         toast.error(result.error || 'Failed to request access')
         // Reset to none after error so user can retry
-        setTimeout(() => setStatus('none'), 2000)
+        setTimeout(() => updateStatus('none'), 2000)
       }
     } catch (error) {
       console.error('Error requesting access:', error)
-      setStatus('error')
+      updateStatus('error')
       toast.error('Failed to request access')
       // Reset to none after error so user can retry
-      setTimeout(() => setStatus('none'), 2000)
+      setTimeout(() => updateStatus('none'), 2000)
     } finally {
       setIsProcessing(false)
     }
@@ -223,7 +229,7 @@ export function usePrivateFeedRequest({
       if (!privateKeyBytes) {
         toast.error('Encryption key not found. Please try again.')
         setIsProcessing(false)
-        setStatus('none')
+        updateStatus('none')
         return
       }
 
@@ -246,15 +252,15 @@ export function usePrivateFeedRequest({
         updateStatus('pending')
         toast.success('Access requested')
       } else {
-        setStatus('error')
+        updateStatus('error')
         toast.error(result.error || 'Failed to request access')
-        setTimeout(() => setStatus('none'), 2000)
+        setTimeout(() => updateStatus('none'), 2000)
       }
     } catch (error) {
       console.error('Error requesting access after key addition:', error)
-      setStatus('error')
+      updateStatus('error')
       toast.error('Failed to request access')
-      setTimeout(() => setStatus('none'), 2000)
+      setTimeout(() => updateStatus('none'), 2000)
     } finally {
       setIsProcessing(false)
     }
@@ -273,10 +279,7 @@ export function usePrivateFeedRequest({
       const result = await privateFeedFollowerService.cancelRequest(ownerId, currentUserId)
 
       if (result.success) {
-        setStatus('none')
-        // Clear from cache so other posts update
-        const { setPrivateFeedRequestStatus } = await import('@/lib/caches/user-status-cache')
-        setPrivateFeedRequestStatus(cacheKey, 'none')
+        updateStatus('none')
         toast.success('Request cancelled')
       } else {
         toast.error(result.error || 'Failed to cancel request')
@@ -294,8 +297,8 @@ export function usePrivateFeedRequest({
    */
   const dismissKeyModal = useCallback(() => {
     setNeedsEncryptionKey(false)
-    setStatus('none')
-  }, [])
+    updateStatus('none')
+  }, [updateStatus])
 
   return {
     status,
