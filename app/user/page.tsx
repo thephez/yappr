@@ -133,11 +133,15 @@ function UserProfileContent() {
     currentUserId: currentUser?.identityId
   })
 
-  // Filter posts based on selected filter (original posts vs replies)
+  // Filter posts - all posts are now top-level (replies are a separate document type)
+  // The 'replies' filter currently shows no results until we implement replyService.getUserReplies()
   const filteredPosts = useMemo(() => {
-    return postFilter === 'posts'
-      ? posts.filter(p => !p.replyToId && !p.repostedBy)
-      : posts.filter(p => p.replyToId && !p.repostedBy)
+    if (postFilter === 'posts') {
+      return posts.filter(p => !p.repostedBy)
+    }
+    // 'replies' filter - would need replyService.getUserReplies() implementation
+    // For now, return empty since posts no longer contain replies
+    return []
   }, [posts, postFilter])
 
   const displayName = profile?.displayName || (userId ? `User ${userId.slice(-6)}` : 'Unknown')
