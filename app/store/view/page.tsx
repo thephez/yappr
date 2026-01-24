@@ -6,6 +6,7 @@ import { motion } from 'framer-motion'
 import {
   ArrowLeftIcon,
   BuildingStorefrontIcon,
+  ChatBubbleLeftIcon,
   MapPinIcon,
   ShoppingCartIcon,
   StarIcon
@@ -178,14 +179,26 @@ function StoreDetailContent() {
                   >
                     Manage
                   </Button>
-                ) : user && (
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => router.push('/orders')}
-                  >
-                    My Orders
-                  </Button>
+                ) : (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => router.push(`/messages?startConversation=${store.ownerId}`)}
+                    >
+                      <ChatBubbleLeftIcon className="h-4 w-4 mr-1.5" />
+                      Message
+                    </Button>
+                    {user && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => router.push('/orders')}
+                      >
+                        My Orders
+                      </Button>
+                    )}
+                  </>
                 )}
                 <button
                   onClick={() => router.push('/cart')}
