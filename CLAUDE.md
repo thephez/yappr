@@ -17,6 +17,10 @@ node register-contract-with-nonce.js # Register contract with specific nonce
 node test-dpns-resolve.js           # Test DPNS resolution
 ```
 
+## Workflow
+
+When completing a task, commit the changes automatically unless directed otherwise.
+
 ## Code Quality Guidelines
 
 ### Linter Errors and Warnings
