@@ -229,9 +229,15 @@ function SellerOrdersPage() {
                         <div className="text-left">
                           <h3 className="font-medium">
                             Order from{' '}
-                            <span className="text-yappr-500">
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                router.push(`/user?id=${order.buyerId}`)
+                              }}
+                              className="text-yappr-500 hover:underline"
+                            >
                               @{buyerUsernames.get(order.buyerId) || formatOrderId(order.buyerId)}
-                            </span>
+                            </button>
                           </h3>
                           <p className="text-sm text-gray-500">
                             {formatDate(order.createdAt)}
