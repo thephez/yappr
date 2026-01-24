@@ -7,7 +7,8 @@ import {
   MagnifyingGlassIcon,
   BuildingStorefrontIcon,
   PlusIcon,
-  StarIcon
+  StarIcon,
+  ClipboardDocumentListIcon
 } from '@heroicons/react/24/outline'
 import { StarIcon as StarIconSolid } from '@heroicons/react/24/solid'
 import { Sidebar } from '@/components/layout/sidebar'
@@ -115,20 +116,31 @@ export default function StoreBrowsePage() {
                 Stores
               </h1>
               {user && (
-                <Button
-                  size="sm"
-                  onClick={() => router.push(hasStore ? '/store/manage' : '/store/create')}
-                  className="flex items-center gap-1"
-                >
-                  {hasStore ? (
-                    <>Manage Store</>
-                  ) : (
-                    <>
-                      <PlusIcon className="h-4 w-4" />
-                      Create Store
-                    </>
-                  )}
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => router.push('/orders')}
+                    className="flex items-center gap-1"
+                  >
+                    <ClipboardDocumentListIcon className="h-4 w-4" />
+                    My Orders
+                  </Button>
+                  <Button
+                    size="sm"
+                    onClick={() => router.push(hasStore ? '/store/manage' : '/store/create')}
+                    className="flex items-center gap-1"
+                  >
+                    {hasStore ? (
+                      <>Manage Store</>
+                    ) : (
+                      <>
+                        <PlusIcon className="h-4 w-4" />
+                        Create Store
+                      </>
+                    )}
+                  </Button>
+                </div>
               )}
             </div>
 
