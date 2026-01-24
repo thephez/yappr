@@ -288,7 +288,7 @@ function SellerOrdersPage() {
                               <p className="text-sm">{payload.shippingAddress.name}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">{payload.shippingAddress.street}</p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">
-                                {payload.shippingAddress.city}, {payload.shippingAddress.state} {payload.shippingAddress.postalCode}
+                                {payload.shippingAddress.city}{payload.shippingAddress.state ? `, ${payload.shippingAddress.state}` : ''} {payload.shippingAddress.postalCode}
                               </p>
                               <p className="text-sm text-gray-600 dark:text-gray-400">{payload.shippingAddress.country}</p>
                             </div>
