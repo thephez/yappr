@@ -8,6 +8,7 @@ export const YAPPR_PROFILE_CONTRACT_ID = 'FZSnZdKsLAuWxE7iZJq12eEz6xfGTgKPxK7uZJ
 export const YAPPR_DM_CONTRACT_ID = 'J7MP9YU1aEGNAe7bjB45XdrjDLBsevFLPK1t1YwFS4ck' // Testnet - DM contract v3 (simplified readReceipt)
 // YAPPR_BLOCK_CONTRACT_ID removed - block, blockFilter, blockFollow document types now in YAPPR_CONTRACT_ID
 export const DPNS_CONTRACT_ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec' // Testnet
+export const YAPPR_STOREFRONT_CONTRACT_ID = 'HBWgWxiv5MgXn6bMREZU2waScGRMGqff6MK1HKaBxeDo' // Testnet - Storefront contract v1
 export const ENCRYPTED_KEY_BACKUP_CONTRACT_ID = '8fmYhuM2ypyQ9GGt4KpxMc9qe5mLf55i8K3SZbHvS9Ts' // Testnet - Encrypted key backup contract (1B max iterations)
 // HASHTAG_CONTRACT_ID and MENTION_CONTRACT_ID removed - these document types are now in YAPPR_CONTRACT_ID
 export const DASHPAY_CONTRACT_ID = 'Bwr4WHCPz5rFVAD87RqTs3izo4zpzwsEdKPWUT1NS1C7' // Dash Pay contacts contract
@@ -42,6 +43,16 @@ export const DOCUMENT_TYPES = {
   PRIVATE_FEED_GRANT: 'privateFeedGrant',
   PRIVATE_FEED_REKEY: 'privateFeedRekey',
   PRIVATE_FEED_STATE: 'privateFeedState'
+} as const
+
+// Storefront document types (separate contract)
+export const STOREFRONT_DOCUMENT_TYPES = {
+  STORE: 'store',
+  STORE_ITEM: 'storeItem',
+  SHIPPING_ZONE: 'shippingZone',
+  STORE_ORDER: 'storeOrder',
+  ORDER_STATUS_UPDATE: 'orderStatusUpdate',
+  STORE_REVIEW: 'storeReview'
 } as const
 
 // DPNS

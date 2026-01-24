@@ -49,6 +49,9 @@ This app is fully decentralized with **NO backend server**. All code and archite
 - Server-side rendering that requires a Node.js server
 - Database connections or server-side state
 - Any architecture requiring a hosted backend
+- Dynamic routes (e.g., `[id]`, `[slug]`, `[...params]`) - only static routes are allowed
+
+**Routing constraint:** All routes must be statically defined. Use query parameters (e.g., `/post?id=123`) instead of dynamic path segments (e.g., `/post/[id]`). This ensures the app can be fully exported as static files.
 
 **All data operations must go through:**
 - Dash Platform DAPI (via `@dashevo/evo-sdk`)
