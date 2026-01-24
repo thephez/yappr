@@ -1,13 +1,14 @@
 'use client'
 
-import { CreditCardIcon, ClipboardDocumentIcon } from '@heroicons/react/24/outline'
+import { CreditCardIcon } from '@heroicons/react/24/outline'
 import { Button } from '@/components/ui/button'
+import { PaymentQRCode } from '@/components/ui/payment-qr-code'
 import type { ParsedPaymentUri } from '@/lib/types'
 
 interface PaymentSelectorProps {
   paymentUris: ParsedPaymentUri[]
   selected: ParsedPaymentUri | null
-  onSelect: (uri: ParsedPaymentUri) => void
+  onSelect: (uri: ParsedPaymentUri | null) => void
   txid: string
   onTxidChange: (txid: string) => void
   onSubmit: () => void
@@ -21,11 +22,6 @@ export function PaymentSelector({
   onTxidChange,
   onSubmit
 }: PaymentSelectorProps) {
-  const copyPaymentAddress = () => {
-    if (!selected) return
-    const address = selected.uri.replace(/^[a-z]+:/, '')
-    void navigator.clipboard.writeText(address)
-  }
 
   return (
     <div className="p-4 space-y-4">
@@ -58,21 +54,14 @@ export function PaymentSelector({
       )}
 
       {selected && (
-        <div className="border-t border-gray-200 dark:border-gray-800 pt-4">
-          <p className="text-sm text-gray-500 mb-2">Send payment to:</p>
-          <div className="flex items-center gap-2 p-3 bg-gray-100 dark:bg-gray-900 rounded-lg">
-            <code className="flex-1 text-sm truncate">
-              {selected.uri.replace(/^[a-z]+:/, '')}
-            </code>
-            <button
-              onClick={copyPaymentAddress}
-              className="p-2 hover:bg-gray-200 dark:hover:bg-gray-800 rounded"
-            >
-              <ClipboardDocumentIcon className="h-5 w-5" />
-            </button>
-          </div>
+        <div className="border-t border-gray-200 dark:border-gray-800 pt-4 space-y-4">
+          <PaymentQRCode
+            paymentUri={selected}
+            onBack={() => onSelect(null)}
+            size={180}
+          />
 
-          <div className="mt-4">
+          <div>
             <label className="block text-sm font-medium mb-1">
               Transaction ID (optional)
             </label>
