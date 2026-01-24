@@ -401,11 +401,32 @@ export interface StoreItem {
   storeLogoUrl?: string
 }
 
-// Shipping tier definition
+// Shipping tier definition (legacy format)
 export interface ShippingTier {
   min: number
   max: number
   rate: number
+}
+
+// Combined shipping pricing config (new format stored in tiers field as JSON object)
+export interface ShippingPricingConfig {
+  weightRate?: number              // cents per weight unit
+  weightUnit?: string              // seller-defined: "lb", "kg", "oz", "g", "item", etc.
+  subtotalMultipliers?: SubtotalMultiplier[]
+}
+
+// Subtotal multiplier tier
+export interface SubtotalMultiplier {
+  upTo: number | null              // subtotal threshold in cents, null = infinity
+  percent: number                  // 100 = 100%, 0 = free shipping
+}
+
+// Common weight units for conversion (item weights stored in grams in contract)
+export const WEIGHT_UNITS: Record<string, number> = {
+  'g': 1,
+  'oz': 28.3495,
+  'lb': 453.592,
+  'kg': 1000,
 }
 
 // Shipping zone document (from platform)
@@ -438,7 +459,7 @@ export interface ShippingZone {
   countryPattern?: string
   rateType: ShippingRateType
   flatRate?: number
-  tiers?: ShippingTier[]
+  tiers?: ShippingTier[] | ShippingPricingConfig  // Legacy array or new combined config
   currency?: string
   priority: number
 }

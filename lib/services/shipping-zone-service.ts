@@ -13,8 +13,11 @@ import type {
   ShippingZoneDocument,
   ShippingRateType,
   ShippingTier,
+  ShippingPricingConfig,
+  SubtotalMultiplier,
   ShippingAddress
 } from '../types';
+import { gramsToUnit } from '../utils/weight';
 
 class ShippingZoneService extends BaseDocumentService<ShippingZone> {
   constructor() {
@@ -41,10 +44,12 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
       }
     }
 
-    let tiers: ShippingTier[] | undefined;
+    // Parse tiers - can be legacy array format or new object format
+    let tiers: ShippingTier[] | ShippingPricingConfig | undefined;
     if (data.tiers) {
-      if (Array.isArray(data.tiers)) {
-        tiers = data.tiers;
+      if (typeof data.tiers === 'object') {
+        // Already parsed (from state transition result)
+        tiers = data.tiers as ShippingTier[] | ShippingPricingConfig;
       } else if (typeof data.tiers === 'string') {
         try {
           tiers = JSON.parse(data.tiers);
@@ -96,7 +101,7 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
       countryPattern?: string;
       rateType: ShippingRateType;
       flatRate?: number;
-      tiers?: ShippingTier[];
+      tiers?: ShippingTier[] | ShippingPricingConfig;
       currency?: string;
       priority?: number;
     }
@@ -130,7 +135,7 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
       countryPattern: string;
       rateType: ShippingRateType;
       flatRate: number;
-      tiers: ShippingTier[];
+      tiers: ShippingTier[] | ShippingPricingConfig;
       currency: string;
       priority: number;
     }>
@@ -177,7 +182,12 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
 
     for (const zone of sortedZones) {
       const matchesPostal = this.matchesPostalPatterns(zone.postalPatterns, address.postalCode);
-      const matchesCountry = this.matchesCountryPattern(zone.countryPattern, address.country, address.state);
+      const matchesCountry = this.matchesCountryPattern(
+        zone.countryPattern,
+        address.country,
+        address.state,
+        address.postalCode
+      );
 
       if (matchesPostal && matchesCountry) {
         return zone;
@@ -210,30 +220,53 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
   }
 
   /**
-   * Check if country (and optionally state) matches the pattern
+   * Check if country (and optionally state/postal) matches the pattern
    * Pattern formats:
-   *   "US"      - matches country US (any state)
-   *   "US|CA"   - regex: matches US OR CA
-   *   "US.IL"   - matches US, state IL specifically
-   *   "US.IL|US.CA" - regex: matches (US, IL) OR (US, CA)
+   *   "US"        - matches country US (any state)
+   *   "US|CA"     - regex: matches US OR CA
+   *   "US.IL"     - matches US, state IL specifically (2-char suffix = state)
+   *   "US.6"      - matches US, zip starting with "6" (non-2-char suffix = postal prefix)
+   *   "US.606"    - matches US, zip starting with "606"
+   *   "CA.ON"     - matches Canada, Ontario (2-char suffix = province)
+   *   "CA.K"      - matches Canada, postal starting with "K"
+   *   "GB.SW"     - matches UK, postal starting with "SW" (2-char, but UK postal prefixes)
+   *   "US.IL|US.6" - matches Illinois OR zip prefix 6
    */
-  private matchesCountryPattern(pattern: string | undefined, country: string, state?: string): boolean {
+  private matchesCountryPattern(
+    pattern: string | undefined,
+    country: string,
+    state?: string,
+    postalCode?: string
+  ): boolean {
     if (!pattern) {
       return true; // No pattern = matches all
     }
 
-    // Check if pattern uses dot notation for country.state
+    // Check if pattern uses dot notation for country.suffix
     // We need to handle this before regex to properly escape dots
     if (pattern.includes('.')) {
       // Convert "US.IL" to a test function, handle regex OR patterns like "US.IL|US.CA"
       const parts = pattern.split('|');
       for (const part of parts) {
         if (part.includes('.')) {
-          const [patternCountry, patternState] = part.split('.');
+          const [patternCountry, patternSuffix] = part.split('.');
           const countryMatches = patternCountry.toUpperCase() === country.toUpperCase();
-          const stateMatches = state ? patternState.toUpperCase() === state.toUpperCase() : false;
-          if (countryMatches && stateMatches) {
-            return true;
+
+          if (!countryMatches) continue;
+
+          // Length-based detection:
+          // - Exactly 2 chars = state/province code
+          // - Anything else = postal prefix
+          if (patternSuffix.length === 2) {
+            // State/province match
+            if (state?.toUpperCase() === patternSuffix.toUpperCase()) {
+              return true;
+            }
+          } else {
+            // Postal prefix match (case-insensitive for UK/CA postal codes)
+            if (postalCode?.toUpperCase().startsWith(patternSuffix.toUpperCase())) {
+              return true;
+            }
           }
         } else {
           // Part without dot - just match country
@@ -257,17 +290,39 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
 
   /**
    * Calculate shipping rate for a zone
+   *
+   * Supports both legacy tier format and new combined pricing format.
+   * Combined formula: shipping = (baseRate + weight × weightRate) × multiplier
    */
   calculateRate(zone: ShippingZone, params: { totalWeight?: number; subtotal?: number }): number {
+    // Check if tiers contains combined pricing config (object with weightRate or subtotalMultipliers)
+    const pricingConfig = this.parsePricingConfig(zone.tiers);
+
+    if (pricingConfig) {
+      // New combined pricing format
+      const baseRate = zone.flatRate || 0;
+      const weightCharge = this.calculateWeightCharge(
+        pricingConfig,
+        params.totalWeight || 0
+      );
+      const multiplier = this.findMultiplier(
+        pricingConfig.subtotalMultipliers,
+        params.subtotal || 0
+      );
+
+      return Math.round((baseRate + weightCharge) * (multiplier / 100));
+    }
+
+    // Legacy format - use existing logic
     switch (zone.rateType) {
       case 'flat':
         return zone.flatRate || 0;
 
       case 'weight_tiered':
-        return this.findTierRate(zone.tiers, params.totalWeight || 0);
+        return this.findLegacyTierRate(zone.tiers as ShippingTier[] | undefined, params.totalWeight || 0);
 
       case 'price_tiered':
-        return this.findTierRate(zone.tiers, params.subtotal || 0);
+        return this.findLegacyTierRate(zone.tiers as ShippingTier[] | undefined, params.subtotal || 0);
 
       default:
         return 0;
@@ -275,9 +330,72 @@ class ShippingZoneService extends BaseDocumentService<ShippingZone> {
   }
 
   /**
-   * Find the rate for a value within tiers
+   * Parse tiers field to detect pricing format
+   * Returns ShippingPricingConfig if new format, null if legacy array format
    */
-  private findTierRate(tiers: ShippingTier[] | undefined, value: number): number {
+  private parsePricingConfig(tiers: ShippingTier[] | ShippingPricingConfig | undefined): ShippingPricingConfig | null {
+    if (!tiers) {
+      return null;
+    }
+
+    // If it's an array, it's the legacy tier format
+    if (Array.isArray(tiers)) {
+      return null;
+    }
+
+    // Check if it's the new object format (has weightRate or subtotalMultipliers)
+    if (typeof tiers === 'object' && ('weightRate' in tiers || 'subtotalMultipliers' in tiers)) {
+      return tiers as ShippingPricingConfig;
+    }
+
+    return null;
+  }
+
+  /**
+   * Calculate weight-based charge
+   * Weight is in grams (from cart), converted to zone's unit for calculation
+   */
+  private calculateWeightCharge(config: ShippingPricingConfig, weightInGrams: number): number {
+    if (!config.weightRate || config.weightRate <= 0) {
+      return 0;
+    }
+
+    const unit = config.weightUnit || 'lb';
+    const weightInUnit = gramsToUnit(weightInGrams, unit);
+
+    return Math.round(weightInUnit * config.weightRate);
+  }
+
+  /**
+   * Find the multiplier percentage for a subtotal
+   * Returns 100 (normal rate) if no multipliers or subtotal exceeds all thresholds
+   */
+  private findMultiplier(multipliers: SubtotalMultiplier[] | undefined, subtotal: number): number {
+    if (!multipliers || multipliers.length === 0) {
+      return 100;
+    }
+
+    // Sort by upTo ascending (null = infinity goes last)
+    const sorted = [...multipliers].sort((a, b) => {
+      if (a.upTo === null) return 1;
+      if (b.upTo === null) return -1;
+      return a.upTo - b.upTo;
+    });
+
+    for (const tier of sorted) {
+      if (tier.upTo === null || subtotal <= tier.upTo) {
+        return tier.percent;
+      }
+    }
+
+    // If subtotal exceeds all defined tiers, return 100% (normal rate)
+    return 100;
+  }
+
+  /**
+   * Find the rate for a value within legacy tiers
+   */
+  private findLegacyTierRate(tiers: ShippingTier[] | undefined, value: number): number {
     if (!tiers || tiers.length === 0) {
       return 0;
     }
