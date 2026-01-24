@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import {
   ArrowLeftIcon,
@@ -45,6 +45,26 @@ function OrdersPage() {
   const [expandedOrder, setExpandedOrder] = useState<string | null>(null)
   const [reviewedOrders, setReviewedOrders] = useState<Set<string>>(new Set())
   const [reviewModalData, setReviewModalData] = useState<{ order: StoreOrder; store: Store } | null>(null)
+
+  // Refresh just the order statuses (lightweight refresh)
+  const refreshStatuses = useCallback(async (orderList: StoreOrder[]) => {
+    if (orderList.length === 0) return
+
+    const statusMap = new Map<string, OrderStatusUpdate>()
+    await Promise.all(
+      orderList.map(async (order) => {
+        try {
+          const status = await orderStatusService.getLatestStatus(order.id)
+          if (status) {
+            statusMap.set(order.id, status)
+          }
+        } catch (e) {
+          // Ignore errors
+        }
+      })
+    )
+    setOrderStatuses(statusMap)
+  }, [])
 
   // Load orders
   useEffect(() => {
@@ -107,6 +127,18 @@ function OrdersPage() {
 
     loadOrders().catch(console.error)
   }, [sdkReady, user?.identityId])
+
+  // Refresh statuses when page becomes visible again
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible' && orders.length > 0) {
+        refreshStatuses(orders)
+      }
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+  }, [orders, refreshStatuses])
 
   return (
     <div className="min-h-[calc(100vh-40px)] flex">
