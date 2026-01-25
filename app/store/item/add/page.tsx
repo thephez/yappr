@@ -451,7 +451,7 @@ function AddItemPage() {
                                   type="number"
                                   value={combinationStocks[key] || ''}
                                   onChange={(e) => setCombinationStocks({ ...combinationStocks, [key]: e.target.value })}
-                                  placeholder="0"
+                                  placeholder="∞"
                                   min="0"
                                   className="w-20 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded focus:outline-none focus:ring-2 focus:ring-yappr-500"
                                 />
