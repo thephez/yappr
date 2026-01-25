@@ -101,7 +101,7 @@ function WatcherStatusDisplay({
             </button>
           </div>
           <p className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-            Already sent? Click Check Again or enter the TXID manually.
+            Already sent? Click Check Again to retry detection.
           </p>
         </div>
       )
