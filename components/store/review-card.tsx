@@ -77,10 +77,12 @@ export function ReviewCard({ review, index = 0 }: ReviewCardProps) {
                 href={`/user?id=${review.reviewerId}`}
                 className="font-semibold text-gray-900 dark:text-gray-100 hover:underline truncate"
               >
-                {username ? `@${username}` : 'Anonymous'}
+                {username
+                  ? `@${username}`
+                  : review.reviewerDisplayName || `${review.reviewerId.slice(0, 8)}...`}
               </Link>
             </ProfileHoverCard>
-            {review.reviewerDisplayName && review.reviewerDisplayName !== username && (
+            {username && review.reviewerDisplayName && review.reviewerDisplayName !== username && (
               <span className="text-sm text-gray-500 truncate">{review.reviewerDisplayName}</span>
             )}
             <span className="text-gray-300 dark:text-gray-600">·</span>
