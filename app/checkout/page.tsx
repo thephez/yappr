@@ -6,7 +6,7 @@ import { ArrowLeftIcon, CheckCircleIcon } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
 import { Button } from '@/components/ui/button'
-import { AddressForm, ShippingSelector, PaymentSelector, OrderReview } from '@/components/checkout'
+import { AddressForm, ShippingSelector, PaymentSelector, PolicyAgreement, OrderReview } from '@/components/checkout'
 import { withAuth, useAuth } from '@/contexts/auth-context'
 import { useSdk } from '@/contexts/sdk-context'
 import { useSettingsStore } from '@/lib/store'
@@ -16,7 +16,8 @@ import { shippingZoneService } from '@/lib/services/shipping-zone-service'
 import { storeOrderService } from '@/lib/services/store-order-service'
 import { privateFeedCryptoService } from '@/lib/services/private-feed-crypto-service'
 import { identityService } from '@/lib/services/identity-service'
-import type { Store, CartItem, ShippingAddress, BuyerContact, ParsedPaymentUri, ShippingZone } from '@/lib/types'
+import { parseStorePolicies } from '@/lib/utils/policies'
+import type { Store, CartItem, ShippingAddress, BuyerContact, ParsedPaymentUri, ShippingZone, StorePolicy } from '@/lib/types'
 
 /**
  * Normalize key data from various formats to Uint8Array
@@ -48,8 +49,12 @@ function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderCreated, setOrderCreated] = useState(false)
-  const [step, setStep] = useState<'address' | 'shipping' | 'payment' | 'review'>('address')
+  const [step, setStep] = useState<'address' | 'shipping' | 'payment' | 'policies' | 'review'>('address')
   const [error, setError] = useState<string | null>(null)
+
+  // Policies
+  const [storePolicies, setStorePolicies] = useState<StorePolicy[]>([])
+  const [agreedPolicies, setAgreedPolicies] = useState<Set<number>>(new Set())
 
   // Address form
   const [shippingAddress, setShippingAddress] = useState<ShippingAddress>({
@@ -98,6 +103,11 @@ function CheckoutPage() {
 
         setStore(storeData)
         setCartItems(items)
+
+        // Parse store policies
+        if (storeData) {
+          setStorePolicies(parseStorePolicies(storeData.policies))
+        }
 
         // Select first payment URI by default
         if (storeData.paymentUris && storeData.paymentUris.length > 0) {
@@ -182,7 +192,23 @@ function CheckoutPage() {
 
   const handlePaymentSubmit = () => {
     if (!selectedPaymentUri) return
+    setStep('policies')
+  }
+
+  const handlePoliciesSubmit = () => {
     setStep('review')
+  }
+
+  const handlePolicyAgreementChange = (index: number, agreed: boolean) => {
+    setAgreedPolicies((prev) => {
+      const next = new Set(prev)
+      if (agreed) {
+        next.add(index)
+      } else {
+        next.delete(index)
+      }
+      return next
+    })
   }
 
   const handlePlaceOrder = async () => {
@@ -317,7 +343,8 @@ function CheckoutPage() {
               <button
                 onClick={() => step === 'address' ? router.back() : setStep(
                   step === 'shipping' ? 'address' :
-                  step === 'payment' ? 'shipping' : 'payment'
+                  step === 'payment' ? 'shipping' :
+                  step === 'policies' ? 'payment' : 'policies'
                 )}
                 className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900"
               >
@@ -328,23 +355,23 @@ function CheckoutPage() {
 
             {/* Progress Steps */}
             <div className="flex px-4 pb-4">
-              {['address', 'shipping', 'payment', 'review'].map((s, i) => (
+              {['address', 'shipping', 'payment', 'policies', 'review'].map((s, i) => (
                 <div key={s} className="flex-1 flex items-center">
                   <div
                     className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
                       step === s
                         ? 'bg-yappr-500 text-white'
-                        : ['address', 'shipping', 'payment', 'review'].indexOf(step) > i
+                        : ['address', 'shipping', 'payment', 'policies', 'review'].indexOf(step) > i
                           ? 'bg-green-500 text-white'
                           : 'bg-gray-200 dark:bg-gray-800 text-gray-500'
                     }`}
                   >
                     {i + 1}
                   </div>
-                  {i < 3 && (
+                  {i < 4 && (
                     <div
                       className={`flex-1 h-1 mx-2 ${
-                        ['address', 'shipping', 'payment', 'review'].indexOf(step) > i
+                        ['address', 'shipping', 'payment', 'policies', 'review'].indexOf(step) > i
                           ? 'bg-green-500'
                           : 'bg-gray-200 dark:bg-gray-800'
                       }`}
@@ -395,6 +422,16 @@ function CheckoutPage() {
               txid={txid}
               onTxidChange={setTxid}
               onSubmit={handlePaymentSubmit}
+            />
+          )}
+
+          {/* Policies Step */}
+          {step === 'policies' && (
+            <PolicyAgreement
+              policies={storePolicies}
+              agreedIndexes={agreedPolicies}
+              onAgreementChange={handlePolicyAgreementChange}
+              onSubmit={handlePoliciesSubmit}
             />
           )}
 

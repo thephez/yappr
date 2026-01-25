@@ -266,6 +266,12 @@ export interface UsernameRegistrationResult {
 // Storefront Types
 // ============================================================================
 
+// Store policy for arbitrary seller-defined policies
+export interface StorePolicy {
+  name: string     // Policy title, e.g., "Return Policy"
+  content: string  // Policy text
+}
+
 // Store status values
 export type StoreStatus = 'active' | 'paused' | 'closed'
 

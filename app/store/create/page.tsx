@@ -11,7 +11,9 @@ import { useSdk } from '@/contexts/sdk-context'
 import { useSettingsStore } from '@/lib/store'
 import { storeService } from '@/lib/services/store-service'
 import { SocialLinksInput } from '@/components/profile/social-links-input'
-import type { SocialLink, ParsedPaymentUri } from '@/lib/types'
+import { PoliciesEditor } from '@/components/store/policies-editor'
+import { parseStorePolicies, serializeStorePolicies, isPoliciesWithinLimit } from '@/lib/utils/policies'
+import type { SocialLink, ParsedPaymentUri, StorePolicy } from '@/lib/types'
 
 function CreateStorePage() {
   const router = useRouter()
@@ -32,7 +34,7 @@ function CreateStorePage() {
   const [bannerUrl, setBannerUrl] = useState('')
   const [location, setLocation] = useState('')
   const [defaultCurrency, setDefaultCurrency] = useState('USD')
-  const [policies, setPolicies] = useState('')
+  const [policies, setPolicies] = useState<StorePolicy[]>([])
   const [status, setStatus] = useState<'active' | 'paused' | 'closed'>('active')
 
   // Contact methods as social links
@@ -64,7 +66,7 @@ function CreateStorePage() {
         setBannerUrl(store.bannerUrl || '')
         setLocation(store.location || '')
         setDefaultCurrency(store.defaultCurrency || 'USD')
-        setPolicies(store.policies || '')
+        setPolicies(parseStorePolicies(store.policies))
         setStatus(store.status || 'active')
 
         // Contact methods - already in SocialLink[] format
@@ -94,10 +96,19 @@ function CreateStorePage() {
     e.preventDefault()
     if (!user?.identityId || !name.trim()) return
 
+    // Validate policies length
+    if (!isPoliciesWithinLimit(policies)) {
+      setError('Store policies exceed the maximum character limit.')
+      return
+    }
+
     setIsSubmitting(true)
     setError(null)
 
     try {
+      // Serialize policies to JSON string
+      const serializedPolicies = serializeStorePolicies(policies)
+
       const storeData = {
         name: name.trim(),
         status, // Required field - preserves existing status when editing
@@ -106,7 +117,7 @@ function CreateStorePage() {
         bannerUrl: bannerUrl.trim() || undefined,
         location: location.trim() || undefined,
         defaultCurrency,
-        policies: policies.trim() || undefined,
+        policies: serializedPolicies || undefined,
         contactMethods: contactLinks.length > 0 ? contactLinks : undefined,
         supportedRegions: supportedRegions.length > 0 ? supportedRegions : undefined
       }
@@ -317,18 +328,14 @@ function CreateStorePage() {
             {/* Policies */}
             <div className="space-y-4">
               <h2 className="text-lg font-semibold">Store Policies</h2>
+              <p className="text-sm text-gray-500">
+                Define your store policies (e.g., returns, shipping, privacy). Buyers must agree to these before checkout.
+              </p>
 
-              <div>
-                <label className="block text-sm font-medium mb-1">Shipping & Return Policy</label>
-                <textarea
-                  value={policies}
-                  onChange={(e) => setPolicies(e.target.value)}
-                  placeholder="Describe your shipping times, return policy, etc."
-                  rows={4}
-                  maxLength={2000}
-                  className="w-full px-4 py-2 border border-gray-200 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 focus:outline-none focus:ring-2 focus:ring-yappr-500 resize-none"
-                />
-              </div>
+              <PoliciesEditor
+                policies={policies}
+                onChange={setPolicies}
+              />
             </div>
 
             {/* Submit */}
