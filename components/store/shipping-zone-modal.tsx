@@ -41,6 +41,7 @@ export function ShippingZoneModal({ isOpen, onClose, onSave, zone }: ShippingZon
   const [weightUnit, setWeightUnit] = useState('lb')
   const [currency, setCurrency] = useState('USD')
   const [countryPattern, setCountryPattern] = useState('')
+  const [isWorldwide, setIsWorldwide] = useState(false)
   const [priority, setPriority] = useState('0')
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [multipliers, setMultipliers] = useState<MultiplierRow[]>([])
@@ -55,6 +56,7 @@ export function ShippingZoneModal({ isOpen, onClose, onSave, zone }: ShippingZon
       setBaseRate(zone.flatRate ? (zone.flatRate / 100).toString() : '')
       setCurrency(zone.currency || 'USD')
       setCountryPattern(zone.countryPattern || '')
+      setIsWorldwide(!zone.countryPattern)
       setPriority(zone.priority?.toString() || '0')
 
       // Parse existing pricing config from tiers
@@ -86,6 +88,7 @@ export function ShippingZoneModal({ isOpen, onClose, onSave, zone }: ShippingZon
       setWeightUnit('lb')
       setCurrency('USD')
       setCountryPattern('')
+      setIsWorldwide(false)
       setPriority('0')
       setMultipliers([])
     }
@@ -147,7 +150,7 @@ export function ShippingZoneModal({ isOpen, onClose, onSave, zone }: ShippingZon
         flatRate: baseRateInCents || undefined,
         tiers,
         currency,
-        countryPattern: countryPattern.trim() || undefined,
+        countryPattern: isWorldwide ? undefined : (countryPattern.trim() || undefined),
         priority: Math.max(0, priority ? parseInt(priority, 10) : 0)
       })
       // Reset form
@@ -156,6 +159,7 @@ export function ShippingZoneModal({ isOpen, onClose, onSave, zone }: ShippingZon
       setWeightRate('')
       setWeightUnit('lb')
       setCountryPattern('')
+      setIsWorldwide(false)
       setPriority('0')
       setMultipliers([])
     } finally {
@@ -197,17 +201,33 @@ export function ShippingZoneModal({ isOpen, onClose, onSave, zone }: ShippingZon
 
           {/* Country Pattern */}
           <div>
-            <label className="block text-sm font-medium mb-2">Country Pattern (optional)</label>
-            <input
-              type="text"
-              value={countryPattern}
-              onChange={(e) => setCountryPattern(e.target.value)}
-              placeholder="e.g., US, US|CA, US.IL"
-              className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-yappr-500"
-            />
-            <p className="text-xs text-gray-500 mt-1">
-              Examples: US, US|CA, US.IL (state), US.6 (zip prefix), CA.K (postal prefix)
-            </p>
+            <label className="block text-sm font-medium mb-2">Region</label>
+            <label className="flex items-center gap-2 mb-3 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={isWorldwide}
+                onChange={(e) => {
+                  setIsWorldwide(e.target.checked)
+                  if (e.target.checked) setCountryPattern('')
+                }}
+                className="w-4 h-4 rounded border-gray-300 text-yappr-500 focus:ring-yappr-500"
+              />
+              <span className="text-sm">Worldwide (ships to all countries)</span>
+            </label>
+            {!isWorldwide && (
+              <>
+                <input
+                  type="text"
+                  value={countryPattern}
+                  onChange={(e) => setCountryPattern(e.target.value)}
+                  placeholder="e.g., US, US|CA, US.IL"
+                  className="w-full px-4 py-2 bg-gray-100 dark:bg-gray-800 rounded-lg focus:outline-none focus:ring-2 focus:ring-yappr-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Examples: US, US|CA, US.IL (state), US.6 (zip prefix), CA.K (postal prefix)
+                </p>
+              </>
+            )}
           </div>
 
           {/* Priority */}
