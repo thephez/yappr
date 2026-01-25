@@ -170,22 +170,19 @@ export function DashPaymentWatcher({
     onTimeout
   })
 
-  // Always render debug info first
+  // Don't render anything if not a Dash scheme
+  if (!isDashScheme(scheme)) {
+    return null
+  }
+
   return (
-    <div>
-      <div className="p-2 mb-2 bg-purple-500 text-white text-xs rounded">
-        DEBUG: scheme="{scheme}" isDash={String(isDashScheme(scheme))} status={status}
-      </div>
-      {isDashScheme(scheme) && (
-        <WatcherStatusDisplay
-          status={status}
-          remainingTime={remainingTime}
-          detectedAmount={detectedAmount}
-          onRetry={retry}
-          onDone={onDone}
-        />
-      )}
-    </div>
+    <WatcherStatusDisplay
+      status={status}
+      remainingTime={remainingTime}
+      detectedAmount={detectedAmount}
+      onRetry={retry}
+      onDone={onDone}
+    />
   )
 }
 
