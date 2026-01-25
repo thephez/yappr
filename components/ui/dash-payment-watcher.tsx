@@ -172,7 +172,11 @@ export function DashPaymentWatcher({
 
   // Don't render anything if not a Dash scheme
   if (!isDashScheme(scheme)) {
-    return null
+    return (
+      <div className="p-3 bg-yellow-100 rounded text-sm">
+        Debug: DashPaymentWatcher scheme={scheme} not recognized as Dash
+      </div>
+    )
   }
 
   return (
