@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo } from 'react'
+import { useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import * as Dialog from '@radix-ui/react-dialog'
 import { XMarkIcon, CurrencyDollarIcon, QrCodeIcon, WalletIcon, BookmarkIcon } from '@heroicons/react/24/outline'
 import { CheckCircleIcon, ExclamationCircleIcon } from '@heroicons/react/24/solid'
@@ -267,10 +267,10 @@ export function TipModal() {
   }
 
   // Handle detected Dash transaction in crypto tab
-  const handleCryptoTransactionDetected = (txid: string, amountDash: number) => {
+  const handleCryptoTransactionDetected = useCallback((txid: string, amountDash: number) => {
     setDetectedCryptoTxid(txid)
     setDetectedCryptoAmount(amountDash)
-  }
+  }, [])
 
   // Check if the selected payment is a Dash scheme
   const isSelectedDashPayment = selectedQrPayment && isDashScheme(selectedQrPayment.scheme)
@@ -657,6 +657,7 @@ export function TipModal() {
       recipientName={recipientName}
       watchForTransaction={!!isSelectedDashPayment}
       onTransactionDetected={handleCryptoTransactionDetected}
+      onDone={handleCloseQrDialog}
     />
   </>
   )

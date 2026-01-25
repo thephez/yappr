@@ -35,6 +35,7 @@ interface PaymentQRCodeProps {
   watchForTransaction?: boolean
   onTransactionDetected?: (txid: string, amountDash: number) => void
   onWatchTimeout?: () => void
+  onDone?: () => void
 }
 
 export function PaymentQRCode({
@@ -43,9 +44,19 @@ export function PaymentQRCode({
   size = 200,
   watchForTransaction = false,
   onTransactionDetected,
-  onWatchTimeout
+  onWatchTimeout,
+  onDone
 }: PaymentQRCodeProps) {
   const [copied, setCopied] = useState(false)
+  const [paymentDetected, setPaymentDetected] = useState(false)
+  const [detectedAmountLocal, setDetectedAmountLocal] = useState<number | null>(null)
+
+  // Wrap the onTransactionDetected callback to also track local state
+  const handleTransactionDetected = (txid: string, amountDash: number) => {
+    setPaymentDetected(true)
+    setDetectedAmountLocal(amountDash)
+    onTransactionDetected?.(txid, amountDash)
+  }
 
   const schemeColor = PAYMENT_COLORS[paymentUri.scheme.toLowerCase()] || '#6B7280'
   const label = PAYMENT_SCHEME_LABELS[paymentUri.scheme.toLowerCase()] || getPaymentLabel(paymentUri.uri)
@@ -134,9 +145,19 @@ export function PaymentQRCode({
           scheme={paymentUri.scheme}
           address={address}
           enabled={true}
-          onDetected={onTransactionDetected}
+          onDetected={handleTransactionDetected}
           onTimeout={onWatchTimeout}
         />
+      )}
+
+      {/* Done button appears after payment detected */}
+      {paymentDetected && onDone && (
+        <button
+          onClick={onDone}
+          className="w-full py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors"
+        >
+          Done {detectedAmountLocal !== null && `(${detectedAmountLocal.toFixed(8)} DASH received)`}
+        </button>
       )}
 
       {/* Action buttons */}

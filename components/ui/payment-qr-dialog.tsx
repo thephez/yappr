@@ -14,6 +14,7 @@ interface PaymentQRCodeDialogProps {
   watchForTransaction?: boolean
   onTransactionDetected?: (txid: string, amountDash: number) => void
   onWatchTimeout?: () => void
+  onDone?: () => void
 }
 
 export function PaymentQRCodeDialog({
@@ -23,7 +24,8 @@ export function PaymentQRCodeDialog({
   recipientName,
   watchForTransaction = false,
   onTransactionDetected,
-  onWatchTimeout
+  onWatchTimeout,
+  onDone
 }: PaymentQRCodeDialogProps) {
   if (!paymentUri) return null
 
@@ -72,6 +74,7 @@ export function PaymentQRCodeDialog({
                       watchForTransaction={watchForTransaction}
                       onTransactionDetected={onTransactionDetected}
                       onWatchTimeout={onWatchTimeout}
+                      onDone={onDone}
                     />
                   </motion.div>
                 </Dialog.Content>
