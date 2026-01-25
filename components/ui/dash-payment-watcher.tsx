@@ -11,6 +11,7 @@ interface DashPaymentWatcherProps {
   enabled?: boolean
   onDetected?: (txid: string, amountDash: number) => void
   onTimeout?: () => void
+  onDone?: () => void
 }
 
 function formatTime(ms: number): string {
@@ -23,15 +24,15 @@ function formatTime(ms: number): string {
 function WatcherStatusDisplay({
   status,
   remainingTime,
-  detectedTxid,
   detectedAmount,
-  onRetry
+  onRetry,
+  onDone
 }: {
   status: WatcherStatus
   remainingTime: number
-  detectedTxid: string | null
   detectedAmount: number | null
   onRetry: () => void
+  onDone?: () => void
 }) {
   switch (status) {
     case 'watching':
@@ -62,24 +63,13 @@ function WatcherStatusDisplay({
 
     case 'detected':
       return (
-        <div className="p-3 bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 rounded-lg">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircleSolidIcon className="w-5 h-5 text-green-500" />
-            <p className="text-sm font-medium text-green-700 dark:text-green-300">
-              Payment detected!
-            </p>
-          </div>
-          {detectedAmount !== null && (
-            <p className="text-sm text-green-600 dark:text-green-400 mb-1">
-              Amount: <span className="font-mono font-medium">{detectedAmount.toFixed(8)} DASH</span>
-            </p>
-          )}
-          {detectedTxid && (
-            <p className="text-xs text-green-600 dark:text-green-400 font-mono break-all">
-              TXID: {detectedTxid}
-            </p>
-          )}
-        </div>
+        <button
+          onClick={onDone}
+          className="w-full py-3 rounded-lg bg-green-500 hover:bg-green-600 text-white font-medium transition-colors flex items-center justify-center gap-2"
+        >
+          <CheckCircleSolidIcon className="w-5 h-5" />
+          Done {detectedAmount !== null && `(${detectedAmount.toFixed(8)} DASH received)`}
+        </button>
       )
 
     case 'timeout':
@@ -137,11 +127,11 @@ export function DashPaymentWatcher({
   address,
   enabled = true,
   onDetected,
-  onTimeout
+  onTimeout,
+  onDone
 }: DashPaymentWatcherProps) {
   const {
     status,
-    detectedTxid,
     detectedAmount,
     remainingTime,
     retry
@@ -162,9 +152,9 @@ export function DashPaymentWatcher({
     <WatcherStatusDisplay
       status={status}
       remainingTime={remainingTime}
-      detectedTxid={detectedTxid}
       detectedAmount={detectedAmount}
       onRetry={retry}
+      onDone={onDone}
     />
   )
 }
