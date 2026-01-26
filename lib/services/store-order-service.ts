@@ -170,7 +170,7 @@ class StoreOrderService extends BaseDocumentService<StoreOrder> {
   getPaymentVerificationUrl(txid: string, network: 'mainnet' | 'testnet' = 'testnet'): string {
     const baseUrl = network === 'mainnet'
       ? 'https://insight.dash.org/insight/tx/'
-      : 'https://testnet-insight.dashevo.org/insight/tx/';
+      : 'https://insight.testnet.networks.dash.org/insight/tx/';
     return `${baseUrl}${txid}`;
   }
 
