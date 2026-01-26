@@ -72,9 +72,36 @@ function initializePostLoginTasks(identityId: string, delayMs: number): void {
   })
 
   // Sync private feed keys immediately (background) - PRD §5.4
+  // Guard against logout race: check session is still active before/after sync
   import('@/lib/services/private-feed-follower-service').then(async ({ privateFeedFollowerService }) => {
+    const isSessionActive = () => {
+      const savedSession = localStorage.getItem('yappr_session')
+      if (!savedSession) return false
+      try {
+        const sessionData = JSON.parse(savedSession)
+        return sessionData.user?.identityId === identityId
+      } catch {
+        return false
+      }
+    }
+
+    // Check session before starting
+    if (!isSessionActive()) {
+      console.log('Auth: Skipping private feed sync - session no longer active')
+      return
+    }
+
     try {
       const result = await privateFeedFollowerService.syncFollowedFeeds()
+
+      // Check session after sync completes (results already stored by service)
+      if (!isSessionActive()) {
+        console.log('Auth: Private feed sync completed but session ended - clearing keys')
+        const { privateFeedKeyStore } = await import('@/lib/services/private-feed-key-store')
+        privateFeedKeyStore.clearAllKeys()
+        return
+      }
+
       if (result.synced.length > 0 || result.failed.length > 0) {
         console.log(`Auth: Private feed sync complete - synced: ${result.synced.length}, failed: ${result.failed.length}, up-to-date: ${result.upToDate.length}`)
       }
