@@ -110,14 +110,17 @@ class CryptoPriceService {
 
   /**
    * Get averaged price from multiple sources
+   * @param skipCache - If true, bypass the cache and fetch fresh prices
    */
-  async getPrice(scheme: string, fiatCurrency: string): Promise<PriceResult | null> {
+  async getPrice(scheme: string, fiatCurrency: string, skipCache = false): Promise<PriceResult | null> {
     const cacheKey = this.getCacheKey(scheme, fiatCurrency)
 
-    // Check cache first
-    const cached = this.cache.get(cacheKey)
-    if (cached && cached.expiresAt > Date.now()) {
-      return cached.result
+    // Check cache first (unless skipCache is true)
+    if (!skipCache) {
+      const cached = this.cache.get(cacheKey)
+      if (cached && cached.expiresAt > Date.now()) {
+        return cached.result
+      }
     }
 
     // Fetch from both APIs in parallel
@@ -161,13 +164,15 @@ class CryptoPriceService {
 
   /**
    * Convert fiat amount to crypto
+   * @param skipCache - If true, bypass the cache and fetch fresh prices
    */
   async convertToCrypto(
     fiatAmount: number,
     fiatCurrency: string,
-    scheme: string
+    scheme: string,
+    skipCache = false
   ): Promise<ConversionResult | null> {
-    const priceResult = await this.getPrice(scheme, fiatCurrency)
+    const priceResult = await this.getPrice(scheme, fiatCurrency, skipCache)
     if (!priceResult || priceResult.price <= 0) {
       return null
     }

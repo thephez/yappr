@@ -30,8 +30,10 @@ export function useCryptoPrice(
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [fetchTrigger, setFetchTrigger] = useState(0)
+  const [skipCache, setSkipCache] = useState(false)
 
   const refetch = useCallback(() => {
+    setSkipCache(true)
     setFetchTrigger((prev) => prev + 1)
   }, [])
 
@@ -63,7 +65,7 @@ export function useCryptoPrice(
       setError(null)
 
       try {
-        const result = await cryptoPriceService.convertToCrypto(fiatAmount, fiatCurrency, scheme)
+        const result = await cryptoPriceService.convertToCrypto(fiatAmount, fiatCurrency, scheme, skipCache)
 
         if (cancelled) return
 
@@ -87,6 +89,7 @@ export function useCryptoPrice(
       } finally {
         if (!cancelled) {
           setIsLoading(false)
+          setSkipCache(false)
         }
       }
     }
@@ -98,7 +101,7 @@ export function useCryptoPrice(
     return () => {
       cancelled = true
     }
-  }, [fiatAmount, fiatCurrency, scheme, fetchTrigger])
+  }, [fiatAmount, fiatCurrency, scheme, fetchTrigger, skipCache])
 
   return {
     cryptoAmount,
