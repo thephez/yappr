@@ -122,17 +122,6 @@ export default function CartPage() {
                 ))}
               </AnimatePresence>
 
-              {/* Clear All */}
-              {cart.items.length > 0 && (
-                <div className="p-4">
-                  <button
-                    onClick={() => cartService.clearCart()}
-                    className="w-full py-2 text-center text-red-500 hover:text-red-600 text-sm"
-                  >
-                    Clear entire cart
-                  </button>
-                </div>
-              )}
             </div>
           )}
         </main>
