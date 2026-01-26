@@ -160,7 +160,13 @@ export function PaymentQRCode({
                   Send: {formatCryptoAmount(cryptoAmount, paymentUri.scheme)} {cryptoSymbol}
                 </p>
                 <p className="text-sm text-gray-500">
-                  (~{new Intl.NumberFormat('en-US', { style: 'currency', currency: orderCurrency || 'USD' }).format(cryptoPrice)} per {cryptoSymbol})
+                  (~{(() => {
+                    try {
+                      return new Intl.NumberFormat('en-US', { style: 'currency', currency: orderCurrency || 'USD' }).format(cryptoPrice)
+                    } catch {
+                      return `${cryptoPrice.toFixed(2)} ${orderCurrency || 'USD'}`
+                    }
+                  })()} per {cryptoSymbol})
                 </p>
               </div>
               {priceSources.length > 0 && (

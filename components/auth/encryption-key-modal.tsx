@@ -40,12 +40,21 @@ export function EncryptionKeyModal() {
   const [autoRecoveryStatus, setAutoRecoveryStatus] = useState<AutoRecoveryStatus>('idle')
   const [autoRecoveryMessage, setAutoRecoveryMessage] = useState('')
   const hasAttemptedRecovery = useRef(false)
+  const isModalActiveRef = useRef(false)
+
+  // Track modal open/close state
+  useEffect(() => {
+    isModalActiveRef.current = isOpen
+  }, [isOpen])
 
   // Attempt auto-recovery when modal opens
   const attemptAutoRecovery = useCallback(async () => {
     if (!user || hasAttemptedRecovery.current) return
 
     hasAttemptedRecovery.current = true
+
+    // Check if modal is still active before each state update
+    if (!isModalActiveRef.current) return
     setAutoRecoveryStatus('checking')
     setAutoRecoveryMessage('Checking for backup...')
 
@@ -56,6 +65,7 @@ export function EncryptionKeyModal() {
 
       if (!authKeyWif) {
         // No auth key available (shouldn't happen but handle gracefully)
+        if (!isModalActiveRef.current) return
         setAutoRecoveryStatus('failed')
         setAutoRecoveryMessage('')
         return
@@ -66,6 +76,7 @@ export function EncryptionKeyModal() {
       const { privateKey: authPrivateKey } = parsePrivateKey(authKeyWif)
 
       // Attempt HKDF derivation from auth key
+      if (!isModalActiveRef.current) return
       setAutoRecoveryMessage('Attempting key derivation...')
       const { deriveEncryptionKey, validateDerivedKeyMatchesIdentity } = await import('@/lib/crypto/key-derivation')
 
@@ -73,6 +84,8 @@ export function EncryptionKeyModal() {
 
       // Check if derived key matches identity's encryption key
       const matches = await validateDerivedKeyMatchesIdentity(derivedKey, user.identityId, 1) // purpose=1 is encryption
+
+      if (!isModalActiveRef.current) return
 
       if (matches) {
         // Derivation succeeded - store the key
@@ -88,6 +101,7 @@ export function EncryptionKeyModal() {
 
         // Brief success message, then close (use closeWithSuccess to avoid calling onCancel)
         setTimeout(() => {
+          if (!isModalActiveRef.current) return
           toast.success('Encryption key recovered automatically')
           closeWithSuccess()
           if (onSuccess) {
@@ -98,10 +112,12 @@ export function EncryptionKeyModal() {
       }
 
       // Step 3: Neither backup nor derivation worked - show manual entry
+      if (!isModalActiveRef.current) return
       setAutoRecoveryStatus('failed')
       setAutoRecoveryMessage('Auto-recovery not available. Please enter your key manually.')
     } catch (err) {
       console.error('Auto-recovery error:', err)
+      if (!isModalActiveRef.current) return
       setAutoRecoveryStatus('failed')
       setAutoRecoveryMessage('')
     }

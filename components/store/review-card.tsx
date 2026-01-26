@@ -24,6 +24,8 @@ export function ReviewCard({ review, index = 0 }: ReviewCardProps) {
   useEffect(() => {
     if (!review.reviewerId) return
 
+    let active = true
+
     // Reset state from props when reviewerId changes (handles component reuse)
     const initialUsername = review.reviewerUsername || null
     const initialDisplayName = review.reviewerDisplayName || null
@@ -33,7 +35,9 @@ export function ReviewCard({ review, index = 0 }: ReviewCardProps) {
     // Fetch username if not provided in props
     if (!initialUsername) {
       dpnsService.resolveUsername(review.reviewerId)
-        .then(name => setUsername(name))
+        .then(name => {
+          if (active) setUsername(name)
+        })
         .catch(err => console.error('Failed to resolve username:', err))
     }
 
@@ -41,11 +45,15 @@ export function ReviewCard({ review, index = 0 }: ReviewCardProps) {
     if (!initialDisplayName) {
       unifiedProfileService.getProfile(review.reviewerId)
         .then(profile => {
-          if (profile?.displayName) {
+          if (active && profile?.displayName) {
             setDisplayName(profile.displayName)
           }
         })
         .catch(err => console.error('Failed to fetch profile:', err))
+    }
+
+    return () => {
+      active = false
     }
   }, [review.reviewerId, review.reviewerUsername, review.reviewerDisplayName])
 

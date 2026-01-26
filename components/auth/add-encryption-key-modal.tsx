@@ -559,7 +559,7 @@ export function AddEncryptionKeyModal({
             </div>
 
             <div className="flex flex-col gap-3">
-              <Button onClick={() => setStep('critical-key')} className="w-full">
+              <Button onClick={() => setStep(privateKeyWif ? 'critical-key' : 'intro')} className="w-full">
                 Try Again
               </Button>
               <Button onClick={handleClose} variant="outline" className="w-full">
