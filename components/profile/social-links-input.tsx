@@ -73,9 +73,13 @@ export function SocialLinksInput({
   useEffect(() => {
     const validPlatforms = availablePlatforms.map(p => p.id)
     if (!validPlatforms.includes(selectedPlatform)) {
-      setSelectedPlatform(getDefaultPlatform())
+      // Inline the default platform logic to avoid dependency on unstable function reference
+      const defaultPlatform = availablePlatforms.length > 0
+        ? availablePlatforms[0].id as SocialPlatform
+        : SOCIAL_PLATFORMS[0].id as SocialPlatform
+      setSelectedPlatform(defaultPlatform)
     }
-  }, [allowedPlatforms])
+  }, [allowedPlatforms, availablePlatforms, selectedPlatform])
 
   const handleAddLink = () => {
     if (!handle.trim()) {

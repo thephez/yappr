@@ -337,7 +337,7 @@ function SettingsPage() {
               <Switch.Root
                 checked={value}
                 onCheckedChange={(checked) =>
-                  setNotificationSettings({ [key]: checked })
+                  setNotificationSettings({ [key as keyof typeof notificationSettings]: checked })
                 }
                 className={`w-11 h-6 rounded-full relative transition-colors ${
                   value ? 'bg-yappr-500' : 'bg-gray-200 dark:bg-gray-800'

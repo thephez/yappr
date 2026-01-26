@@ -235,7 +235,11 @@ export function TipModal() {
     }
 
     // Store the key locally and go to success
-    storeTransferKey(user.identityId, usedTransferKeyRef.current)
+    try {
+      storeTransferKey(user.identityId, usedTransferKeyRef.current)
+    } catch (err) {
+      console.error('Failed to store transfer key:', err)
+    }
     usedTransferKeyRef.current = null
     setState('success')
   }
@@ -416,6 +420,10 @@ export function TipModal() {
                               value={transferKey}
                               onChange={(e) => handleTransferKeyChange(e.target.value)}
                               placeholder="Enter your transfer private key"
+                              autoComplete="off"
+                              autoCorrect="off"
+                              autoCapitalize="off"
+                              spellCheck={false}
                               className="w-full px-4 py-3 rounded-lg border border-gray-300 dark:border-gray-700 bg-white dark:bg-neutral-800 font-mono text-sm focus:outline-none focus:ring-2 focus:ring-amber-500 focus:border-transparent"
                             />
                             {keySource === 'prefilled' && (

@@ -30,7 +30,8 @@ function normalizeKeyData(data: unknown): Uint8Array | null {
   if (Array.isArray(data)) return new Uint8Array(data)
   if (typeof data === 'string') {
     try {
-      return new Uint8Array(Buffer.from(data, 'base64'))
+      const binaryString = atob(data)
+      return Uint8Array.from(binaryString, (c) => c.charCodeAt(0))
     } catch {
       return null
     }

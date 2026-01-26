@@ -3,6 +3,7 @@
 import { useRouter } from 'next/navigation'
 import { CubeIcon } from '@heroicons/react/24/outline'
 import { storeItemService } from '@/lib/services/store-item-service'
+import { formatPrice } from '@/lib/utils/format'
 import type { StoreItem } from '@/lib/types'
 
 interface ItemCardProps {
@@ -25,20 +26,18 @@ export function ItemCard({ item, onClick, showStore }: ItemCardProps) {
   const priceRange = storeItemService.getPriceRange(item)
   const isOutOfStock = storeItemService.isOutOfStock(item)
 
-  const formatPrice = (price: number, currency: string = 'USD') => {
-    if (currency === 'DASH') {
-      return `${(price / 100000000).toFixed(4)} DASH`
-    }
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency
-    }).format(price / 100)
-  }
-
   return (
     <div
       onClick={handleClick}
-      className="cursor-pointer group"
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault()
+          handleClick()
+        }
+      }}
+      role="button"
+      tabIndex={0}
+      className="cursor-pointer group focus:outline-none focus:ring-2 focus:ring-yappr-500 rounded-lg"
     >
       <div className="relative aspect-square bg-gray-100 dark:bg-gray-800 rounded-lg overflow-hidden">
         {item.imageUrls?.[0] ? (

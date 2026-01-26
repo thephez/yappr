@@ -37,9 +37,7 @@ export function SavedAddressesSettings() {
 
       // Get user's encryption public key
       const pubKey = await savedAddressService.getUserEncryptionPublicKey(user.identityId)
-      if (pubKey) {
-        setUserEncryptionPubKey(pubKey)
-      }
+      setUserEncryptionPubKey(pubKey)
 
       // Get user's encryption private key
       const privKey = getEncryptionKeyBytes(user.identityId)

@@ -195,7 +195,15 @@ export default function StoreBrowsePage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                     onClick={() => handleStoreClick(store.id)}
-                    className="p-4 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors cursor-pointer"
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        handleStoreClick(store.id)
+                      }
+                    }}
+                    role="button"
+                    tabIndex={0}
+                    className="p-4 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:ring-inset"
                   >
                     <div className="flex gap-4">
                       {/* Store Logo */}

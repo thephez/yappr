@@ -70,7 +70,11 @@ function ItemDetailContent() {
 
   // Load item data
   useEffect(() => {
-    if (!sdkReady || !itemId) return
+    if (!sdkReady) return
+    if (!itemId) {
+      setIsLoading(false)
+      return
+    }
 
     const loadItem = async () => {
       try {

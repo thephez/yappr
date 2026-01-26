@@ -47,9 +47,17 @@ export function OrderCard({
       transition={{ delay: index * 0.05 }}
       className="p-4"
     >
-      <button
+      <div
         onClick={onToggle}
-        className="w-full text-left"
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault()
+            onToggle()
+          }
+        }}
+        role="button"
+        tabIndex={0}
+        className="w-full text-left cursor-pointer focus:outline-none focus:ring-2 focus:ring-yappr-500 focus:ring-inset rounded"
       >
         <div className="flex items-start justify-between gap-4">
           <div className="flex gap-3 flex-1 min-w-0">
@@ -89,7 +97,7 @@ export function OrderCard({
             )}
           </div>
         </div>
-      </button>
+      </div>
 
       {/* Expanded Details */}
       {expanded && payload && (

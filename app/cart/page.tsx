@@ -62,7 +62,7 @@ export default function CartPage() {
     }
 
     loadStores().catch(console.error)
-  }, [sdkReady, cart.items.length])
+  }, [sdkReady, cart.items])
 
   // Group items by store
   const itemsByStore = new Map<string, typeof cart.items>()

@@ -45,6 +45,7 @@ export function QuantityControl({
         type="button"
         onClick={handleDecrement}
         disabled={value <= min}
+        aria-label="Decrease quantity"
         className={`${buttonClasses} ${value <= min ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <MinusIcon className={iconClasses} />
@@ -54,6 +55,7 @@ export function QuantityControl({
         type="button"
         onClick={handleIncrement}
         disabled={value >= max}
+        aria-label="Increase quantity"
         className={`${buttonClasses} ${value >= max ? 'opacity-50 cursor-not-allowed' : ''}`}
       >
         <PlusIcon className={iconClasses} />
