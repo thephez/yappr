@@ -58,7 +58,7 @@ function CheckoutPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [orderCreated, setOrderCreated] = useState(false)
-  const [step, setStep] = useState<'address' | 'shipping' | 'payment' | 'policies' | 'review'>('address')
+  const [step, setStep] = useState<'address' | 'shipping' | 'policies' | 'payment' | 'review'>('address')
   const [error, setError] = useState<string | null>(null)
 
   // Policies
@@ -393,15 +393,15 @@ function CheckoutPage() {
       setError('We cannot ship to this address. Please check your shipping address.')
       return
     }
+    setStep('policies')
+  }
+
+  const handlePoliciesSubmit = () => {
     setStep('payment')
   }
 
   const handlePaymentSubmit = () => {
     if (!selectedPaymentUri) return
-    setStep('policies')
-  }
-
-  const handlePoliciesSubmit = () => {
     setStep('review')
   }
 
@@ -547,8 +547,8 @@ function CheckoutPage() {
               <button
                 onClick={() => step === 'address' ? router.back() : setStep(
                   step === 'shipping' ? 'address' :
-                  step === 'payment' ? 'shipping' :
-                  step === 'policies' ? 'payment' : 'policies'
+                  step === 'policies' ? 'shipping' :
+                  step === 'payment' ? 'policies' : 'payment'
                 )}
                 className="p-2 -ml-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-900"
               >
@@ -559,8 +559,8 @@ function CheckoutPage() {
 
             {/* Progress Steps */}
             <div className="flex items-center px-4 pb-4">
-              {['address', 'shipping', 'payment', 'policies', 'review'].map((s, i) => {
-                const steps = ['address', 'shipping', 'payment', 'policies', 'review']
+              {['address', 'shipping', 'policies', 'payment', 'review'].map((s, i) => {
+                const steps = ['address', 'shipping', 'policies', 'payment', 'review']
                 const currentIndex = steps.indexOf(step)
                 const isComplete = currentIndex > i
                 const isCurrent = step === s
@@ -648,6 +648,16 @@ function CheckoutPage() {
             />
           )}
 
+          {/* Policies Step */}
+          {step === 'policies' && (
+            <PolicyAgreement
+              policies={storePolicies}
+              agreedIndexes={agreedPolicies}
+              onAgreementChange={handlePolicyAgreementChange}
+              onSubmit={handlePoliciesSubmit}
+            />
+          )}
+
           {/* Payment Step */}
           {step === 'payment' && (
             <PaymentSelector
@@ -659,16 +669,6 @@ function CheckoutPage() {
               onSubmit={handlePaymentSubmit}
               orderTotal={total}
               orderCurrency={currency}
-            />
-          )}
-
-          {/* Policies Step */}
-          {step === 'policies' && (
-            <PolicyAgreement
-              policies={storePolicies}
-              agreedIndexes={agreedPolicies}
-              onAgreementChange={handlePolicyAgreementChange}
-              onSubmit={handlePoliciesSubmit}
             />
           )}
 
