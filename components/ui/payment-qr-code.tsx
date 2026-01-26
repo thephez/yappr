@@ -120,7 +120,7 @@ export function PaymentQRCode({
   }
 
   const handleOpenWallet = () => {
-    window.open(paymentUri.uri, '_blank')
+    window.open(uriWithAmount, '_blank')
   }
 
   return (
