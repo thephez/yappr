@@ -917,6 +917,14 @@ function FeedPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
+  // Handle post deletion - removes post from local state
+  const handlePostDelete = useCallback((postId: string) => {
+    postsState.setData((prevData: Post[] | null) => {
+      if (!prevData) return prevData
+      return prevData.filter(item => item.id !== postId)
+    })
+  }, [postsState])
+
   // Filter posts to exclude blocked users using enrichment state
   // This replaces the previous async getBlockedUserIds() calls and avoids duplicate queries
   const filteredPosts = useMemo(() => {
@@ -1092,6 +1100,7 @@ function FeedPage() {
                     post={post}
                     isOwnPost={user?.identityId === post.author.id}
                     enrichment={getPostEnrichment(post)}
+                    onDelete={handlePostDelete}
                   />
                 </ErrorBoundary>
               ))}

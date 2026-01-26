@@ -15,6 +15,7 @@ import {
   CurrencyDollarIcon,
   PencilSquareIcon,
   LockClosedIcon,
+  TrashIcon,
 } from '@heroicons/react/24/outline'
 import { HeartIcon as HeartIconSolid, BookmarkIcon as BookmarkIconSolid } from '@heroicons/react/24/solid'
 import { Post } from '@/lib/types'
@@ -40,6 +41,7 @@ import { useHashtagValidation } from '@/hooks/use-hashtag-validation'
 import { useHashtagRecoveryModal } from '@/hooks/use-hashtag-recovery-modal'
 import { useMentionValidation } from '@/hooks/use-mention-validation'
 import { useMentionRecoveryModal } from '@/hooks/use-mention-recovery-modal'
+import { useDeleteConfirmationModal } from '@/hooks/use-delete-confirmation-modal'
 import { tipService } from '@/lib/services/tip-service'
 import { useCanReplyToPrivate } from '@/hooks/use-can-reply-to-private'
 
@@ -103,9 +105,11 @@ interface PostCardProps {
   hideReplyTo?: boolean
   /** For replies to private posts, the root post owner ID to check access against */
   rootPostOwnerId?: string
+  /** Callback when post is successfully deleted - parent component should remove post from list */
+  onDelete?: (postId: string) => void
 }
 
-export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, enrichment: progressiveEnrichment, hideReplyTo = false, rootPostOwnerId }: PostCardProps) {
+export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, enrichment: progressiveEnrichment, hideReplyTo = false, rootPostOwnerId, onDelete }: PostCardProps) {
   const router = useRouter()
   const { user } = useAuth()
   const { requireAuth } = useRequireAuth()
@@ -242,6 +246,7 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
   const { open: openTipModal } = useTipModal()
   const { open: openHashtagRecoveryModal } = useHashtagRecoveryModal()
   const { open: openMentionRecoveryModal } = useMentionRecoveryModal()
+  const { open: openDeleteModal } = useDeleteConfirmationModal()
 
   // Validate hashtags for all posts (checks if hashtag documents exist on platform)
   const { validations: hashtagValidations, revalidate: revalidateHashtags } = useHashtagValidation(post)
@@ -439,6 +444,24 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
     openMentionRecoveryModal(post, username)
   }
 
+  const handleDelete = () => {
+    const authedUser = requireAuth('delete')
+    if (!authedUser) return
+
+    openDeleteModal(post, async () => {
+      const { postService } = await import('@/lib/services/post-service')
+      const success = await postService.deletePost(post.id, authedUser.identityId)
+
+      if (!success) throw new Error('Delete operation failed')
+
+      toast.success('Post deleted')
+      // Notify parent to remove post from list if callback provided
+      if (onDelete) {
+        onDelete(post.id)
+      }
+    })
+  }
+
   const handleCardClick = (e: React.MouseEvent) => {
     const url = `/post?id=${post.id}`
 
@@ -585,6 +608,15 @@ export function PostCard({ post, hideAvatar = false, isOwnPost: isOwnPostProp, e
                   >
                     View post engagements
                   </DropdownMenu.Item>
+                  {isOwnPost && (
+                    <DropdownMenu.Item
+                      onClick={(e) => { e.stopPropagation(); handleDelete(); }}
+                      className="flex items-center gap-2 px-4 py-2 text-sm hover:bg-gray-100 dark:hover:bg-gray-900 cursor-pointer outline-none text-red-500"
+                    >
+                      <TrashIcon className="h-4 w-4" />
+                      Delete post
+                    </DropdownMenu.Item>
+                  )}
                   <DropdownMenu.Item
                     onClick={(e) => { e.stopPropagation(); toggleBlock().catch(console.error); }}
                     disabled={blockLoading}

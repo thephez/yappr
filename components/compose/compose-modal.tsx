@@ -42,6 +42,7 @@ import { isPrivatePost } from '@/components/post/private-post-content'
 import type { EncryptionSource } from '@/lib/services/post-service'
 import { AddEncryptionKeyModal } from '@/components/auth/add-encryption-key-modal'
 import { MentionAutocomplete } from './mention-autocomplete'
+import { EmojiPicker } from './emoji-picker'
 
 const CHARACTER_LIMIT = 500
 
@@ -186,6 +187,25 @@ function ThreadPostEditor({
   useEffect(() => {
     adjustHeight()
   }, [post.content, adjustHeight])
+
+  const handleInsertEmoji = (emoji: string) => {
+    const textarea = ref.current
+    if (!textarea) return
+
+    const start = textarea.selectionStart
+    const end = textarea.selectionEnd
+    const content = post.content
+
+    const newContent = content.substring(0, start) + emoji + content.substring(end)
+    const newCursorPos = start + emoji.length
+
+    onContentChange(newContent)
+
+    requestAnimationFrame(() => {
+      textarea.focus()
+      textarea.setSelectionRange(newCursorPos, newCursorPos)
+    })
+  }
 
   const handleInsertFormat = (prefix: string, suffix: string = prefix) => {
     const textarea = ref.current
@@ -352,6 +372,7 @@ function ThreadPostEditor({
               >
                 <span className="text-sm">#</span>
               </FormatButton>
+              <EmojiPicker onEmojiSelect={handleInsertEmoji} />
 
               {/* Remove button for thread posts */}
               {!isOnly && (
