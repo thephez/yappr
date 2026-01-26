@@ -1,5 +1,6 @@
 import { getEvoSdk } from './evo-sdk-service';
-import { SecurityLevel, KeyPurpose } from './signer-service';
+import { SecurityLevel, KeyPurpose, signerService } from './signer-service';
+import { documentBuilderService } from './document-builder-service';
 import { findMatchingKeyIndex, getSecurityLevelName, type IdentityPublicKeyInfo } from '@/lib/crypto/keys';
 import type { IdentityPublicKey as WasmIdentityPublicKey } from '@dashevo/wasm-sdk/compressed';
 
@@ -77,7 +78,7 @@ class StateTransitionService {
   /**
    * Find the WASM identity public key that matches the stored private key.
    *
-   * This is critical for dev.11+ SDK: we must use the key that matches our signer's private key.
+   * This is critical for the typed API: we must use the key that matches our signer's private key.
    * The signer only has one private key, so we find which identity key it corresponds to.
    *
    * @param privateKeyWif - The stored private key in WIF format
@@ -142,22 +143,7 @@ class StateTransitionService {
   }
 
   /**
-   * Generate random entropy hex string for document creation
-   */
-  private generateEntropyHex(): string {
-    // Use Web Crypto API for secure random bytes
-    const entropy = new Uint8Array(32);
-    if (typeof window !== 'undefined' && window.crypto) {
-      window.crypto.getRandomValues(entropy);
-    } else {
-      // State transitions should only run in browser with Web Crypto available
-      throw new Error('Cryptographically secure random number generator not available');
-    }
-    return Array.from(entropy).map(b => b.toString(16).padStart(2, '0')).join('');
-  }
-
-  /**
-   * Create a document using the dev.11+ SDK API
+   * Create a document using the the typed API
    */
   async createDocument(
     contractId: string,
@@ -190,25 +176,32 @@ class StateTransitionService {
 
       console.log(`Using signing key id=${identityKey.keyId} with security level ${identityKey.securityLevel}`);
 
-      // Generate random entropy for document ID generation
-      const entropyHex = this.generateEntropyHex();
-      console.log('Generated entropy for document creation');
-
-      // Create document using the correct SDK API
-      // The SDK expects: contractId, type, ownerId, data (JSON), entropyHex, privateKeyWif
-      const result = await sdk.documents.create({
+      // Build the WASM Document object for creation
+      const document = await documentBuilderService.buildDocumentForCreate(
         contractId,
-        type: documentType,
+        documentType,
         ownerId,
-        data: documentData,
-        entropyHex,
-        privateKeyWif: privateKey
+        documentData
+      );
+      console.log('Built document for creation');
+
+      // Create signer and identity key for the state transition
+      const { signer, identityKey: signingKey } = await signerService.createSignerFromWasmKey(
+        privateKey,
+        identityKey
+      );
+
+      // Create document using the the typed API
+      await sdk.documents.create({
+        document,
+        identityKey: signingKey,
+        signer
       });
 
       console.log('Document creation submitted successfully');
 
-      // The result may contain the document ID or transaction info
-      const documentId = result?.documentId || result?.id || 'pending';
+      // Get the document ID from the built document
+      const documentId = documentBuilderService.getDocumentId(document);
 
       return {
         success: true,
@@ -230,7 +223,7 @@ class StateTransitionService {
   }
 
   /**
-   * Update a document using the dev.11+ SDK API
+   * Update a document using the the typed API API
    */
   async updateDocument(
     contractId: string,
@@ -261,22 +254,34 @@ class StateTransitionService {
 
       console.log(`Using signing key id=${identityKey.keyId} with security level ${identityKey.securityLevel}`);
 
-      // Replace document using the correct SDK API
-      // The SDK expects the CURRENT revision and handles incrementing internally
-      await sdk.documents.replace({
+      // The new revision should be current revision + 1
+      const newRevision = revision + 1;
+
+      // Build the WASM Document object for replacement
+      const document = await documentBuilderService.buildDocumentForReplace(
         contractId,
-        type: documentType,
+        documentType,
         documentId,
         ownerId,
-        data: documentData,
-        revision,
-        privateKeyWif: privateKey
+        documentData,
+        newRevision
+      );
+      console.log('Built document for replacement');
+
+      // Create signer and identity key for the state transition
+      const { signer, identityKey: signingKey } = await signerService.createSignerFromWasmKey(
+        privateKey,
+        identityKey
+      );
+
+      // Replace document using the the typed API
+      await sdk.documents.replace({
+        document,
+        identityKey: signingKey,
+        signer
       });
 
       console.log('Document update submitted successfully');
-
-      // The new revision after update will be revision + 1
-      const newRevision = revision + 1;
 
       return {
         success: true,
@@ -299,7 +304,7 @@ class StateTransitionService {
   }
 
   /**
-   * Delete a document using the dev.11+ SDK API
+   * Delete a document using the the typed API API
    */
   async deleteDocument(
     contractId: string,
@@ -328,14 +333,26 @@ class StateTransitionService {
 
       console.log(`Using signing key id=${identityKey.keyId} with security level ${identityKey.securityLevel}`);
 
-      // Delete document using the correct SDK API
-      // The SDK expects: contractId, type, documentId, ownerId, privateKeyWif
-      await sdk.documents.delete({
+      // Build document identifier object for deletion
+      const documentForDelete = documentBuilderService.buildDocumentForDelete(
         contractId,
-        type: documentType,
+        documentType,
         documentId,
-        ownerId,
-        privateKeyWif: privateKey
+        ownerId
+      );
+      console.log('Built document identifier for deletion');
+
+      // Create signer and identity key for the state transition
+      const { signer, identityKey: signingKey } = await signerService.createSignerFromWasmKey(
+        privateKey,
+        identityKey
+      );
+
+      // Delete document using the the typed API
+      await sdk.documents.delete({
+        document: documentForDelete,
+        identityKey: signingKey,
+        signer
       });
 
       console.log('Document deletion submitted successfully');

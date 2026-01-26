@@ -1,8 +1,10 @@
 import { getEvoSdk } from './evo-sdk-service';
 import { identityService } from './identity-service';
-import { postService } from './post-service';
+import { signerService, KeyPurpose } from './signer-service';
 import { wallet } from '@dashevo/evo-sdk';
 import { TipInfo } from '../types';
+import { findMatchingKeyIndex, type IdentityPublicKeyInfo } from '@/lib/crypto/keys';
+import type { IdentityPublicKey as WasmIdentityPublicKey } from '@dashevo/wasm-sdk/compressed';
 
 export interface TipResult {
   success: boolean;
@@ -28,6 +30,61 @@ export const CREDITS_PER_DASH = 100_000_000_000;
 export const MIN_TIP_CREDITS = 100_000_000; // 0.001 DASH minimum
 
 class TipService {
+  /**
+   * Find the transfer key that matches the provided private key
+   *
+   * This verifies that the private key corresponds to one of the identity's
+   * transfer keys, preventing signer/key mismatches.
+   *
+   * @param privateKeyWif - The private key in WIF format
+   * @param wasmPublicKeys - The identity's WASM public keys
+   * @param specificKeyId - Optional specific key ID to use
+   * @returns The matching transfer key or null if not found
+   */
+  private findMatchingTransferKey(
+    privateKeyWif: string,
+    wasmPublicKeys: WasmIdentityPublicKey[],
+    specificKeyId?: number
+  ): WasmIdentityPublicKey | null {
+    const network = (process.env.NEXT_PUBLIC_NETWORK as 'testnet' | 'mainnet') || 'testnet';
+    const activeKeys = wasmPublicKeys.filter(k => !k.disabledAt);
+    const transferKeys = activeKeys.filter(k => k.purposeNumber === KeyPurpose.TRANSFER);
+
+    if (transferKeys.length === 0) {
+      return null;
+    }
+
+    // Convert transfer keys to format for matching
+    const keyInfos: IdentityPublicKeyInfo[] = transferKeys.map(key => {
+      const dataHex = key.data;
+      const data = new Uint8Array(dataHex.match(/.{1,2}/g)?.map(byte => parseInt(byte, 16)) || []);
+      return {
+        id: key.keyId,
+        type: key.keyTypeNumber,
+        purpose: key.purposeNumber,
+        securityLevel: key.securityLevelNumber,
+        data
+      };
+    });
+
+    // Find which transfer key matches the provided private key
+    const match = findMatchingKeyIndex(privateKeyWif, keyInfos, network);
+
+    if (!match) {
+      console.error('Transfer private key does not match any transfer key on this identity');
+      return null;
+    }
+
+    // If a specific key ID was requested, verify it matches
+    if (specificKeyId !== undefined && match.keyId !== specificKeyId) {
+      console.error(`Requested key ID ${specificKeyId} but private key matches key ID ${match.keyId}`);
+      return null;
+    }
+
+    console.log(`Matched transfer key: id=${match.keyId}`);
+    return transferKeys.find(k => k.keyId === match.keyId) || null;
+  }
+
   /**
    * Send a tip (credit transfer) to another user and optionally create a tip post
    * @param senderId - The sender's identity ID
@@ -144,22 +201,38 @@ class TipService {
         };
       }
 
+      // Get WASM public keys and find the transfer key that matches the private key
+      const wasmPublicKeys = identity.getPublicKeys();
+      const transferKey = this.findMatchingTransferKey(transferKeyWif.trim(), wasmPublicKeys, keyId);
+      if (!transferKey) {
+        return {
+          success: false,
+          error: 'No matching transfer key found. The provided private key does not match any transfer key on this identity.',
+          errorCode: 'INVALID_KEY'
+        };
+      }
+
       // Log transfer details
       console.log('Transfer args:', JSON.stringify({
         senderId,
         recipientId,
         amount: amountCredits.toString(),
-        keyId: keyId ?? 'auto-select transfer key'
+        keyId: transferKey.keyId
       }, null, 2));
 
+      // Create signer with the transfer key
+      const { signer, identityKey: signingKey } = await signerService.createSignerFromWasmKey(
+        transferKeyWif.trim(),
+        transferKey
+      );
+
       console.log('Calling sdk.identities.creditTransfer...');
-      // The SDK API expects: senderId, recipientId, amount, privateKeyWif, keyId (optional)
       const result = await sdk.identities.creditTransfer({
-        senderId,
+        identity,
         recipientId,
         amount: BigInt(amountCredits),
-        privateKeyWif: transferKeyWif.trim(),
-        keyId
+        signer,
+        signingKey
       });
 
       // Clear sender's balance cache so it refreshes
