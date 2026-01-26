@@ -14,22 +14,13 @@ interface DashPaymentWatcherProps {
   onDone?: () => void
 }
 
-function formatTime(ms: number): string {
-  const seconds = Math.ceil(ms / 1000)
-  const mins = Math.floor(seconds / 60)
-  const secs = seconds % 60
-  return `${mins}:${secs.toString().padStart(2, '0')}`
-}
-
 function WatcherStatusDisplay({
   status,
-  remainingTime,
   detectedAmount,
   onRetry,
   onDone
 }: {
   status: WatcherStatus
-  remainingTime: number
   detectedAmount: number | null
   onRetry: () => void
   onDone?: () => void
@@ -46,14 +37,9 @@ function WatcherStatusDisplay({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
               </span>
             </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Waiting for payment...
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                {formatTime(remainingTime)} remaining
-              </p>
-            </div>
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Waiting for payment...
+            </p>
           </div>
           <div className="text-xs text-blue-500">
             Auto-detecting
@@ -129,14 +115,9 @@ function WatcherStatusDisplay({
                 <span className="relative inline-flex rounded-full h-2 w-2 bg-blue-500" />
               </span>
             </div>
-            <div>
-              <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
-                Waiting for payment...
-              </p>
-              <p className="text-xs text-blue-600 dark:text-blue-400">
-                {formatTime(remainingTime)} remaining
-              </p>
-            </div>
+            <p className="text-sm font-medium text-blue-700 dark:text-blue-300">
+              Waiting for payment...
+            </p>
           </div>
           <div className="text-xs text-blue-500">
             Auto-detecting
@@ -160,7 +141,6 @@ export function DashPaymentWatcher({
   const {
     status,
     detectedAmount,
-    remainingTime,
     retry
   } = useDashTransactionWatcher({
     enabled: enabled && isDashScheme(scheme),
@@ -178,7 +158,6 @@ export function DashPaymentWatcher({
   return (
     <WatcherStatusDisplay
       status={status}
-      remainingTime={remainingTime}
       detectedAmount={detectedAmount}
       onRetry={retry}
       onDone={onDone}
