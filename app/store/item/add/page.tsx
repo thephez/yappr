@@ -504,7 +504,7 @@ function AddItemPage() {
                     type="number"
                     value={stockQuantity}
                     onChange={(e) => setStockQuantity(e.target.value)}
-                    placeholder="Optional"
+                    placeholder="∞"
                     min="0"
                     className="w-full px-4 py-3 bg-gray-100 dark:bg-gray-900 rounded-lg focus:outline-none focus:ring-2 focus:ring-yappr-500"
                   />
