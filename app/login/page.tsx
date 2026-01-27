@@ -449,9 +449,9 @@ export default function LoginPage() {
             </ul>
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-2">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">Security Notice:</h3>
-            <p>Your private key is only used locally to sign transactions. It is never sent to any server.</p>
+          <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-1">
+            <h3 className="font-medium text-gray-900 dark:text-gray-100">🔒 Your keys never leave this device</h3>
+            <p>All signing happens locally in your browser.</p>
           </div>
         </div>
       </div>
