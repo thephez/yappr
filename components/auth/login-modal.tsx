@@ -293,6 +293,7 @@ export function LoginModal() {
               <div className="sticky top-0 bg-white dark:bg-neutral-900 px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
                 <button
                   onClick={handleClose}
+                  aria-label="Close"
                   className="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <X className="w-5 h-5" />
