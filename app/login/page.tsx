@@ -438,14 +438,6 @@ export default function LoginPage() {
             </a>
           </div>
 
-          <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-2">
-            <h3 className="font-medium text-gray-900 dark:text-gray-100">Sign in with:</h3>
-            <ul className="list-disc list-inside space-y-1">
-              <li>Backup password (if you set one up)</li>
-              <li>High or Critical authentication key (WIF format)</li>
-            </ul>
-          </div>
-
           <div className="bg-gray-50 dark:bg-gray-950 border border-gray-200 dark:border-gray-800 rounded-lg p-4 space-y-1">
             <h3 className="font-medium text-gray-900 dark:text-gray-100">🔒 Your keys never leave this device</h3>
             <p>All signing happens locally in your browser.</p>
