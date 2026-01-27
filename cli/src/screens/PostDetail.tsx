@@ -8,7 +8,7 @@ import { PostFull, PostList } from '../components/post/index.js';
 import { Spinner, Error as ErrorDisplay } from '../components/common/index.js';
 import { usePost } from '../hooks/usePost.js';
 import { useNavigation } from '../store/navigation.js';
-import type { Post } from '../../../lib/types.js';
+import type { Post, Reply } from '../../../lib/types.js';
 
 export interface PostDetailProps {
   postId: string;
@@ -34,7 +34,7 @@ export function PostDetail({ postId }: PostDetailProps) {
     }
   });
 
-  const handleReplySelect = (reply: Post) => {
+  const handleReplySelect = (reply: Reply) => {
     push('post', { postId: reply.id });
   };
 
@@ -62,8 +62,8 @@ export function PostDetail({ postId }: PostDetailProps) {
         {replies.length > 0 && (
           <Box flexDirection="column" marginTop={1}>
             <PostList
-              posts={replies}
-              onSelect={handleReplySelect}
+              posts={replies as unknown as Post[]}
+              onSelect={handleReplySelect as (post: Post) => void}
               showReplyTo
             />
           </Box>

@@ -3,7 +3,7 @@
  */
 import React from 'react';
 import { Box, useInput } from 'ink';
-import { Screen, TabBar, type KeyHint } from '../components/layout/index.js';
+import { Screen, type KeyHint } from '../components/layout/index.js';
 import { ProfileHeader } from '../components/user/index.js';
 import { PostList } from '../components/post/index.js';
 import { Spinner, Error as ErrorDisplay, Empty } from '../components/common/index.js';
@@ -17,28 +17,21 @@ export interface UserProfileProps {
   username?: string;
 }
 
-const tabs = [
-  { label: 'Posts', key: '1' },
-  { label: 'Likes', key: '2' },
-];
-
 const hints: KeyHint[] = [
   { key: 'j/k', action: 'navigate' },
   { key: 'Enter', action: 'open post' },
-  { key: '1/2', action: 'switch tab' },
   { key: 'f', action: 'followers' },
   { key: 'g', action: 'following' },
   { key: 'r', action: 'refresh' },
 ];
 
 export function UserProfile({ userId, username }: UserProfileProps) {
-  const { push, activeTab, setActiveTab } = useNavigation();
+  const { push } = useNavigation();
   const { identity } = useIdentity();
 
   const {
     user,
     posts,
-    likedPosts,
     isFollowing,
     balance,
     loading,
@@ -50,8 +43,6 @@ export function UserProfile({ userId, username }: UserProfileProps) {
 
   // Keyboard shortcuts
   useInput((input) => {
-    if (input === '1') setActiveTab(0);
-    if (input === '2') setActiveTab(1);
     if (input === 'r') refresh();
     if (input === 'f' && user) {
       push('followers', { userId: user.id, mode: 'followers' });
@@ -81,9 +72,6 @@ export function UserProfile({ userId, username }: UserProfileProps) {
     );
   }
 
-  const displayPosts = activeTab === 0 ? posts : likedPosts;
-  const emptyMessage = activeTab === 0 ? 'No posts yet' : 'No liked posts';
-
   return (
     <Screen
       title={user.displayName || user.username}
@@ -98,12 +86,10 @@ export function UserProfile({ userId, username }: UserProfileProps) {
           balance={isOwnProfile ? balance ?? undefined : undefined}
         />
 
-        <TabBar tabs={tabs} activeIndex={activeTab} />
-
-        {displayPosts.length === 0 ? (
-          <Empty message={emptyMessage} />
+        {posts.length === 0 ? (
+          <Empty message="No posts yet" />
         ) : (
-          <PostList posts={displayPosts} onSelect={handlePostSelect} />
+          <PostList posts={posts} onSelect={handlePostSelect} />
         )}
       </Box>
     </Screen>

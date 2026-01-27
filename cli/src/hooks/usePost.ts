@@ -2,23 +2,21 @@
  * usePost hook - fetch single post with replies
  */
 import { useState, useEffect, useCallback } from 'react';
-import type { Post } from '../../../lib/types.js';
+import type { Post, Reply } from '../../../lib/types.js';
 import { postService } from '../../../lib/services/post-service.js';
-import { useIdentity } from '../store/identity.js';
+import { replyService } from '../../../lib/services/reply-service.js';
 
 export interface UsePostResult {
   post: Post | null;
-  replies: Post[];
+  replies: Reply[];
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
 }
 
 export function usePost(postId: string): UsePostResult {
-  const { identity } = useIdentity();
-
   const [post, setPost] = useState<Post | null>(null);
-  const [replies, setReplies] = useState<Post[]>([]);
+  const [replies, setReplies] = useState<Reply[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -36,22 +34,8 @@ export function usePost(postId: string): UsePostResult {
         return;
       }
 
-      // Enrich the post
-      const enriched = await postService.enrichPostFull(fetchedPost);
-
-      // Add user interactions if logged in
-      if (identity?.identityId) {
-        const interactions = await postService.getBatchUserInteractions(
-          [postId],
-          identity.identityId
-        );
-        const interaction = interactions.get(postId);
-        if (interaction) {
-          enriched.liked = interaction.liked;
-          enriched.reposted = interaction.reposted;
-          enriched.bookmarked = interaction.bookmarked;
-        }
-      }
+      // Enrich the post using batch method for consistent stats (same as timeline)
+      const [enriched] = await postService.enrichPostsBatch([fetchedPost]);
 
       // Fetch quoted post if present
       if (enriched.quotedPostId && !enriched.quotedPost) {
@@ -63,16 +47,15 @@ export function usePost(postId: string): UsePostResult {
 
       setPost(enriched);
 
-      // Fetch replies
-      const repliesResult = await postService.getReplies(postId, { limit: 50 });
-      const enrichedReplies = await postService.enrichPostsBatch(repliesResult.documents);
-      setReplies(enrichedReplies);
+      // Fetch replies (replyService.getReplies already enriches with author info)
+      const repliesResult = await replyService.getReplies(postId, { limit: 50 });
+      setReplies(repliesResult.documents);
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load post');
     } finally {
       setLoading(false);
     }
-  }, [postId, identity?.identityId]);
+  }, [postId]);
 
   useEffect(() => {
     fetchPost();

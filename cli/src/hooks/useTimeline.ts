@@ -54,23 +54,6 @@ export function useTimeline(options: UseTimelineOptions = {}): UseTimelineResult
       // Enrich posts with stats and author info
       const enriched = await postService.enrichPostsBatch(result.documents);
 
-      // If user is logged in, add their interaction status
-      if (identity?.identityId && enriched.length > 0) {
-        const postIds = enriched.map((p) => p.id);
-        const interactions = await postService.getBatchUserInteractions(
-          postIds,
-          identity.identityId
-        );
-        for (const post of enriched) {
-          const interaction = interactions.get(post.id);
-          if (interaction) {
-            post.liked = interaction.liked;
-            post.reposted = interaction.reposted;
-            post.bookmarked = interaction.bookmarked;
-          }
-        }
-      }
-
       if (isRefresh) {
         setPosts(enriched);
       } else {

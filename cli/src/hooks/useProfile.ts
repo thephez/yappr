@@ -3,25 +3,22 @@
  */
 import { useState, useEffect, useCallback } from 'react';
 import type { User, Post } from '../../../lib/types.js';
-import { profileService } from '../../../lib/services/profile-service.js';
+import { unifiedProfileService } from '../../../lib/services/unified-profile-service.js';
 import { dpnsService } from '../../../lib/services/dpns-service.js';
 import { postService } from '../../../lib/services/post-service.js';
 import { followService } from '../../../lib/services/follow-service.js';
 import { identityService } from '../../../lib/services/identity-service.js';
-import { likeService } from '../../../lib/services/like-service.js';
 import { useIdentity } from '../store/identity.js';
 
 export interface UseProfileResult {
   user: User | null;
   posts: Post[];
-  likedPosts: Post[];
   isFollowing: boolean;
   balance: number | null;
   loading: boolean;
   error: string | null;
   refresh: () => Promise<void>;
   loadMorePosts: () => Promise<void>;
-  loadMoreLikes: () => Promise<void>;
 }
 
 export function useProfile(userId?: string, username?: string): UseProfileResult {
@@ -29,7 +26,6 @@ export function useProfile(userId?: string, username?: string): UseProfileResult
 
   const [user, setUser] = useState<User | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
-  const [likedPosts, setLikedPosts] = useState<Post[]>([]);
   const [isFollowing, setIsFollowing] = useState(false);
   const [balance, setBalance] = useState<number | null>(null);
   const [loading, setLoading] = useState(true);
@@ -60,7 +56,7 @@ export function useProfile(userId?: string, username?: string): UseProfileResult
       setResolvedUserId(targetUserId);
 
       // Fetch profile
-      const profile = await profileService.getProfileWithUsername(targetUserId);
+      const profile = await unifiedProfileService.getProfileWithUsername(targetUserId);
       if (!profile) {
         setError('Profile not found');
         return;
@@ -84,14 +80,6 @@ export function useProfile(userId?: string, username?: string): UseProfileResult
       const postsResult = await postService.getUserPosts(targetUserId, { limit: 20 });
       const enrichedPosts = await postService.enrichPostsBatch(postsResult.documents);
       setPosts(enrichedPosts);
-
-      // Fetch liked posts
-      const likes = await likeService.getUserLikes(targetUserId, { limit: 20 });
-      if (likes.length > 0) {
-        const likedPostIds = likes.map((l) => l.postId);
-        const likedPostDocs = await postService.getPostsByIds(likedPostIds);
-        setLikedPosts(likedPostDocs);
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Failed to load profile');
     } finally {
@@ -107,20 +95,14 @@ export function useProfile(userId?: string, username?: string): UseProfileResult
     // TODO: implement pagination
   }, []);
 
-  const loadMoreLikes = useCallback(async () => {
-    // TODO: implement pagination
-  }, []);
-
   return {
     user,
     posts,
-    likedPosts,
     isFollowing,
     balance,
     loading,
     error,
     refresh: fetchProfile,
     loadMorePosts,
-    loadMoreLikes,
   };
 }
