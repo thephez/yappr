@@ -71,6 +71,8 @@ export function LoginModal() {
     if (!isOpen) {
       setIdentityInput('')
       setCredential('')
+      setShowCredential(false)
+      setIsLookingUp(false)
       setResolvedIdentity(null)
       setLookupError(null)
       setError(null)
@@ -201,11 +203,17 @@ export function LoginModal() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+
+    // Guard against submit when form is not ready (e.g., Enter key bypass)
+    if (isLoading || !credential || !resolvedIdentity) {
+      return
+    }
+
     setError(null)
     setIsLoading(true)
 
     try {
-      const identityId = resolvedIdentity?.id || identityInput
+      const identityId = resolvedIdentity.id
 
       if (detectedCredentialType === 'key') {
         if (keyValidationStatus !== 'valid') {
@@ -419,6 +427,7 @@ export function LoginModal() {
                     Stay signed in across tabs
                   </label>
                   <button
+                    id="loginRememberMe"
                     type="button"
                     role="switch"
                     aria-checked={rememberMe}
