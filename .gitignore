@@ -3,6 +3,7 @@
 # dependencies
 /node_modules
 cli/node_modules
+cli/dist
 /.pnp
 .pnp.js
 
@@ -75,3 +76,8 @@ lib/wasm-sdk/
 
 # Keep only the necessary WASM files in dash-wasm
 # (the actual SDK files we need are in lib/dash-wasm/)
+
+# TypeScript build output (lib/ source compiles to .js/.d.ts)
+lib/**/*.js
+lib/**/*.d.ts
+lib/**/*.d.ts.map
