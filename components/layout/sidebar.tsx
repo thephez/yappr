@@ -38,6 +38,7 @@ import * as DropdownMenu from '@radix-ui/react-dropdown-menu'
 import { UserAvatar } from '@/components/ui/avatar-image'
 import { useAuth } from '@/contexts/auth-context'
 import { notificationService } from '@/lib/services'
+import { useLoginModal } from '@/hooks/use-login-modal'
 
 const getNavigation = (isLoggedIn: boolean, userId?: string) => {
   if (!isLoggedIn) {
@@ -67,6 +68,7 @@ export function Sidebar() {
   const pathname = usePathname()
   const { setComposeOpen } = useAppStore()
   const { user, logout, refreshBalance } = useAuth()
+  const openLoginModal = useLoginModal((s) => s.open)
 
   // Notification store - only subscribe to unread count for badge display
   const unreadNotificationCount = useNotificationStore((s) => s.getUnreadCount())
@@ -242,13 +244,11 @@ export function Sidebar() {
         ) : isHydrated ? (
           <div className="mt-8 space-y-3">
             <Button
-              asChild
               className="w-full h-12 text-base xl:text-lg shadow-yappr-lg"
               size="lg"
+              onClick={openLoginModal}
             >
-              <Link href="/login">
-                Sign In
-              </Link>
+              Sign In
             </Button>
             <p className="text-xs text-center text-gray-500 px-4">
               Join Yappr to share your voice on the decentralized web
