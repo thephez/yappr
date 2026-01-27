@@ -6,6 +6,7 @@ import { Providers } from '@/components/providers'
 import ErrorBoundary from '@/components/error-boundary'
 import { DevelopmentBanner } from '@/components/ui/development-banner'
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav'
+import { LoginModal } from '@/components/auth/login-modal'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -37,6 +38,7 @@ export default function RootLayout({
             </ErrorBoundary>
             <div className="h-16 md:hidden" /> {/* Spacer for mobile bottom nav */}
             <MobileBottomNav />
+            <LoginModal />
           </Providers>
         </ErrorBoundary>
         <Toaster

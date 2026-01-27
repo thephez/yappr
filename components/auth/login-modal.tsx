@@ -6,6 +6,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { X, Eye, EyeOff } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSettingsStore } from '@/lib/store'
+import { useLoginModal } from '@/hooks/use-login-modal'
 import { Button } from '@/components/ui/button'
 import { identityService } from '@/lib/services/identity-service'
 import { dpnsService } from '@/lib/services/dpns-service'
@@ -36,13 +37,9 @@ interface ResolvedIdentity {
 
 type CredentialType = 'key' | 'password' | null
 
-interface LoginModalProps {
-  isOpen: boolean
-  onClose: () => void
-}
-
-export function LoginModal({ isOpen, onClose }: LoginModalProps) {
+export function LoginModal() {
   const router = useRouter()
+  const { isOpen, close } = useLoginModal()
   const potatoMode = useSettingsStore((s) => s.potatoMode)
 
   // Identity lookup states
@@ -231,12 +228,19 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
         await loginWithPassword(username, credential, rememberMe)
       }
 
-      onClose()
-      router.push('/')
+      close()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to login')
     } finally {
       setIsLoading(false)
+    }
+  }
+
+  const handleClose = () => {
+    close()
+    // If we're on /login, navigate away
+    if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+      router.push('/')
     }
   }
 
@@ -261,7 +265,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            onClick={onClose}
+            onClick={handleClose}
             className={`fixed inset-0 bg-black/60 z-50 ${potatoMode ? '' : 'backdrop-blur-sm'}`}
           />
 
@@ -271,14 +275,16 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed inset-0 flex items-center justify-center z-50 px-4"
-            onClick={(e) => e.stopPropagation()}
+            className="fixed inset-0 flex items-center justify-center z-50 px-4 pointer-events-none"
           >
-            <div className="bg-white dark:bg-neutral-900 rounded-2xl shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+            <div
+              className="bg-white dark:bg-neutral-900 rounded-2xl shadow-xl w-full max-w-md relative max-h-[90vh] overflow-y-auto pointer-events-auto"
+              onClick={(e) => e.stopPropagation()}
+            >
               {/* Header */}
               <div className="sticky top-0 bg-white dark:bg-neutral-900 px-6 pt-6 pb-4 border-b border-gray-100 dark:border-gray-800">
                 <button
-                  onClick={onClose}
+                  onClick={handleClose}
                   className="absolute top-4 left-4 p-2 text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors rounded-full hover:bg-gray-100 dark:hover:bg-gray-800"
                 >
                   <X className="w-5 h-5" />
@@ -293,12 +299,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
               <form onSubmit={handleSubmit} className="p-6 space-y-5">
                 {/* Identity ID / DPNS Input */}
                 <div>
-                  <label htmlFor="identityInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="loginIdentityInput" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     Identity ID or DPNS Username
                   </label>
                   <div className="relative">
                     <input
-                      id="identityInput"
+                      id="loginIdentityInput"
                       type="text"
                       value={identityInput}
                       onChange={(e) => setIdentityInput(e.target.value)}
@@ -332,12 +338,12 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
                 {/* Password or Private Key Input */}
                 <div>
-                  <label htmlFor="credential" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  <label htmlFor="loginCredential" className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
                     {hasOnchainBackup ? 'Password or Private Key' : 'Private Key (High or Critical)'}
                   </label>
                   <div className="relative">
                     <input
-                      id="credential"
+                      id="loginCredential"
                       type={showCredential ? 'text' : 'password'}
                       value={credential}
                       onChange={(e) => setCredential(e.target.value)}
@@ -409,7 +415,7 @@ export function LoginModal({ isOpen, onClose }: LoginModalProps) {
 
                 {/* Remember Me Toggle */}
                 <div className="flex items-center justify-between">
-                  <label htmlFor="rememberMe" className="text-sm text-gray-600 dark:text-gray-400">
+                  <label htmlFor="loginRememberMe" className="text-sm text-gray-600 dark:text-gray-400">
                     Stay signed in across tabs
                   </label>
                   <button

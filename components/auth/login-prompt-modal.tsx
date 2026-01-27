@@ -1,19 +1,19 @@
 'use client'
 
-import { useRouter } from 'next/navigation'
 import * as Dialog from '@radix-ui/react-dialog'
 import { XMarkIcon, UserCircleIcon } from '@heroicons/react/24/outline'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Button } from '@/components/ui/button'
 import { useLoginPromptModal, getActionDescription } from '@/hooks/use-login-prompt-modal'
+import { useLoginModal } from '@/hooks/use-login-modal'
 
 export function LoginPromptModal() {
-  const router = useRouter()
   const { isOpen, action, close } = useLoginPromptModal()
+  const openLoginModal = useLoginModal((s) => s.open)
 
   const handleLogin = () => {
     close()
-    router.push('/login')
+    openLoginModal()
   }
 
   const actionDescription = getActionDescription(action)
@@ -66,10 +66,7 @@ export function LoginPromptModal() {
                     <p className="mt-4 text-center text-sm text-gray-500">
                       Don&apos;t have an account?{' '}
                       <button
-                        onClick={() => {
-                          close()
-                          router.push('/login')
-                        }}
+                        onClick={handleLogin}
                         className="text-yappr-500 hover:underline"
                       >
                         Create one
