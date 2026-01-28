@@ -63,6 +63,41 @@ interface ProfileData {
   hasUnifiedProfile?: boolean
 }
 
+function getSocialLinkUrl(platform: string, handle: string): string | null {
+  const cleanHandle = handle.replace(/^@/, '')
+
+  switch (platform) {
+    case 'twitter':
+      return `https://x.com/${cleanHandle}`
+    case 'github':
+      return `https://github.com/${cleanHandle}`
+    case 'telegram':
+      return `https://t.me/${cleanHandle}`
+    case 'youtube':
+      return `https://youtube.com/${cleanHandle}`
+    case 'twitch':
+      return `https://twitch.tv/${cleanHandle}`
+    case 'instagram':
+      return `https://instagram.com/${cleanHandle}`
+    case 'linkedin':
+      return `https://linkedin.com/in/${cleanHandle}`
+    case 'email':
+      return `mailto:${handle}`
+    case 'mastodon': {
+      const match = handle.match(/^@?([^@]+)@(.+)$/)
+      if (match) return `https://${match[2]}/@${match[1]}`
+      return null
+    }
+    case 'other':
+      if (handle.startsWith('http://') || handle.startsWith('https://')) {
+        return handle
+      }
+      return null
+    default:
+      return null
+  }
+}
+
 function UserProfileContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1342,15 +1377,38 @@ function UserProfileContent() {
                     <div className="mt-4 pt-4 border-t border-gray-200 dark:border-gray-800">
                       <h4 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Social</h4>
                       <div className="flex flex-wrap gap-2">
-                        {profile.socialLinks.map((link, index) => (
-                          <span
-                            key={index}
-                            className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
-                          >
-                            <span className="font-medium capitalize">{link.platform}:</span>
-                            <span className="text-gray-600 dark:text-gray-400">{link.handle}</span>
-                          </span>
-                        ))}
+                        {profile.socialLinks.map((link, index) => {
+                          const url = getSocialLinkUrl(link.platform, link.handle)
+                          const content = (
+                            <>
+                              <span className="font-medium capitalize">{link.platform}:</span>
+                              <span className="text-gray-600 dark:text-gray-400">{link.handle}</span>
+                            </>
+                          )
+
+                          if (url) {
+                            return (
+                              <a
+                                key={index}
+                                href={url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                              >
+                                {content}
+                              </a>
+                            )
+                          }
+
+                          return (
+                            <span
+                              key={index}
+                              className="inline-flex items-center gap-1 px-2 py-1 bg-gray-100 dark:bg-gray-800 rounded-full text-sm"
+                            >
+                              {content}
+                            </span>
+                          )
+                        })}
                       </div>
                     </div>
                   )}
