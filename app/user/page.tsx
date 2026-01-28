@@ -75,7 +75,8 @@ function getSocialLinkUrl(platform: string, handle: string): string | null {
     case 'telegram':
       return `https://t.me/${cleanHandle}`
     case 'youtube':
-      return `https://youtube.com/${cleanHandle}`
+      if (!cleanHandle) return null
+      return `https://www.youtube.com/@${cleanHandle}`
     case 'twitch':
       return `https://twitch.tv/${cleanHandle}`
     case 'instagram':

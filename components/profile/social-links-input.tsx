@@ -77,8 +77,8 @@ function validateHandle(platform: string, handle: string): string | null {
       }
       break
     case 'discord':
-      if (!/^[\w.]+$/.test(trimmed)) {
-        return 'Invalid Discord username'
+      if (!/^[\w.]+(?:#\d{4})?$/.test(trimmed)) {
+        return 'Invalid Discord username (e.g., username or username#1234)'
       }
       break
     case 'nostr':
