@@ -1,7 +1,7 @@
 import { getEvoSdk } from './evo-sdk-service';
 import { dpnsService } from './dpns-service';
 import { unifiedProfileService } from './unified-profile-service';
-import { normalizeSDKResponse, identifierToBase58 } from './sdk-helpers';
+import { normalizeSDKResponse, identifierToBase58, queryDocuments, QueryDocumentsOptions } from './sdk-helpers';
 import { YAPPR_CONTRACT_ID } from '../constants';
 import { Notification, User, Post } from '../types';
 
@@ -28,6 +28,8 @@ interface RawNotification {
   type: 'follow' | 'mention' | PrivateFeedNotificationType | EngagementNotificationType;
   fromUserId: string;
   postId?: string;
+  parentId?: string; // For reply notifications: the ID of the post/reply being replied to
+  replyContent?: string; // For reply notifications: pre-fetched content to avoid re-querying
   createdAt: number;
 }
 
@@ -186,6 +188,8 @@ class NotificationService {
           type: 'reply' as const,
           fromUserId: reply.author.id,
           postId: reply.id, // The reply itself
+          parentId: reply.parentId, // The post/reply that was replied to (for navigation)
+          replyContent: reply.content, // Pre-fetched content to avoid re-querying
           createdAt: reply.createdAt.getTime()
         }));
     } catch (error) {
@@ -299,7 +303,28 @@ class NotificationService {
         joinedAt: new Date()
       };
 
-      const post = raw.postId ? posts.get(raw.postId) : undefined;
+      // For reply notifications, use pre-fetched data and ensure parentId is set for navigation
+      let post: Post | undefined;
+      if (raw.type === 'reply' && raw.replyContent !== undefined) {
+        // Use pre-fetched reply data directly - more reliable than re-querying
+        post = {
+          id: raw.postId || '',
+          author: user, // The reply author is the notification sender
+          content: raw.replyContent,
+          createdAt: new Date(raw.createdAt),
+          likes: 0,
+          reposts: 0,
+          replies: 0,
+          views: 0,
+          liked: false,
+          reposted: false,
+          bookmarked: false,
+          parentId: raw.parentId // Critical for UI navigation to the parent post
+        };
+      } else {
+        // For other notification types, use fetched post data
+        post = raw.postId ? posts.get(raw.postId) : undefined;
+      }
 
       return {
         id: raw.id,
@@ -313,31 +338,51 @@ class NotificationService {
   }
 
   /**
-   * Fetch posts by IDs for mention notifications
+   * Fetch posts and replies by IDs for notification display.
+   * First tries to fetch from posts collection, then fetches remaining IDs from replies.
+   * For replies, includes parentId so UI can navigate to the parent post.
+   * Handles chunking to avoid exceeding platform's 100-item "in" limit.
    */
   private async fetchPostsByIds(postIds: string[]): Promise<Map<string, Post>> {
     const result = new Map<string, Post>();
+    if (postIds.length === 0) return result;
 
     try {
       const sdk = await getEvoSdk();
 
-      const response = await sdk.documents.query({
-        dataContractId: YAPPR_CONTRACT_ID,
-        documentTypeName: 'post',
-        where: [['$id', 'in', postIds]],
-        limit: postIds.length
-      } as any);
+      // Helper to chunk an array into smaller arrays
+      const chunkArray = <T>(arr: T[], size: number): T[][] => {
+        const chunks: T[][] = [];
+        for (let i = 0; i < arr.length; i += size) {
+          chunks.push(arr.slice(i, i + size));
+        }
+        return chunks;
+      };
 
-      const documents = normalizeSDKResponse(response);
+      // First, try to fetch from posts collection (chunked to avoid platform limit)
+      const postChunks = chunkArray(postIds, NOTIFICATION_QUERY_LIMIT);
+      const postQueryPromises = postChunks.map(chunk => {
+        const options: QueryDocumentsOptions = {
+          dataContractId: YAPPR_CONTRACT_ID,
+          documentTypeName: 'post',
+          where: [['$id', 'in', chunk]],
+          limit: chunk.length
+        };
+        return queryDocuments(sdk, options);
+      });
+      const postResponses = await Promise.all(postQueryPromises);
+      const postDocuments = postResponses.flat();
+      const foundPostIds = new Set<string>();
 
-      for (const doc of documents) {
+      for (const doc of postDocuments) {
         const docData = doc as Record<string, unknown>;
+        const nestedData = docData.data as Record<string, unknown> | undefined;
         const id = docData.$id as string;
         const ownerId = docData.$ownerId as string;
         const createdAt = docData.$createdAt as number;
-        const content = (docData.content as string) || '';
+        // Check both top-level and nested locations for content
+        const content = (docData.content as string) || (nestedData?.content as string) || '';
 
-        // Create a minimal Post object - just enough for notification display
         const post: Post = {
           id,
           author: {
@@ -360,6 +405,65 @@ class NotificationService {
           bookmarked: false
         };
         result.set(id, post);
+        foundPostIds.add(id);
+      }
+
+      // Find IDs not found in posts collection (these might be replies)
+      const missingIds = postIds.filter(id => !foundPostIds.has(id));
+
+      if (missingIds.length > 0) {
+        // Try to fetch from replies collection (chunked to avoid platform limit)
+        const replyChunks = chunkArray(missingIds, NOTIFICATION_QUERY_LIMIT);
+        const replyQueryPromises = replyChunks.map(chunk => {
+          const options: QueryDocumentsOptions = {
+            dataContractId: YAPPR_CONTRACT_ID,
+            documentTypeName: 'reply',
+            where: [['$id', 'in', chunk]],
+            limit: chunk.length
+          };
+          return queryDocuments(sdk, options);
+        });
+        const replyResponses = await Promise.all(replyQueryPromises);
+        const replyDocuments = replyResponses.flat();
+
+        for (const doc of replyDocuments) {
+          const docData = doc as Record<string, unknown>;
+          const nestedData = docData.data as Record<string, unknown> | undefined;
+          const id = docData.$id as string;
+          const ownerId = docData.$ownerId as string;
+          const createdAt = docData.$createdAt as number;
+          // Check both top-level and nested locations for content
+          const content = (docData.content as string) || (nestedData?.content as string) || '';
+
+          // Extract parentId from reply - check both top-level and nested locations
+          const rawParentId = docData.parentId || nestedData?.parentId;
+          const parentId = rawParentId ? identifierToBase58(rawParentId) || undefined : undefined;
+
+          // Create a Post object from the reply, including parentId for navigation
+          const post: Post = {
+            id,
+            author: {
+              id: ownerId,
+              username: '',
+              displayName: this.truncateId(ownerId),
+              avatar: `https://api.dicebear.com/7.x/shapes/svg?seed=${ownerId}`,
+              followers: 0,
+              following: 0,
+              joinedAt: new Date()
+            },
+            content,
+            createdAt: new Date(createdAt),
+            likes: 0,
+            reposts: 0,
+            replies: 0,
+            views: 0,
+            liked: false,
+            reposted: false,
+            bookmarked: false,
+            parentId // Include parentId so UI can navigate to the parent post
+          };
+          result.set(id, post);
+        }
       }
     } catch (error) {
       console.error('Error fetching posts by IDs:', error);
