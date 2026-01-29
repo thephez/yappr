@@ -245,7 +245,7 @@ export function PinataSettings({ disabled, onConnectionChange }: PinataSettingsP
             <>
               <div className="bg-gray-50 dark:bg-gray-900 p-3 rounded-lg">
                 <p className="text-sm text-gray-600 dark:text-gray-400">
-                  IPFS pinning with API key. Requires a key with <strong>Files: Write</strong> permission.
+                  IPFS pinning service. Requires a JWT with <strong>Files: Write</strong> permission.
                 </p>
               </div>
 
@@ -255,7 +255,7 @@ export function PinataSettings({ disabled, onConnectionChange }: PinataSettingsP
                 disabled={disabled}
               >
                 <KeyIcon className="h-4 w-4 mr-2" />
-                Connect with API Key
+                Connect with JWT
               </Button>
             </>
           ) : (
@@ -263,10 +263,10 @@ export function PinataSettings({ disabled, onConnectionChange }: PinataSettingsP
               <div className="bg-blue-50 dark:bg-blue-950 p-4 rounded-lg">
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-blue-900 dark:text-blue-100">
-                    Enter your Pinata API key
+                    Enter your Pinata JWT
                   </p>
                   <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Create an API key with <strong>Files: Write</strong> permission.
+                    Create an API key with <strong>Files: Write</strong> permission, then copy the <strong>JWT (secret access token)</strong>.
                   </p>
                   <a
                     href="https://app.pinata.cloud/developers/api-keys"
@@ -282,10 +282,10 @@ export function PinataSettings({ disabled, onConnectionChange }: PinataSettingsP
 
               <div className="space-y-3">
                 <div className="space-y-1.5">
-                  <label className="text-sm font-medium">API Key (JWT)</label>
+                  <label className="text-sm font-medium">JWT (secret access token)</label>
                   <Input
                     type="password"
-                    placeholder="eyJhbGciOiJIUzI1NiIs..."
+                    placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                     value={jwtInput}
                     onChange={(e) => {
                       setJwtInput(e.target.value)
