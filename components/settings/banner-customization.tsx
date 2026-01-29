@@ -131,7 +131,7 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
       const { unifiedProfileService } = await import('@/lib/services/unified-profile-service')
 
       await unifiedProfileService.updateProfile(user.identityId, {
-        bannerUri: bannerUrl || undefined,
+        bannerUri: bannerUrl || '', // Empty string clears the field
       })
 
       invalidateBannerCache(user.identityId)
