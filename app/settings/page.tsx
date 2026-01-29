@@ -18,6 +18,7 @@ import {
   UserGroupIcon,
   UserPlusIcon,
   LockClosedIcon,
+  CloudArrowUpIcon,
 } from '@heroicons/react/24/outline'
 import { Sidebar } from '@/components/layout/sidebar'
 import { RightSidebar } from '@/components/layout/right-sidebar'
@@ -37,13 +38,14 @@ import { PrivateFeedFollowers } from '@/components/settings/private-feed-followe
 import { PrivateFeedDashboard } from '@/components/settings/private-feed-dashboard'
 import { BlockListSettings } from '@/components/settings/block-list-settings'
 import { SavedAddressesSettings } from '@/components/settings/saved-addresses-settings'
+import { StorachaSettings } from '@/components/settings/storacha-settings'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useSettingsStore } from '@/lib/store'
 import { CORS_PROXY_INFO } from '@/hooks/use-link-preview'
 import { UsernameModal } from '@/components/dpns/username-modal'
 
-type SettingsSection = 'main' | 'account' | 'contacts' | 'notifications' | 'privacy' | 'privateFeed' | 'appearance' | 'about'
-const VALID_SECTIONS: SettingsSection[] = ['main', 'account', 'contacts', 'notifications', 'privacy', 'privateFeed', 'appearance', 'about']
+type SettingsSection = 'main' | 'account' | 'contacts' | 'notifications' | 'privacy' | 'privateFeed' | 'storage' | 'appearance' | 'about'
+const VALID_SECTIONS: SettingsSection[] = ['main', 'account', 'contacts', 'notifications', 'privacy', 'privateFeed', 'storage', 'appearance', 'about']
 
 const settingsSections = [
   { id: 'account', label: 'Account', icon: UserIcon, description: 'Manage your account details' },
@@ -51,6 +53,7 @@ const settingsSections = [
   { id: 'notifications', label: 'Notifications', icon: BellIcon, description: 'Control your notification preferences' },
   { id: 'privacy', label: 'Privacy & Security', icon: ShieldCheckIcon, description: 'Manage your privacy settings' },
   { id: 'privateFeed', label: 'Private Feed', icon: LockClosedIcon, description: 'Encrypted posts for approved followers' },
+  { id: 'storage', label: 'Storage', icon: CloudArrowUpIcon, description: 'Connect storage for image uploads' },
   { id: 'appearance', label: 'Appearance', icon: PaintBrushIcon, description: 'Customize how Yappr looks' },
   { id: 'about', label: 'About', icon: InformationCircleIcon, description: 'Learn more about Yappr' },
 ]
@@ -603,6 +606,12 @@ function SettingsPage() {
     )
   }
 
+  const renderStorageSettings = () => (
+    <div className="p-6 space-y-6">
+      <StorachaSettings />
+    </div>
+  )
+
   const renderAboutSettings = () => {
     const commitHash = process.env.NEXT_PUBLIC_GIT_COMMIT_HASH || 'dev'
     const commitDate = process.env.NEXT_PUBLIC_GIT_COMMIT_DATE
@@ -690,6 +699,8 @@ function SettingsPage() {
         return renderPrivacySettings()
       case 'privateFeed':
         return renderPrivateFeedSettings()
+      case 'storage':
+        return renderStorageSettings()
       case 'appearance':
         return renderAppearanceSettings()
       case 'about':

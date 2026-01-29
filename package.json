@@ -30,6 +30,7 @@
     "@radix-ui/react-switch": "^1.2.5",
     "@radix-ui/react-tabs": "^1.0.4",
     "@radix-ui/react-tooltip": "^1.0.7",
+    "@storacha/client": "^2.0.0",
     "bs58": "^6.0.0",
     "bs58check": "^4.0.0",
     "class-variance-authority": "^0.7.1",

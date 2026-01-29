@@ -26,6 +26,27 @@ export interface OnchainEncryptedData {
   kdfIterations: number // PBKDF2 iterations used
 }
 
+/**
+ * Storacha credentials for backup/restore
+ */
+export interface StorachaBackupCredentials {
+  email: string
+  agentData: string  // Base64 serialized agent
+  spaceDid: string
+}
+
+/**
+ * Extended backup data structure (v2) that includes optional Storacha credentials
+ */
+export interface ExtendedBackupPayload {
+  /** Backup format version - 2 for extended format */
+  formatVersion: 2
+  /** The login key in WIF format */
+  loginKey: string
+  /** Optional Storacha credentials */
+  storachaCredentials?: StorachaBackupCredentials
+}
+
 export interface PasswordValidationResult {
   valid: boolean
   error?: string
@@ -289,4 +310,83 @@ function base64ToUint8Array(base64: string): Uint8Array {
     bytes[i] = binary.charCodeAt(i)
   }
   return bytes
+}
+
+// --- Extended Backup (v2) Functions ---
+
+/**
+ * Check if decrypted data is in extended format (v2)
+ */
+export function isExtendedBackupPayload(data: unknown): data is ExtendedBackupPayload {
+  if (typeof data !== 'object' || data === null) return false
+  const obj = data as Record<string, unknown>
+  return obj.formatVersion === 2 && typeof obj.loginKey === 'string'
+}
+
+/**
+ * Encrypt extended backup payload for on-chain storage.
+ * Uses the same encryption scheme as v1 but with JSON payload.
+ */
+export async function encryptExtendedBackup(
+  payload: ExtendedBackupPayload,
+  identityId: string,
+  password: string,
+  iterations: number
+): Promise<OnchainEncryptedData> {
+  // Validate password
+  const validation = validateBackupPassword(password)
+  if (!validation.valid) {
+    throw new Error(validation.error)
+  }
+
+  // Generate random IV (12 bytes for AES-GCM)
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+
+  // Derive key from identity ID + password
+  const key = await deriveOnchainKey(identityId, password, iterations)
+
+  // Encrypt the JSON payload
+  const encoder = new TextEncoder()
+  const payloadJson = JSON.stringify(payload)
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    encoder.encode(payloadJson)
+  )
+
+  return {
+    encryptedKey: arrayBufferToBase64(ciphertext),
+    iv: arrayBufferToBase64(iv),
+    version: ENCRYPTION_VERSION,
+    kdfIterations: iterations
+  }
+}
+
+/**
+ * Decrypt backup and return the payload.
+ * Handles both v1 (plain WIF) and v2 (extended JSON) formats.
+ */
+export async function decryptBackupPayload(
+  data: OnchainEncryptedData,
+  identityId: string,
+  password: string
+): Promise<{ loginKey: string; storachaCredentials?: StorachaBackupCredentials }> {
+  // Decrypt using existing function
+  const decrypted = await decryptKeyFromOnchain(data, identityId, password)
+
+  // Try to parse as JSON (v2 format)
+  try {
+    const parsed = JSON.parse(decrypted)
+    if (isExtendedBackupPayload(parsed)) {
+      return {
+        loginKey: parsed.loginKey,
+        storachaCredentials: parsed.storachaCredentials
+      }
+    }
+  } catch {
+    // Not JSON, fall through to v1 handling
+  }
+
+  // V1 format - decrypted string is the login key directly
+  return { loginKey: decrypted }
 }

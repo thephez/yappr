@@ -9,6 +9,7 @@ import {
   EyeIcon,
   EyeSlashIcon,
   ExclamationTriangleIcon,
+  PhotoIcon,
 } from '@heroicons/react/24/outline'
 import { useAppStore, useSettingsStore, ThreadPost, PostVisibility } from '@/lib/store'
 import type { Post } from '@/lib/types'
@@ -43,6 +44,9 @@ import type { EncryptionSource } from '@/lib/services/post-service'
 import { AddEncryptionKeyModal } from '@/components/auth/add-encryption-key-modal'
 import { MentionAutocomplete } from './mention-autocomplete'
 import { EmojiPicker } from './emoji-picker'
+import { ImageAttachment } from './image-attachment'
+import { useImageUpload } from '@/hooks/use-image-upload'
+import type { UploadResult } from '@/lib/upload'
 
 const CHARACTER_LIMIT = 500
 
@@ -513,6 +517,15 @@ export function ComposeModal() {
   const [inheritedEncryptionLoading, setInheritedEncryptionLoading] = useState(false)
   const [inheritedEncryptionError, setInheritedEncryptionError] = useState(false)
 
+  // Image upload state
+  const [attachedImage, setAttachedImage] = useState<{
+    file: File
+    preview: string
+    uploadResult?: UploadResult
+  } | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
+  const { upload, isUploading, progress, isProviderConnected, checkProvider } = useImageUpload()
+
   // Get visibility from first post (visibility only applies to first post)
   const firstPost = threadPosts[0]
   const visibility: PostVisibility = firstPost?.visibility || 'public'
@@ -666,6 +679,22 @@ export function ComposeModal() {
     }
   }, [isComposeOpen])
 
+  // Check upload provider status when modal opens
+  useEffect(() => {
+    if (isComposeOpen) {
+      checkProvider().catch(err => console.error('Failed to check upload provider:', err))
+    }
+  }, [isComposeOpen, checkProvider])
+
+  // Cleanup preview URL when attachedImage changes or component unmounts
+  useEffect(() => {
+    return () => {
+      if (attachedImage?.preview) {
+        URL.revokeObjectURL(attachedImage.preview)
+      }
+    }
+  }, [attachedImage?.preview])
+
   // Calculate totals (only for unposted posts)
   const unpostedPosts = threadPosts.filter((p) => !p.postedPostId)
   const postedPosts = threadPosts.filter((p) => p.postedPostId)
@@ -682,9 +711,11 @@ export function ComposeModal() {
   // Block posting while checking inherited encryption for private post replies, or if check failed
   const isInheritedEncryptionReady = !replyingTo || !isPrivatePost(replyingTo) ||
     (!inheritedEncryptionLoading && !inheritedEncryptionError)
-  const canPost = hasValidContent && !hasOverLimit && !isPosting && isValidEncryptedPost && isInheritedEncryptionReady
+  const canPost = hasValidContent && !hasOverLimit && !isPosting && !isUploading && isValidEncryptedPost && isInheritedEncryptionReady
   // Disable thread for private posts and inherited encryption replies (private posts are single posts only)
   const canAddThread = threadPosts.length < 10 && !replyingTo && !quotingPost && !willBeEncrypted
+  // Disable image attachment for private posts (mediaUrl is stored publicly on chain)
+  const canAttachImage = isProviderConnected && !willBeEncrypted && !attachedImage
 
   // Get the last posted post ID for chaining retries
   const lastPostedId = postedPosts.length > 0
@@ -765,6 +796,39 @@ export function ComposeModal() {
     }
   }, [pendingVisibility, enablePrivateFeedAfterKeyEntry])
 
+  // Handle file selection for image attachment
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Reset input so same file can be selected again
+    e.target.value = ''
+
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      toast.error('Only images are supported')
+      return
+    }
+
+    // Validate file size (10MB)
+    if (file.size > 10 * 1024 * 1024) {
+      toast.error('Image must be under 10MB')
+      return
+    }
+
+    // Create preview URL
+    const preview = URL.createObjectURL(file)
+    setAttachedImage({ file, preview })
+  }, [])
+
+  // Handle removing the attached image
+  const handleRemoveImage = useCallback(() => {
+    if (attachedImage?.preview) {
+      URL.revokeObjectURL(attachedImage.preview)
+    }
+    setAttachedImage(null)
+  }, [attachedImage])
+
   const handlePost = async () => {
     const authedUser = requireAuth('post')
     if (!authedUser || !canPost) return
@@ -783,6 +847,25 @@ export function ComposeModal() {
     const timeoutPosts: { index: number; threadPostId: string }[] = [] // Posts that timed out (may have succeeded)
     let failedAtIndex: number | null = null
     let failureError: Error | null = null
+
+    // Upload image first if attached (and not already uploaded)
+    let mediaUrl: string | undefined
+    if (attachedImage && !attachedImage.uploadResult) {
+      try {
+        setPostingProgress({ current: 0, total: 1, status: 'Uploading image...' })
+        const result = await upload(attachedImage.file)
+        setAttachedImage(prev => prev ? { ...prev, uploadResult: result } : null)
+        mediaUrl = result.url // ipfs://CID
+      } catch (err) {
+        console.error('Failed to upload image:', err)
+        toast.error('Failed to upload image')
+        setIsPosting(false)
+        setPostingProgress(null)
+        return
+      }
+    } else if (attachedImage?.uploadResult) {
+      mediaUrl = attachedImage.uploadResult.url
+    }
 
     try {
       const { retryPostCreation } = await import('@/lib/retry-utils')
@@ -875,6 +958,7 @@ export function ComposeModal() {
                 quotedPostId: i === 0 ? quotingPost?.id : undefined,
                 quotedPostOwnerId: i === 0 ? quotingPost?.author.id : undefined,
                 encryption: encryptionOptions,
+                mediaUrl: i === 0 ? mediaUrl : undefined, // Only first post gets image
               })
               return { postId: post.id, document: post, isReply: false }
             }
@@ -1150,6 +1234,11 @@ export function ComposeModal() {
   }
 
   const handleClose = () => {
+    // Clean up image preview URL
+    if (attachedImage?.preview) {
+      URL.revokeObjectURL(attachedImage.preview)
+    }
+    setAttachedImage(null)
     setComposeOpen(false)
     setReplyingTo(null)
     setQuotingPost(null)
@@ -1432,6 +1521,18 @@ export function ComposeModal() {
                             ))}
                           </AnimatePresence>
 
+                          {/* Image attachment preview */}
+                          {attachedImage && (
+                            <ImageAttachment
+                              file={attachedImage.file}
+                              previewUrl={attachedImage.preview}
+                              isUploading={isUploading}
+                              isUploaded={!!attachedImage.uploadResult}
+                              progress={progress}
+                              onRemove={handleRemoveImage}
+                            />
+                          )}
+
                           {/* Add thread post button */}
                           {canAddThread && (
                             <motion.button
@@ -1451,28 +1552,62 @@ export function ComposeModal() {
                       </div>
                     </div>
 
-                    {/* Footer - minimal with keyboard hint */}
+                    {/* Footer - with image button and keyboard hint */}
                     <div className="px-4 py-2 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-neutral-950">
                       <div className="flex items-center justify-between">
-                        {/* Private post indicator */}
-                        {isPrivatePostVisibility && (
-                          <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
-                            <LockClosedIcon className="w-3 h-3" />
-                            <span>
-                              {privateFollowerCount > 0
-                                ? `Visible to ${privateFollowerCount} private follower${privateFollowerCount !== 1 ? 's' : ''}`
-                                : 'Only visible to you (no followers yet)'}
-                            </span>
-                          </div>
-                        )}
-                        {/* Inherited encryption indicator */}
-                        {inheritedEncryption && !isPrivatePostVisibility && (
-                          <div className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400">
-                            <LinkIcon className="w-3 h-3" />
-                            <span>Reply inherits parent&apos;s encryption</span>
-                          </div>
-                        )}
-                        {!willBeEncrypted && <div />}
+                        {/* Left side: Image button + indicators */}
+                        <div className="flex items-center gap-3">
+                          {/* Image attachment button */}
+                          <button
+                            type="button"
+                            onClick={() => fileInputRef.current?.click()}
+                            disabled={!canAttachImage}
+                            className={`p-1.5 rounded-md transition-colors ${
+                              canAttachImage
+                                ? 'text-gray-500 hover:text-yappr-500 hover:bg-gray-100 dark:hover:bg-gray-800'
+                                : 'text-gray-300 dark:text-gray-600 cursor-not-allowed'
+                            }`}
+                            title={
+                              !isProviderConnected
+                                ? 'Connect storage provider in Settings'
+                                : willBeEncrypted
+                                ? 'Images not supported for private posts'
+                                : attachedImage
+                                ? 'Only one image per post'
+                                : 'Attach image'
+                            }
+                          >
+                            <PhotoIcon className="w-5 h-5" />
+                          </button>
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+
+                          {/* Private post indicator */}
+                          {isPrivatePostVisibility && (
+                            <div className="flex items-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                              <LockClosedIcon className="w-3 h-3" />
+                              <span>
+                                {privateFollowerCount > 0
+                                  ? `Visible to ${privateFollowerCount} private follower${privateFollowerCount !== 1 ? 's' : ''}`
+                                  : 'Only visible to you (no followers yet)'}
+                              </span>
+                            </div>
+                          )}
+                          {/* Inherited encryption indicator */}
+                          {inheritedEncryption && !isPrivatePostVisibility && (
+                            <div className="flex items-center gap-1.5 text-xs text-purple-600 dark:text-purple-400">
+                              <LinkIcon className="w-3 h-3" />
+                              <span>Reply inherits parent&apos;s encryption</span>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Right side: keyboard hint */}
                         <span className="text-xs text-gray-400">
                           {threadPosts.length > 1
                             ? `${totalCharacters} total chars · ${isMac ? '⌘' : 'Ctrl'}+Enter to post`
