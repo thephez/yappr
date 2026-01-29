@@ -108,7 +108,7 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
       const result = await upload(file)
       const ipfsUrl = `ipfs://${result.cid}`
       setBannerUrl(ipfsUrl)
-      setPreviewUrl(null)
+      // Don't clear preview here - keep it visible until IPFS image loads
     } catch {
       setPreviewUrl(null)
     }
@@ -198,40 +198,45 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
 
       {/* Main banner area - shows image or upload prompt */}
       <div className="relative aspect-[3/1] rounded-xl overflow-hidden bg-gradient-to-br from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900">
-        {/* Image display */}
-        {hasImage && (
-          <>
-            {previewUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={previewUrl}
-                alt="Banner preview"
-                className={`w-full h-full object-cover ${isUploading ? 'opacity-50' : ''}`}
-              />
-            ) : bannerUrl && isIpfsProtocol(bannerUrl) ? (
-              <>
-                {imageLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center">
-                    <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
-                  </div>
-                )}
-                <IpfsImage
-                  src={bannerUrl}
-                  alt="Banner"
-                  className={`w-full h-full object-cover ${isUploading ? 'opacity-50' : ''}`}
-                  onLoad={() => setImageLoading(false)}
-                  onError={() => setImageLoading(false)}
-                />
-              </>
-            ) : displayUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={displayUrl}
-                alt="Banner"
-                className={`w-full h-full object-cover ${isUploading ? 'opacity-50' : ''}`}
-              />
-            ) : null}
-          </>
+        {/* IPFS image - render when we have an IPFS URL so it can load */}
+        {bannerUrl && isIpfsProtocol(bannerUrl) && (
+          <IpfsImage
+            src={bannerUrl}
+            alt="Banner"
+            className={`absolute inset-0 w-full h-full object-cover ${isUploading ? 'opacity-50' : ''}`}
+            onLoad={() => {
+              setImageLoading(false)
+              setPreviewUrl(null) // Clear preview once IPFS image loads
+            }}
+            onError={() => setImageLoading(false)}
+          />
+        )}
+
+        {/* Regular URL image */}
+        {displayUrl && !isIpfsProtocol(bannerUrl || '') && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={displayUrl}
+            alt="Banner"
+            className={`absolute inset-0 w-full h-full object-cover ${isUploading ? 'opacity-50' : ''}`}
+          />
+        )}
+
+        {/* Preview overlay - shown on top while IPFS image loads */}
+        {previewUrl && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={previewUrl}
+            alt="Banner preview"
+            className={`absolute inset-0 w-full h-full object-cover ${isUploading ? 'opacity-50' : ''}`}
+          />
+        )}
+
+        {/* Loading indicator when IPFS is loading and no preview */}
+        {imageLoading && !previewUrl && bannerUrl && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <Loader2 className="h-8 w-8 text-gray-400 animate-spin" />
+          </div>
         )}
 
         {/* Empty state */}
@@ -258,8 +263,8 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
           </div>
         )}
 
-        {/* Action buttons overlay - shown when there's an image */}
-        {hasImage && !isUploading && !imageLoading && (
+        {/* Action buttons overlay - shown when there's a visible image */}
+        {(previewUrl || (hasImage && !imageLoading)) && !isUploading && (
           <div className="absolute inset-0 bg-black/0 hover:bg-black/40 transition-colors group">
             <div className="absolute inset-0 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity">
               <button
