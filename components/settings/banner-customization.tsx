@@ -75,6 +75,8 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
   useEffect(() => {
     if (bannerUrl && isIpfsProtocol(bannerUrl)) {
       setImageLoading(true)
+    } else {
+      setImageLoading(false)
     }
   }, [bannerUrl])
 
@@ -88,12 +90,14 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
 
     if (!file.type.startsWith('image/')) {
       toast.error('Please select an image file')
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
     const maxBytes = 5 * 1024 * 1024
     if (file.size > maxBytes) {
       toast.error('Image must be smaller than 5MB')
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 

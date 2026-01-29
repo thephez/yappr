@@ -73,6 +73,7 @@ export function ProfileImageUpload({
     // Validate file type
     if (!file.type.startsWith('image/')) {
       setLocalError('Please select an image file')
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
@@ -80,6 +81,7 @@ export function ProfileImageUpload({
     const maxBytes = maxSizeMB * 1024 * 1024
     if (file.size > maxBytes) {
       setLocalError(`Image must be smaller than ${maxSizeMB}MB`)
+      if (fileInputRef.current) fileInputRef.current.value = ''
       return
     }
 
