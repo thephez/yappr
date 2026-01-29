@@ -2,11 +2,23 @@
 
 import { useState, useEffect, memo } from 'react'
 import { PresenceIndicator } from './presence-indicator'
+import { isIpfsProtocol, ipfsToGatewayUrl } from '@/lib/utils/ipfs-gateway'
 
 // Module-level cache for avatar URLs to prevent redundant fetches
 const avatarCache = new Map<string, { url: string; timestamp: number }>()
 const CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 const pendingRequests = new Map<string, Promise<string>>()
+
+/**
+ * Convert an avatar URL to a displayable URL.
+ * Converts ipfs:// URLs to HTTP gateway URLs for browser display.
+ */
+function toDisplayUrl(url: string): string {
+  if (isIpfsProtocol(url)) {
+    return ipfsToGatewayUrl(url)
+  }
+  return url
+}
 
 async function fetchAvatarUrl(userId: string): Promise<string> {
   // Guard against empty userId to prevent seed= URLs
@@ -32,8 +44,10 @@ async function fetchAvatarUrl(userId: string): Promise<string> {
     try {
       const { unifiedProfileService } = await import('@/lib/services/unified-profile-service')
       const url = await unifiedProfileService.getAvatarUrl(userId)
-      avatarCache.set(userId, { url, timestamp: Date.now() })
-      return url
+      // Convert IPFS URLs to gateway URLs for display
+      const displayUrl = toDisplayUrl(url)
+      avatarCache.set(userId, { url: displayUrl, timestamp: Date.now() })
+      return displayUrl
     } catch (error) {
       console.error('AvatarImage: Error fetching avatar:', error)
       const { unifiedProfileService } = await import('@/lib/services/unified-profile-service')
@@ -96,8 +110,8 @@ export const UserAvatar = memo(function UserAvatar({
 }: AvatarImageProps) {
   // Start with preloaded URL, cached URL, or null (loading state)
   const [avatarUrl, setAvatarUrl] = useState<string | null>(() => {
-    // Use preloaded URL if provided
-    if (preloadedUrl) return preloadedUrl
+    // Use preloaded URL if provided (convert IPFS URLs to gateway URLs)
+    if (preloadedUrl) return toDisplayUrl(preloadedUrl)
     // Guard against empty userId
     if (!userId) return null
     const cached = avatarCache.get(userId)
@@ -108,9 +122,9 @@ export const UserAvatar = memo(function UserAvatar({
   })
 
   useEffect(() => {
-    // If preloaded URL is provided, use it and skip fetch
+    // If preloaded URL is provided, use it (converted to gateway URL) and skip fetch
     if (preloadedUrl) {
-      setAvatarUrl(preloadedUrl)
+      setAvatarUrl(toDisplayUrl(preloadedUrl))
       return
     }
 
