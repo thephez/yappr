@@ -1660,12 +1660,14 @@ function UserProfileContent() {
             </div>
             <BannerCustomization
               initialBannerUrl={profile?.bannerUri}
-              onSave={() => {
+              onSave={(newBannerUrl) => {
                 setIsEditingBanner(false)
                 if (userId) {
                   invalidateBannerCache(userId)
                 }
                 setBannerKey(prev => prev + 1)
+                // Update profile state with new banner URL
+                setProfile(prev => prev ? { ...prev, bannerUri: newBannerUrl || undefined } : null)
               }}
             />
           </div>

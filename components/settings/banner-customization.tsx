@@ -13,8 +13,8 @@ import Link from 'next/link'
 import toast from 'react-hot-toast'
 
 interface BannerCustomizationProps {
-  /** Callback when banner is saved */
-  onSave?: () => void
+  /** Callback when banner is saved, receives new URL or null if removed */
+  onSave?: (newBannerUrl: string | null) => void
   /** Initial banner URL (ipfs:// or https://) */
   initialBannerUrl?: string | null
 }
@@ -138,7 +138,7 @@ export function BannerCustomization({ onSave, initialBannerUrl }: BannerCustomiz
       setOriginalUrl(bannerUrl)
 
       toast.success('Banner saved!')
-      onSave?.()
+      onSave?.(bannerUrl)
     } catch (error) {
       console.error('Failed to save banner:', error)
       toast.error('Failed to save banner')
