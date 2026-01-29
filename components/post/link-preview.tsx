@@ -1,10 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, createContext, useContext } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { LinkIcon, SparklesIcon, PlayIcon } from '@heroicons/react/24/solid'
-import { useSettingsStore } from '@/lib/store'
+import { LinkIcon, SparklesIcon, PlayIcon, XMarkIcon, InformationCircleIcon } from '@heroicons/react/24/solid'
+import { useSettingsStore, LinkPreviewChoice } from '@/lib/store'
 import { CORS_PROXY_INFO, isDirectImageUrl, isYouTubeUrl } from '@/hooks/use-link-preview'
 
 // YouTube brand icon SVG
@@ -16,87 +16,247 @@ function YouTubeIcon({ className }: { className?: string }) {
   )
 }
 
-/**
- * Prompt shown when link previews are disabled but a URL exists
- * Allows users to enable link previews with privacy disclosure
- */
-export function LinkPreviewEnablePrompt() {
-  const [showEnableHint, setShowEnableHint] = useState(false)
-  const setLinkPreviews = useSettingsStore((s) => s.setLinkPreviews)
+// Context for managing the link preview modal state
+interface LinkPreviewModalContextType {
+  isOpen: boolean
+  openModal: () => void
+  closeModal: () => void
+}
 
-  const handleEnablePreviews = (e: React.MouseEvent) => {
-    e.preventDefault()
-    e.stopPropagation()
-    setLinkPreviews(true)
+const LinkPreviewModalContext = createContext<LinkPreviewModalContextType>({
+  isOpen: false,
+  openModal: () => {},
+  closeModal: () => {},
+})
+
+export function useLinkPreviewModal() {
+  return useContext(LinkPreviewModalContext)
+}
+
+/**
+ * Provider component that manages the link preview settings modal.
+ * Wrap your app or page with this to enable the modal functionality.
+ */
+export function LinkPreviewModalProvider({ children }: { children: React.ReactNode }) {
+  const [isOpen, setIsOpen] = useState(false)
+
+  return (
+    <LinkPreviewModalContext.Provider
+      value={{
+        isOpen,
+        openModal: () => setIsOpen(true),
+        closeModal: () => setIsOpen(false),
+      }}
+    >
+      {children}
+      {isOpen && <LinkPreviewModal onClose={() => setIsOpen(false)} />}
+    </LinkPreviewModalContext.Provider>
+  )
+}
+
+/**
+ * Modal that explains link previews and lets users enable/disable them.
+ */
+function LinkPreviewModal({ onClose }: { onClose: () => void }) {
+  const [showDetails, setShowDetails] = useState(false)
+  const setLinkPreviewsChoice = useSettingsStore((s) => s.setLinkPreviewsChoice)
+
+  const handleChoice = (choice: LinkPreviewChoice) => {
+    setLinkPreviewsChoice(choice)
+    onClose()
   }
 
   return (
-    <div className="mt-2 text-xs text-neutral-400 dark:text-neutral-500">
-      {showEnableHint ? (
-        <div className="p-2 bg-neutral-100 dark:bg-neutral-800 rounded-lg space-y-2">
-          <p className="text-neutral-600 dark:text-neutral-400">
-            {CORS_PROXY_INFO.warning}
-          </p>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleEnablePreviews}
-              className="text-yappr-500 hover:text-yappr-600 font-medium"
-            >
-              Enable link previews
-            </button>
-            <button
-              onClick={(e) => {
-                e.preventDefault()
-                e.stopPropagation()
-                setShowEnableHint(false)
-              }}
-              className="text-neutral-500 hover:text-neutral-600"
-            >
-              Cancel
-            </button>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div
+        className="bg-white dark:bg-neutral-900 rounded-xl max-w-md w-full shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-neutral-200 dark:border-neutral-700">
+          <h2 className="text-lg font-semibold text-neutral-900 dark:text-neutral-100">
+            Link Preview Settings
+          </h2>
+          <button
+            onClick={onClose}
+            className="p-1 text-neutral-500 hover:text-neutral-700 dark:hover:text-neutral-300 rounded-full hover:bg-neutral-100 dark:hover:bg-neutral-800"
+          >
+            <XMarkIcon className="h-5 w-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="p-4 space-y-4">
+          {/* Simple explanation for most users */}
+          <div className="space-y-3 text-sm text-neutral-600 dark:text-neutral-400">
+            <p>
+              Link previews show images and other rich content for links in posts.
+            </p>
+            <p>
+              To do this, Yappr needs to fetch preview content from the web. In some cases, the service providing the preview may see the URL being viewed.
+            </p>
           </div>
-          <p className="text-neutral-500 text-[10px]">
-            Uses:{' '}
-            {CORS_PROXY_INFO.proxies.map((p, i) => (
-              <span key={p.name}>
-                {i > 0 && ', '}
-                <a
-                  href={p.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="underline hover:text-neutral-600"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  {p.name}
-                </a>
-              </span>
-            ))}
-          </p>
-          <p className="text-neutral-500 text-[10px]">
-            You can change this anytime in{' '}
-            <Link
-              href="/settings"
-              className="underline hover:text-neutral-600"
-              onClick={(e) => e.stopPropagation()}
+
+          {/* Learn more toggle */}
+          <button
+            onClick={() => setShowDetails(!showDetails)}
+            className="flex items-center gap-1 text-sm text-yappr-500 hover:text-yappr-600 dark:text-yappr-400 dark:hover:text-yappr-300"
+          >
+            <span>{showDetails ? 'Hide details' : 'Learn more about how this works'}</span>
+            <svg
+              className={`h-4 w-4 transition-transform ${showDetails ? 'rotate-180' : ''}`}
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
             >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          {/* Collapsible technical details */}
+          {showDetails && (
+            <div className="space-y-4 pt-3 border-t border-neutral-200 dark:border-neutral-700">
+              {/* Direct services */}
+              <div>
+                <h3 className="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-2">
+                  Direct previews
+                </h3>
+                <ul className="text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
+                  {CORS_PROXY_INFO.directServices.map((service) => (
+                    <li key={service.name}>
+                      <span className="font-medium">{service.name}</span>
+                      <span className="text-neutral-500 dark:text-neutral-500"> — {service.description}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* IPFS gateways */}
+              <div>
+                <h3 className="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-2">
+                  IPFS content
+                </h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">
+                  For ipfs:// links, content is fetched from public gateways:
+                </p>
+                <ul className="text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
+                  {CORS_PROXY_INFO.ipfsGateways.map((gateway) => (
+                    <li key={gateway.name}>
+                      <a
+                        href={gateway.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-neutral-800 dark:hover:text-neutral-300"
+                      >
+                        {gateway.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              {/* Proxy services */}
+              <div>
+                <h3 className="text-sm font-medium text-neutral-800 dark:text-neutral-200 mb-2">
+                  Other links
+                </h3>
+                <p className="text-xs text-neutral-600 dark:text-neutral-400 mb-2">
+                  For sites not listed above, previews are fetched through external services to avoid browser restrictions. External providers may see the requested URL. Currently used providers:
+                </p>
+                <ul className="text-xs text-neutral-600 dark:text-neutral-400 space-y-1">
+                  {CORS_PROXY_INFO.proxies.map((proxy) => (
+                    <li key={proxy.name}>
+                      <a
+                        href={proxy.url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline hover:text-neutral-800 dark:hover:text-neutral-300"
+                      >
+                        {proxy.name}
+                      </a>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+          )}
+
+          <p className="text-xs text-neutral-500 dark:text-neutral-500">
+            You can change this anytime in{' '}
+            <Link href="/settings" className="underline hover:text-neutral-600 dark:hover:text-neutral-400" onClick={onClose}>
               Settings
             </Link>
           </p>
         </div>
-      ) : (
-        <button
-          onClick={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-            setShowEnableHint(true)
-          }}
-          className="flex items-center gap-1 hover:text-neutral-500 dark:hover:text-neutral-400 transition-colors"
-        >
-          <SparklesIcon className="h-3 w-3" />
-          <span>Enable link previews</span>
-        </button>
-      )}
+
+        {/* Actions */}
+        <div className="flex gap-3 p-4 border-t border-neutral-200 dark:border-neutral-700">
+          <button
+            onClick={() => handleChoice('disabled')}
+            className="flex-1 px-4 py-2 text-sm font-medium text-neutral-700 dark:text-neutral-300 bg-neutral-100 dark:bg-neutral-800 hover:bg-neutral-200 dark:hover:bg-neutral-700 rounded-lg transition-colors"
+          >
+            Not now
+          </button>
+          <button
+            onClick={() => handleChoice('enabled')}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-yappr-500 hover:bg-yappr-600 rounded-lg transition-colors"
+          >
+            Enable previews
+          </button>
+        </div>
+      </div>
     </div>
+  )
+}
+
+/**
+ * Prompt shown when user hasn't made a choice about link previews yet.
+ * Only shown when linkPreviewsChoice is 'undecided'.
+ */
+export function LinkPreviewEnablePrompt() {
+  const { openModal } = useLinkPreviewModal()
+
+  return (
+    <div className="mt-3">
+      <button
+        onClick={(e) => {
+          e.preventDefault()
+          e.stopPropagation()
+          openModal()
+        }}
+        className="flex items-center gap-1.5 px-3 py-2 text-sm text-yappr-500 dark:text-yappr-400 bg-yappr-50 dark:bg-yappr-900/20 hover:bg-yappr-100 dark:hover:bg-yappr-900/30 border border-yappr-200 dark:border-yappr-800 rounded-lg transition-colors"
+      >
+        <SparklesIcon className="h-4 w-4" />
+        <span className="font-medium">Enable link previews</span>
+      </button>
+    </div>
+  )
+}
+
+/**
+ * Small info icon shown next to truncated URLs when link previews are disabled.
+ * Clicking opens the modal to let users re-enable previews.
+ */
+export function LinkPreviewInfoIcon() {
+  const { openModal } = useLinkPreviewModal()
+
+  return (
+    <button
+      onClick={(e) => {
+        e.preventDefault()
+        e.stopPropagation()
+        openModal()
+      }}
+      className="inline-flex items-center justify-center ml-1 p-0.5 text-neutral-400 hover:text-yappr-500 dark:hover:text-yappr-400 transition-colors"
+      title="Enable link previews"
+    >
+      <InformationCircleIcon className="h-4 w-4" />
+    </button>
   )
 }
 

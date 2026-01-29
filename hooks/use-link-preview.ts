@@ -85,7 +85,23 @@ const pendingRequests = new Map<string, Promise<LinkPreviewData>>()
  * - corsproxy.io: https://corsproxy.io/ (no formal policy)
  */
 export const CORS_PROXY_INFO = {
-  warning: 'Rich previews send URLs to third-party proxy servers to fetch metadata. These services may log the URLs you view.',
+  warning: 'Some URLs (YouTube, Reddit, IPFS, etc.) are fetched directly from their services. Other URLs use third-party proxy servers to fetch metadata. These services may log the URLs you view.',
+  /** Services that are fetched directly without a proxy */
+  directServices: [
+    { name: 'YouTube', description: 'Video thumbnails (img.youtube.com)' },
+    { name: 'Reddit', description: 'Image hosting (i.redd.it)' },
+    { name: 'Imgur', description: 'Image hosting (i.imgur.com)' },
+    { name: 'Giphy', description: 'GIF hosting (media.giphy.com)' },
+    { name: 'GitHub', description: 'Raw files (raw.githubusercontent.com)' },
+    { name: 'Twitter/X', description: 'Images (pbs.twimg.com)' },
+  ],
+  /** IPFS gateways used for ipfs:// URLs */
+  ipfsGateways: [
+    { name: 'dweb.link', url: 'https://dweb.link' },
+    { name: 'ipfs.io', url: 'https://ipfs.io' },
+    { name: 'gateway.pinata.cloud', url: 'https://gateway.pinata.cloud' },
+  ],
+  /** Third-party proxies used for other URLs */
   proxies: [
     { name: 'allorigins.win', url: 'https://allorigins.win/' },
     { name: 'corsproxy.io', url: 'https://corsproxy.io/' },
