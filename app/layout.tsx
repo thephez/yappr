@@ -1,5 +1,4 @@
 import type { Metadata } from 'next'
-import { Roboto } from 'next/font/google'
 import './globals.css'
 import { Toaster } from 'react-hot-toast'
 import { Providers } from '@/components/providers'
@@ -8,11 +7,6 @@ import { DevelopmentBanner } from '@/components/ui/development-banner'
 import { MobileBottomNav } from '@/components/layout/mobile-bottom-nav'
 import { LoginModal } from '@/components/auth/login-modal'
 import { LinkPreviewModalProvider } from '@/components/post/link-preview'
-
-const roboto = Roboto({
-  subsets: ['latin'],
-  weight: ['400', '500', '700'],
-})
 
 const basePath = process.env.BASE_PATH || ''
 
@@ -32,7 +26,7 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
-      <body className={`${roboto.className} h-full bg-white dark:bg-neutral-900`}>
+      <body className="font-sans h-full bg-white dark:bg-neutral-900">
         <ErrorBoundary level="app">
           <Providers>
             <LinkPreviewModalProvider>
