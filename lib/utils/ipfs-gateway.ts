@@ -22,11 +22,16 @@ interface IpfsGateway {
 }
 
 export const IPFS_GATEWAYS: IpfsGateway[] = [
-  // Subdomain gateway (preferred for origin isolation)
-  { domain: 'ipfs.dweb.link', format: 'subdomain' },
-  // Path gateways (fallback)
+  // Gateways ordered by reliability and CORS support
+  // w3s.link is fast and CORS-friendly (web3.storage/Storacha)
+  { domain: 'w3s.link', format: 'path' },
+  // Cloudflare is reliable and CORS-friendly
+  { domain: 'cloudflare-ipfs.com', format: 'path' },
+  // ipfs.io is the canonical gateway
   { domain: 'ipfs.io', format: 'path' },
-  { domain: 'gateway.pinata.cloud', format: 'path' },
+  // dweb.link subdomain gateway
+  { domain: 'ipfs.dweb.link', format: 'subdomain' },
+  // Note: gateway.pinata.cloud has CORS restrictions, not included
 ]
 
 /**
@@ -102,6 +107,34 @@ export function ipfsToGatewayUrl(ipfsUrl: string): string {
   // Fallback: use last gateway in path format
   const lastGateway = IPFS_GATEWAYS[IPFS_GATEWAYS.length - 1]
   return `https://${lastGateway.domain}/ipfs/${parsed.cid}${parsed.path}`
+}
+
+/**
+ * Get all possible gateway URLs for an ipfs:// URL.
+ * Used for fallback when primary gateway fails (e.g., content not propagated yet).
+ *
+ * @param ipfsUrl - The ipfs:// URL to convert
+ * @returns Array of HTTP gateway URLs to try in order
+ */
+export function getAllGatewayUrls(ipfsUrl: string): string[] {
+  const parsed = extractCidFromIpfsUrl(ipfsUrl)
+  if (!parsed) return [ipfsUrl]
+
+  const urls: string[] = []
+
+  for (const gateway of IPFS_GATEWAYS) {
+    if (gateway.format === 'subdomain') {
+      // CIDv0 is case-sensitive (base58btc) - incompatible with DNS subdomains
+      if (isCidV0(parsed.cid)) {
+        continue
+      }
+      urls.push(`https://${parsed.cid}.${gateway.domain}${parsed.path}`)
+    } else {
+      urls.push(`https://${gateway.domain}/ipfs/${parsed.cid}${parsed.path}`)
+    }
+  }
+
+  return urls.length > 0 ? urls : [ipfsUrl]
 }
 
 /**

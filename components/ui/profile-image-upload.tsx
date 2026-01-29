@@ -2,7 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react'
 import { useImageUpload } from '@/hooks/use-image-upload'
-import { isIpfsProtocol, ipfsToGatewayUrl } from '@/lib/utils/ipfs-gateway'
+import { isIpfsProtocol } from '@/lib/utils/ipfs-gateway'
+import { IpfsImage } from './ipfs-image'
 import { PhotoIcon, XMarkIcon, Cog6ToothIcon } from '@heroicons/react/24/outline'
 import { Loader2 } from 'lucide-react'
 import { Button } from './button'
@@ -43,6 +44,8 @@ export function ProfileImageUpload({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [localError, setLocalError] = useState<string | null>(null)
 
+  const [imageLoading, setImageLoading] = useState(false)
+
   // Check provider on mount
   useEffect(() => {
     checkProvider().catch(() => {
@@ -50,12 +53,12 @@ export function ProfileImageUpload({
     })
   }, [checkProvider])
 
-  // Convert current URL to displayable URL
-  const displayUrl = currentUrl
-    ? isIpfsProtocol(currentUrl)
-      ? ipfsToGatewayUrl(currentUrl)
-      : currentUrl
-    : null
+  // Track when we have an IPFS URL to show (for loading state)
+  useEffect(() => {
+    if (currentUrl && isIpfsProtocol(currentUrl)) {
+      setImageLoading(true)
+    }
+  }, [currentUrl])
 
   const handleFileSelect = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -172,18 +175,50 @@ export function ProfileImageUpload({
         }`}
       >
         {/* Current or preview image */}
-        {(previewUrl || displayUrl) && (
+        {(previewUrl || currentUrl) && (
           <>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={previewUrl || displayUrl || ''}
-              alt="Preview"
-              className={`absolute inset-0 w-full h-full object-cover ${
-                isUploading ? 'opacity-50' : ''
-              }`}
-            />
+            {/* Use IpfsImage for IPFS URLs (handles gateway fallback), regular img for data URLs */}
+            {previewUrl ? (
+              // Preview from file input (data: URL)
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={previewUrl}
+                alt="Preview"
+                className={`absolute inset-0 w-full h-full object-cover ${
+                  isUploading ? 'opacity-50' : ''
+                }`}
+              />
+            ) : currentUrl && isIpfsProtocol(currentUrl) ? (
+              // IPFS URL - use IpfsImage for gateway fallback
+              <>
+                {imageLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-100 dark:bg-gray-800">
+                    <Loader2 className="h-6 w-6 text-gray-400 animate-spin" />
+                  </div>
+                )}
+                <IpfsImage
+                  src={currentUrl}
+                  alt="Preview"
+                  className={`absolute inset-0 w-full h-full object-cover ${
+                    isUploading ? 'opacity-50' : ''
+                  }`}
+                  onLoad={() => setImageLoading(false)}
+                  onError={() => setImageLoading(false)}
+                />
+              </>
+            ) : currentUrl ? (
+              // Regular URL
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={currentUrl}
+                alt="Preview"
+                className={`absolute inset-0 w-full h-full object-cover ${
+                  isUploading ? 'opacity-50' : ''
+                }`}
+              />
+            ) : null}
             {/* Clear button */}
-            {!isUploading && onClear && (
+            {!isUploading && onClear && !imageLoading && (
               <button
                 onClick={(e) => {
                   e.stopPropagation()
@@ -207,7 +242,7 @@ export function ProfileImageUpload({
         )}
 
         {/* Empty state */}
-        {!previewUrl && !displayUrl && !isUploading && (
+        {!previewUrl && !currentUrl && !isUploading && (
           <div className="absolute inset-0 flex flex-col items-center justify-center">
             <PhotoIcon className="h-10 w-10 text-gray-400 mb-2" />
             <span className="text-sm text-gray-500 dark:text-gray-400">
