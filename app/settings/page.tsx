@@ -39,6 +39,8 @@ import { PrivateFeedDashboard } from '@/components/settings/private-feed-dashboa
 import { BlockListSettings } from '@/components/settings/block-list-settings'
 import { SavedAddressesSettings } from '@/components/settings/saved-addresses-settings'
 import { StorachaSettings } from '@/components/settings/storacha-settings'
+import { PinataSettings } from '@/components/settings/pinata-settings'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useDashPayContactsModal } from '@/hooks/use-dashpay-contacts-modal'
 import { useSettingsStore } from '@/lib/store'
 import { CORS_PROXY_INFO } from '@/hooks/use-link-preview'
@@ -606,9 +608,49 @@ function SettingsPage() {
     )
   }
 
+  // Storage provider connection state
+  const [storachaConnected, setStorachaConnected] = useState(false)
+  const [pinataConnected, setPinataConnected] = useState(false)
+
   const renderStorageSettings = () => (
     <div className="p-6 space-y-6">
-      <StorachaSettings />
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-lg">Storage Provider</CardTitle>
+          <CardDescription>
+            Connect a storage provider to attach images to your posts. Only one provider can be connected at a time.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <StorachaSettings
+            disabled={pinataConnected}
+            onConnectionChange={setStorachaConnected}
+          />
+          <div className="border-t border-gray-200 dark:border-gray-800" />
+          <PinataSettings
+            disabled={storachaConnected}
+            onConnectionChange={setPinataConnected}
+          />
+        </CardContent>
+      </Card>
+
+      <div className="bg-gray-50 dark:bg-gray-900 rounded-lg p-4">
+        <h4 className="font-medium mb-2 text-sm">How it works:</h4>
+        <ul className="space-y-2 text-sm text-gray-600 dark:text-gray-400">
+          <li className="flex gap-2">
+            <span className="text-yappr-500">&bull;</span>
+            Images are uploaded to IPFS via your chosen provider
+          </li>
+          <li className="flex gap-2">
+            <span className="text-yappr-500">&bull;</span>
+            Posts reference images using <code className="text-xs bg-gray-100 dark:bg-gray-800 px-1 rounded">ipfs://CID</code> URLs
+          </li>
+          <li className="flex gap-2">
+            <span className="text-yappr-500">&bull;</span>
+            Images are publicly accessible via IPFS gateways
+          </li>
+        </ul>
+      </div>
     </div>
   )
 
