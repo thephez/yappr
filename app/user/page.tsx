@@ -911,7 +911,13 @@ function UserProfileContent() {
 
         {isLoading ? (
           <div>
-            <div className="h-48 bg-gradient-yappr opacity-50" />
+            <div className="h-48 overflow-hidden blur-sm opacity-60">
+              <BannerImage
+                userId={userId || ''}
+                className="w-full h-full"
+                fallbackGradient
+              />
+            </div>
             <div className="px-4 pb-4">
               <div className="relative -mt-16 mb-4">
                 <div className="h-32 w-32 rounded-full bg-white dark:bg-neutral-900 p-1">
