@@ -23,6 +23,7 @@ import { useSettingsStore } from '@/lib/store'
 import { DirectMessage, Conversation } from '@/lib/types'
 import toast from 'react-hot-toast'
 import { XMarkIcon, ArrowLeftIcon } from '@heroicons/react/24/outline'
+import { EmojiPicker } from '@/components/compose/emoji-picker'
 
 interface UserSearchResult {
   id: string
@@ -739,6 +740,11 @@ function MessagesPage() {
                 }}
                 className="flex items-center gap-2"
               >
+                <EmojiPicker
+                  onEmojiSelect={(emoji) => setNewMessage(prev => prev + emoji)}
+                  disabled={isSending}
+                />
+
                 <Input
                   type="text"
                   placeholder="Type a message..."
