@@ -49,7 +49,7 @@ function FollowersPage() {
 
   // Get target user ID from URL params (if viewing another user's followers list)
   const targetUserId = searchParams.get('id')
-  const isOwnProfile = !targetUserId || targetUserId === user?.identityId
+  const isOwnProfile = !!user && (!targetUserId || targetUserId === user.identityId)
 
   // Load followers list
   const loadFollowers = useCallback(async (forceRefresh: boolean = false) => {
@@ -217,11 +217,8 @@ function FollowersPage() {
   }, [setLoading, setError, setData, isOwnProfile, user?.identityId, targetUserId])
 
   useEffect(() => {
-    // Load when we have a user (for own profile) or a targetUserId (for viewing others)
-    if (user || targetUserId) {
-      loadFollowers().catch(err => console.error('Failed to load followers:', err))
-    }
-  }, [loadFollowers, user, targetUserId])
+    loadFollowers().catch(err => console.error('Failed to load followers:', err))
+  }, [loadFollowers])
 
   const handleFollow = async (userId: string) => {
     const authedUser = requireAuth('follow')
@@ -496,4 +493,4 @@ function FollowersPage() {
   )
 }
 
-export default withAuth(FollowersPage)
+export default withAuth(FollowersPage, { optional: true })

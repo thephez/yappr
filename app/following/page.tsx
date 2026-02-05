@@ -72,7 +72,7 @@ function FollowingPage() {
 
   // Get target user ID from URL params (if viewing another user's following list)
   const targetUserId = searchParams.get('id')
-  const isOwnProfile = !targetUserId || targetUserId === user?.identityId
+  const isOwnProfile = !!user && (!targetUserId || targetUserId === user.identityId)
 
   // Load following list
   const loadFollowing = useCallback(async (forceRefresh: boolean = false) => {
@@ -231,11 +231,8 @@ function FollowingPage() {
   }, [setLoading, setError, setData, user?.identityId, targetUserId])
 
   useEffect(() => {
-    // Load when we have a user (for own profile) or a targetUserId (for viewing others)
-    if (user || targetUserId) {
-      loadFollowing().catch(err => console.error('Failed to load following:', err))
-    }
-  }, [loadFollowing, user, targetUserId])
+    loadFollowing().catch(err => console.error('Failed to load following:', err))
+  }, [loadFollowing])
 
   const handleUnfollow = async (userId: string) => {
     const authedUser = requireAuth('follow')
@@ -814,4 +811,4 @@ function FollowingPage() {
   )
 }
 
-export default withAuth(FollowingPage)
+export default withAuth(FollowingPage, { optional: true })
