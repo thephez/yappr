@@ -33,6 +33,28 @@ function InventoryPage() {
   const [isLoading, setIsLoading] = useState(true)
   const [showUploadModal, setShowUploadModal] = useState(false)
 
+  const loadAllItems = useCallback(async (storeId: string) => {
+    const allItems: StoreItem[] = []
+    let cursor: string | undefined
+    const MAX_BATCHES = 50
+
+    // Paginate through all items (100 per batch, up to 5000 items)
+    for (let batch = 0; batch < MAX_BATCHES; batch++) {
+      const result = await storeItemService.getByStore(storeId, {
+        limit: 100,
+        startAfter: cursor
+      })
+      for (const item of result.items) {
+        allItems.push(item)
+      }
+
+      if (result.items.length < 100) break
+      cursor = result.items[result.items.length - 1].id
+    }
+
+    setItems(allItems)
+  }, [])
+
   // Load store and items
   useEffect(() => {
     if (!sdkReady) return
@@ -63,9 +85,8 @@ function InventoryPage() {
           setStore(storeData)
         }
 
-        // Load all items
-        const itemsResult = await storeItemService.getByStore(currentStoreId, { limit: 100 })
-        setItems(itemsResult.items)
+        // Load all items for inventory management
+        await loadAllItems(currentStoreId)
       } catch (error) {
         console.error('Failed to load inventory:', error)
         toast.error('Failed to load inventory')
@@ -75,7 +96,7 @@ function InventoryPage() {
     }
 
     loadData().catch(console.error)
-  }, [sdkReady, storeId, user?.identityId, router])
+  }, [sdkReady, storeId, user?.identityId, router, loadAllItems])
 
   const handleEditItem = useCallback((item: StoreItem) => {
     router.push(`/store/item/add?itemId=${item.id}&storeId=${store?.id}`)
@@ -219,14 +240,12 @@ function InventoryPage() {
     setShowUploadModal(false)
     if (addedCount > 0) {
       toast.success(`Added ${addedCount} item${addedCount !== 1 ? 's' : ''} to inventory`)
-      // Reload items
+      // Reload all items
       if (store?.id) {
-        storeItemService.getByStore(store.id, { limit: 100 })
-          .then(result => setItems(result.items))
-          .catch(console.error)
+        loadAllItems(store.id).catch(console.error)
       }
     }
-  }, [store?.id])
+  }, [store?.id, loadAllItems])
 
   if (isLoading) {
     return (
